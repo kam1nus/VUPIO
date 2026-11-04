@@ -1,10 +1,10 @@
 # VUPIO
 
-## Скачать VUPIO
+## Скачать VUPIO Alpha 4044
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/actions/runs/41825070187/artifacts/13318209269)** · **[↓ Mac с Apple Silicon (macOS 26+)](https://github.com/kam1nus/VUPIO/actions/runs/41825070187/artifacts/13319825525)**
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/VUPIO-Windows-x64-Setup.exe)** · **[↓ Mac с Apple Silicon (macOS 26+)](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/VUPIO-macOS-AppleSilicon.pkg)**
 
-Войдите в GitHub, скачайте и распакуйте ZIP, затем откройте установщик `.exe` или `.pkg`. [Страница сборки](https://github.com/kam1nus/VUPIO/actions/runs/41825070187).
+Скачайте установщик для своей системы и откройте его. [Что нового в 4044](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4044) · [Контрольные суммы SHA-256](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/SHA256SUMS.txt)
 
 Локальный саундборд, редактор аудио и пульт для телефона. Проект вырос из MIMIC. Существующая библиотека MIMIC на Mac остаётся в прежней папке.
 
