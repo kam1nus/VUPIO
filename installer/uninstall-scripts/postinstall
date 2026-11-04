@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+driver="/Library/Audio/Plug-Ins/HAL/MIMICMicrophone.driver"
+if [ -e "$driver" ]; then
+ [ ! -L "$driver" ] || exit 1
+ id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$driver/Contents/Info.plist")
+ [ "$id" = local.mimic.audio ] || exit 1
+ backup="/Library/Application Support/MIMIC/RemovedDrivers/$(date +%Y%m%d-%H%M%S)-$$"
+ /bin/mkdir -p "$backup"
+ /bin/mv "$driver" "$backup/MIMICMicrophone.driver"
+fi
+# Do not touch BlackHole, audio defaults, SIP, Gatekeeper, TCC, or coreaudiod.
+exit 0

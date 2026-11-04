@@ -1,2 +1,50 @@
 # VUPIO
-Local soundboard, audio studio, and phone remote for macOS and Windows.
+
+Локальный саундборд, редактор аудио и пульт для телефона. Проект вырос из MIMIC. Существующая библиотека MIMIC на Mac остаётся в прежней папке.
+
+## Сборки
+
+| Платформа | Установщик | Что входит |
+| --- | --- | --- |
+| macOS 26+, Apple Silicon | `VUPIO-macOS-AppleSilicon.pkg` | Приложение, драйвер MIMIC Microphone, FFmpeg, llama.cpp, whisper.cpp и три модели |
+| Windows 11 x64 | `VUPIO-Windows-x64-Setup.exe` | Приложение, FFmpeg, llama.cpp, whisper.cpp и три модели. При необходимости установщик скачает подписанный Microsoft Visual C++ Runtime |
+
+В комплект входят модели Qwen2.5 0.5B Instruct для команд, Qwen3 Embedding 0.6B для смыслового поиска и Whisper Base для распознавания речи. Они проверяются по SHA-256 при сборке и при первом использовании. Для этих функций интернет, Python, Ollama и ключи API не нужны. Интернет-поиск по-прежнему использует внешний поисковый сервис с отдельными лимитами.
+
+**Статус Alpha.** GitHub Actions создаёт тестовые установщики. Для публичной версии в Releases предстоит проверить установку на чистых системах и подписать установщики. На Windows виртуальный аудиодрайвер устанавливается через официальный установщик VB-Audio. Он не входит в публичный пакет VUPIO.
+
+## Проверка с другом
+
+### Mac
+
+1. Закройте MIMIC, если он запущен. Откройте PKG и подтвердите установку.
+2. Перезагрузите Mac для регистрации устройства. Откройте VUPIO в «Программах».
+3. В Discord выберите **MIMIC Microphone** как вход, а наушники как выход.
+4. В VUPIO включите физический микрофон, если хотите передавать голос. Подтвердите разрешение macOS при запросе.
+5. В Discord запустите проверку микрофона и нажмите карточку в Soundboard.
+
+Локальная Alpha-сборка имеет подпись для разработки. Для обычной публичной установки с проверкой Apple нужны Developer ID Application, Developer ID Installer и нотарификация. Тестовый PKG сам не меняет устройство Discord.
+
+### Windows
+
+1. Запустите `VUPIO-Windows-x64-Setup.exe`. Приложение откроет Soundboard в браузере. Оставьте небольшое окно VUPIO открытым.
+2. Для Discord установите [VB-CABLE](https://vb-audio.com/Cable/) из официального ZIP производителя. Распакуйте ZIP, откройте `VBCABLE_Setup_x64.exe` от администратора и перезагрузите Windows.
+3. Откройте VUPIO. В **Settings → Audio Devices** выберите **CABLE Input** как выход, а свой физический микрофон как вход. Включите микрофон в VUPIO, если хотите передавать голос.
+4. В Discord выберите **CABLE Output** как вход и физические наушники как выход. Если нужно одновременно слышать мемы, включите мониторинг клипов в VUPIO на наушники.
+5. Проверьте голос и клипы через Discord Mic Test. В обычном звонке держите **Listen to this device** в настройках Windows выключенным, чтобы избежать двойного звука.
+
+Windows использует WASAPI. Предпрослушивание играет в браузере, обычное нажатие на карточку передаёт звук в выбранный аудиовыход. Apple SoundAnalysis и специальные тесты Core Audio работают на Mac. Windows сохраняет распознавание Whisper, измерение звуковой волны, выбор по энергии и текстовый поиск.
+
+### Пульт
+
+Откройте **Remote** на компьютере, создайте QR и одноразовый код. На iPhone в той же локальной сети откройте QR в Safari, введите код и нажмите карточку. Для Windows разрешайте сетевой доступ только в частной сети. При переходе между Wi‑Fi и Ethernet перезапустите VUPIO. Проброс порта в интернет не нужен.
+
+## Сборка разработчиком
+
+В GitHub откройте **Actions → VUPIO preview installers → Run workflow**. Артефакты сборки появятся на странице прогона. Workflow создаёт превью, публикация готовых установщиков в Releases выполняется отдельно после проверки.
+
+- Mac Apple Silicon: `brew install ffmpeg cmake`, `python3 -m venv .venv`, `.venv/bin/python -m pip install -r requirements.txt pyinstaller==6.22.3`, затем `MIMIC_BUNDLE_MODELS=1 ./scripts/package.sh` и `./scripts/package_installer.sh`. Для подписанной сборки задайте `MIMIC_APP_SIGN_IDENTITY`, `MIMIC_INSTALLER_SIGN_IDENTITY` и `MIMIC_NOTARY_PROFILE`.
+- Windows 11 x64: Python 3.14 и Inno Setup 6 требуются на машине сборки. Выполните `python -m pip install -r requirements-windows.txt`, затем `pwsh -File scripts/package_windows.ps1`.
+- Результаты попадают в `build/releases`. Локальные данные хранятся в `~/Library/Application Support/MIMIC` и `%LOCALAPPDATA%\MIMIC`.
+
+Перед публикацией с FFmpeg сохраните лицензии и обеспечьте доступ к соответствующим исходникам конкретных бинарных сборок и зависимостей. Сборка включает ссылки, контрольные суммы и лицензии в каталогах `Tools`, `Models` и `ThirdPartyLicenses`. Условия и исходники компонентов перечислены в [THIRD_PARTY.md](THIRD_PARTY.md).

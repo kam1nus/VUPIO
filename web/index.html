@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17191d"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>VUPIO</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/discover.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script>
+</head>
+<body>
+<section id="login" class="login" hidden>
+  <img src="/icon.svg" width="56" height="56" alt="MIMIC"><h1>VUPIO Remote</h1>
+  <p class="muted">Откройте Remote на компьютере и введите код подключения.</p>
+  <form id="pairForm" class="stack">
+    <label>Код с компьютера<input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" maxlength="8" placeholder="0000 0000" required></label>
+    <label>Название пульта<input id="phoneName" value="Мой iPhone" maxlength="80"></label>
+    <button class="primary">Подключить пульт</button><p id="loginError" class="error" role="alert"></p>
+  </form>
+</section>
+<p id="starting" role="status">Подключаем MIMIC…</p>
+<div id="shell" class="shell" hidden>
+  <aside id="sidebar" class="sidebar admin">
+    <div class="brand"><img src="/icon.svg" width="38" height="38" alt=""><div><strong>VUPIO</strong><small>Alpha 0.4.3</small></div></div>
+    <nav id="nav" aria-label="Разделы MIMIC">
+      <button data-view="soundboard" data-icon="grid" aria-current="page">Soundboard</button>
+      <button data-view="discover" data-icon="search">Discover</button>
+      <button data-view="studio" data-icon="wave">Studio</button>
+      <button data-view="remote" data-icon="phone">Remote</button>
+      <button data-view="settings" data-icon="settings">Settings</button>
+    </nav>
+    <div class="sidebarFoot"><span id="sideMic" class="signal"></span><div><strong id="sideAudio">Аудио</strong><small id="sideRoute">Подключение…</small></div></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <span class="breadcrumb"><span class="admin">VUPIO <span aria-hidden="true">/</span> </span><strong id="locationLabel">Soundboard</strong></span>
+      <div class="row"><button id="jobBadge" class="quiet admin" data-icon="jobs" hidden>Задачи</button><span id="connection" class="connection">Подключение…</span></div>
+    </header>
+    <main id="main" tabindex="-1">
+      <section id="soundboard" class="view">
+        <div class="pagehead"><div><h1>Soundboard</h1><p id="librarySummary" class="muted">Ваша коллекция звуков.</p></div><div class="row admin"><button id="findSound" data-icon="search">Найти мем</button><button id="uploadButton" class="primary" data-icon="plus">Добавить аудио</button><input id="upload" type="file" accept="audio/*,.mp4,.m4a,.flac,.ogg" hidden></div></div>
+        <div class="toolbar" role="search"><input id="search" type="search" aria-label="Поиск по библиотеке" placeholder="Поиск по названию, тегам и описанию"><select id="category" aria-label="Категория"><option value="">Все категории</option></select><button id="favorites" data-icon="star" aria-pressed="false">Избранное</button></div>
+        <p id="uploadStatus" class="inlineStatus" role="status" hidden></p>
+        <div id="grid" class="grid"></div>
+        <div id="empty" class="empty" hidden><span class="emptyIcon" data-icon="wave"></span><h2 id="emptyTitle">Здесь будут ваши звуки</h2><p id="emptyDescription">Добавьте аудиофайл или найдите мем в Discover.</p></div>
+        <div id="pages" class="pages" hidden><button id="prevPage" data-icon="left" aria-label="Предыдущая страница"></button><span id="pageText"></span><button id="nextPage" data-icon="right" aria-label="Следующая страница"></button></div>
+      </section>
+      <section id="discover" class="view admin" hidden>
+        <div class="pagehead"><div><h1>Discover</h1><p class="muted">Опишите звук — MIMIC поищет его в вашей коллекции и в интернете.</p></div></div>
+        <form id="discoverForm" class="panel stack">
+          <label for="discoverQuery">Какой звук ищем?</label><div class="searchRow"><input id="discoverQuery" type="search" placeholder="Название звука или ссылка HTTPS" maxlength="1000" required><button class="primary" id="discoverGo" data-icon="search">Найти</button><button type="button" id="quickAdd" data-icon="bolt">Quick Add</button></div>
+          <div class="filters"><label class="check chip"><input id="localSource" type="checkbox" checked> Библиотека</label><label class="check chip"><input id="webSource" type="checkbox" checked> Интернет</label><label class="check chip"><input id="catalogSource" type="checkbox"> Аудиокаталоги</label><label class="check chip"><input id="favoriteBias" type="checkbox"> Учесть избранное</label><select id="importCategory" aria-label="Категория добавления"><option value="All">Категория: авто</option><option value="Meme">Мемы</option><option value="Music">Музыка</option><option value="Reaction">Реакции</option><option value="Effect">Эффекты</option></select></div>
+          <div class="discoverMeta">
+            <details id="recentQueries" class="searchHistory" hidden>
+              <summary>История поиска</summary>
+              <div id="recentQueryList" class="historyList" aria-label="Недавние запросы"></div>
+            </details>
+            <div id="discoverProgress" class="compactProgress" hidden>
+              <span id="discoverProgressText" role="status"></span>
+              <progress id="discoverProgressBar" max="1" aria-label="Ход выполнения"></progress>
+              <button id="cancelDiscover" type="button" class="quiet">Отменить</button>
+            </div>
+          </div>
+        </form>
+        <div id="discoverStatus" class="inlineStatus" role="status" hidden></div>
+        <div id="discoverEmpty" class="empty"><span class="emptyIcon" data-icon="search"></span><h2>Найдите тот самый звук</h2><p>Попробуйте точное название мема или опишите, как он звучит.</p><div class="row center"><button class="example">Emotional Damage</button><button class="example">Неожиданный крик</button><button class="example">Эпичная музыка</button></div></div>
+        <div id="discoverResults" class="stack results"></div>
+      </section>
+      <section id="studio" class="view admin" hidden>
+        <div class="pagehead"><div><h1>Studio</h1><p class="muted">Выберите фрагмент, обработайте звук и сохраните отдельную копию.</p></div><button id="studioCard" data-icon="edit" hidden>Карточка звука</button></div>
+        <div id="studioEmpty" class="empty"><span class="emptyIcon" data-icon="wave"></span><h2>Откройте звук для редактирования</h2><p>Выберите клип из библиотеки или нажмите Edit в Discover.</p></div>
+        <label class="sourceSelect">Звук<select id="studioClip" aria-label="Звук для редактирования"><option value="">Выбрать из библиотеки…</option></select></label>
+        <div id="studioWorkspace" class="stack" hidden>
+          <div class="panel wavePanel">
+            <div class="split"><div><h2 id="editorTitle">Фрагмент</h2><span id="editorSource" class="muted"></span></div><span id="selectionLength" class="value"></span></div>
+            <div id="waveContainer" class="waveContainer">
+              <canvas id="wave" aria-label="Волна исходного аудио. Границы можно менять ползунками ниже."></canvas>
+              <div id="waveMessage" class="waveMessage" role="status">Загружаем волну…</div>
+            </div>
+            <div id="ruler" class="ruler" aria-hidden="true"></div>
+            <div class="transport split">
+              <div class="row"><button id="editorPlay" data-icon="play">Play</button><button id="editorPause" data-icon="pause">Pause</button><button id="editorStop" data-icon="stop">Stop</button><span id="playhead" class="value">0:00</span></div>
+            </div>
+            <div class="rangeGrid"><label>Начало <input id="trimStart" type="number" min="0" step="0.001" inputmode="decimal"><input id="trimStartRange" type="range" min="0" step="0.001" aria-label="Граница начала"></label><label>Конец <input id="trimEnd" type="number" min="0" step="0.001" inputmode="decimal"><input id="trimEndRange" type="range" min="0" step="0.001" aria-label="Граница конца"></label><label>Длительность, с<input id="trimDuration" type="number" min="0.01" step="0.001" inputmode="decimal"></label></div>
+          </div>
+          <div class="studioControls">
+            <div class="panel stack"><h2>Обработка</h2><label class="check"><input id="silence" type="checkbox"> Удалить тишину и длинные паузы</label><label class="check"><input id="normalize" type="checkbox" checked> Выровнять громкость</label><div class="rangeGrid two"><label>Fade in, с<input id="fadeIn" type="number" min="0" max="5" step="0.05" value="0"></label><label>Fade out, с<input id="fadeOut" type="number" min="0" max="5" step="0.05" value="0"></label></div></div>
+            <div class="panel stack"><h2>Авторедактирование</h2><div class="row wrap"><button id="resetSelection">Вся запись</button><button id="suggestMoment" data-icon="spark">Подобрать момент</button></div><label class="sr" for="editCommand">Опишите изменение</label><input id="editCommand" placeholder="Например, оставь 0:30–0:45" maxlength="1500"><div class="row wrap"><button id="applyCommand">Применить команду</button><button id="transcribe" class="quiet">Распознать речь</button></div><details id="speechDetails"><summary>Расшифровка и фразы</summary><div id="segments" class="segments"></div></details></div>
+          </div>
+          <div class="panel stack"><div class="split wrap"><div><h2>Результат</h2><p id="draftStatus" class="muted">Подготовьте предпрослушивание перед сохранением.</p></div><div class="row wrap"><button id="previewEdit" data-icon="play">Послушать результат</button><button id="discardEdit">Отменить</button><button id="saveEdit" class="primary" data-icon="plus">Сохранить копию</button></div></div><div class="rangeGrid two"><label>Название копии<input id="copyTitle" maxlength="160"></label><label>Теги<input id="copyTags" maxlength="500" placeholder="Через запятую"></label></div><button id="undoSave" class="quiet" hidden>Отменить последнее сохранение</button><div id="editorStatus" class="inlineStatus" role="status" hidden></div></div>
+        </div>
+      </section>
+      <section id="remote" class="view admin" hidden>
+        <div class="pagehead"><div><h1>Remote</h1><p class="muted">Используйте iPhone как беспроводной пульт для звуков на компьютере.</p></div></div>
+        <div class="columns">
+          <article class="panel stack"><h2>Подключить iPhone</h2><ol class="steps"><li>Подключите компьютер и iPhone к одной локальной сети.</li><li>Создайте код и отсканируйте QR камерой iPhone.</li><li>Откройте ссылку в Safari и введите код.</li></ol><div><button id="newPair" class="primary" data-icon="qr">Создать код и QR</button></div>
+            <div id="pairInfo" class="pair stack" hidden><div class="pairMain"><img id="qr" width="164" height="164" alt="QR с локальным адресом пульта"><div><p class="muted">Одноразовый код</p><strong id="pairCode"></strong><p id="pairExpiry" role="status"></p></div></div><a id="pairURL"></a></div>
+            <p id="pairNotice" class="inlineStatus" role="status" hidden></p>
+          </article>
+          <article class="panel stack"><div class="split"><h2>Сопряжённые пульты</h2><button id="refreshRemotes" class="quiet" data-icon="refresh" aria-label="Обновить список пультов"></button></div><div id="remoteDevices" class="stack"></div><p class="muted">Добавьте пульт в Safari: Поделиться → На экран «Домой».</p><div><button id="revoke" class="danger">Отключить все пульты + PANIC</button></div></article>
+        </div>
+      </section>
+      <section id="settings" class="view admin" hidden>
+        <div class="pagehead"><div><h1>Settings</h1><p class="muted">Устройства, микрофон, модели и фоновые операции.</p></div></div>
+        <div id="settingsNav" class="tabs" aria-label="Разделы настроек">
+          <button data-settings="audio" aria-pressed="true">Аудиоустройства</button><button data-settings="diagnostics" aria-pressed="false">Диагностика</button><button data-settings="models" aria-pressed="false">AI-модели</button><button data-settings="jobs" aria-pressed="false">Задачи</button><button data-settings="network" aria-pressed="false">Сеть</button><button data-settings="advanced" aria-pressed="false">Дополнительно</button>
+        </div>
+        <p id="settingsStatus" class="inlineStatus" role="status" hidden></p>
+        <div id="settingsAudio" class="settingsPage stack">
+          <div class="columns"><article class="panel stack"><div class="split"><h2>Микрофон</h2><span id="micChip" class="chip">Выключен</span></div><label>Физический вход<select id="inputDevice"></select></label><label>Уровень голоса <output id="micPercent">70%</output><input id="micGain" type="range" min="0" max="1" step="0.01" value="0.7"></label><p id="micStatus" class="muted"></p><div class="row wrap"><button id="micToggle" class="primary">Включить микрофон</button><button id="applyInput">Применить вход</button></div></article>
+          <article class="panel stack"><div class="split"><h2>Выход и мониторинг</h2><button id="refreshDevices" data-icon="refresh" class="quiet" aria-label="Обновить устройства"></button></div><label>Выход MIMIC<select id="output"></select></label><div><button id="applyOutput">Применить выход</button></div><label>Наушники или динамики<select id="monitorDevice"></select></label><label class="check"><input id="monitor" type="checkbox"> Слышать клипы на Mac</label><label class="check"><input id="polyphony" type="checkbox"> Воспроизводить до 8 клипов одновременно</label></article></div>
+          <article class="panel stack"><h2>Подключение Discord</h2><p id="driverStatus"></p><p class="muted">В Discord → Voice &amp; Video выберите вход MIMIC Microphone, выход — свои наушники, профиль — Studio. Mic Test возвращает ваш голос с задержкой только во время проверки.</p><div class="row wrap"><button id="audioTest" data-icon="play">Проверочный сигнал</button><button id="restartAudio" data-icon="refresh">Перезапустить звук</button><button id="openDiagnostics">Открыть диагностику</button></div></article>
+        </div>
+        <div id="settingsDiagnostics" class="settingsPage stack" hidden>
+          <article class="panel stack"><h2>Три точки измерения</h2><div class="meterList"><label>Физический микрофон <span id="physicalDB"></span><meter id="physicalMeter" min="0" max="1" value="0"></meter></label><label>Выход микшера <span id="mixerDB"></span><meter id="mixerMeter" min="0" max="1" value="0"></meter></label><label>Виртуальный вход <span id="virtualDB"></span><meter id="virtualMeter" min="0" max="1" value="0"></meter></label></div><div class="row wrap"><button id="physicalTest">Проверить физический микрофон</button><button id="physicalTestStop">Остановить проверку</button><button id="probe">Проверить виртуальный вход</button></div><p id="physicalTestStatus" class="muted" role="status"></p><details><summary>Отчёт теста и журнал аудио</summary><pre id="physicalTestResult"></pre><pre id="diagnosticLog"></pre></details></article>
+        </div>
+        <div id="settingsModels" class="settingsPage stack" hidden>
+          <article class="panel stack"><h2>Локальные модели</h2><div id="modelRows" class="stack"></div><div class="row wrap"><button id="compactModel">Выбрать компактный Qwen</button><button id="indexAll">Индексировать библиотеку</button><button id="unloadModels">Выгрузить из памяти</button><button id="importModel" class="nativeOnly">Импортировать GGUF…</button></div><p id="indexedStatus" class="muted"></p></article>
+        </div>
+        <div id="settingsJobs" class="settingsPage stack" hidden><article class="panel stack"><h2>Загрузки и фоновые задачи</h2><div id="jobRows" class="stack"></div></article></div>
+        <div id="settingsNetwork" class="settingsPage stack" hidden><article class="panel stack"><h2>Локальный доступ</h2><p id="networkStatus"></p><p class="muted">Пульт работает в доверенной локальной сети. Не пробрасывайте порт на роутере.</p><div><button id="goRemote" data-icon="phone">Управлять пультами</button></div></article></div>
+        <div id="settingsAdvanced" class="settingsPage stack" hidden>
+          <article class="panel stack"><h2>Веб-поиск</h2><p id="webMode" class="muted"></p><label>Необязательный ключ Tavily<input id="tavilyKey" type="password" autocomplete="off" placeholder="tvly-…"></label><div class="row wrap"><button id="saveKey">Сохранить ключ</button><button id="clearKey">Режим без ключа</button><a href="https://app.tavily.com/" target="_blank" rel="noopener noreferrer">Получить ключ ↗</a></div></article>
+          <article id="macDriverPanel" class="panel stack"><h2>Драйвер MIMIC Microphone</h2><p class="muted">Установщик macOS попросит подтвердить действие. Для обычного обновления MIMIC переустановка драйвера не нужна.</p><div class="row wrap"><button id="installDriver" class="nativeOnly">Открыть установщик…</button><button id="uninstallDriver" class="danger nativeOnly">Открыть удаление драйвера…</button></div><details><summary>Расположение данных</summary><p id="dataPath"></p></details></article>
+        </div>
+      </section>
+    </main>
+    <footer class="transportBar">
+      <div class="now"><span class="nowIcon" data-icon="wave"></span><div role="status"><small id="nowMode">СЕЙЧАС ИГРАЕТ</small><strong id="nowPlaying">Тишина</strong></div></div>
+      <button id="stop" data-icon="stop">STOP</button><button id="panic" class="danger" data-icon="bolt" title="Остановить клипы и выключить микрофон">PANIC</button>
+      <label class="volume"><span data-icon="volume"></span><input id="volume" aria-label="Громкость клипов" type="range" min="0" max="1" step="0.01" value="0.65"><output id="volumeValue">65%</output></label>
+    </footer>
+  </div>
+</div>
+<dialog id="editor"><form id="editForm" class="stack"><div class="split"><h2>Карточка звука</h2><button type="button" id="closeEditor" class="quiet" data-icon="close" aria-label="Закрыть"></button></div><label>Название<input id="editTitle" required maxlength="160"></label><div class="rangeGrid two"><label>Категория<input id="editCategory" list="categories" maxlength="80"><datalist id="categories"><option>Мемы</option><option>Треки</option><option>Эффекты</option></datalist></label><label>Теги<input id="editTags" maxlength="500"></label></div><label>Описание<textarea id="editDescription" maxlength="4000"></textarea></label><details><summary>Источник и лицензия</summary><textarea id="editLicense" aria-label="Источник и лицензия" maxlength="16000"></textarea></details><div class="row wrap"><button type="button" id="cardMetadata" data-icon="spark">AI название и теги</button><button type="button" id="cardIndex">Обновить индекс</button></div><div class="split"><button type="button" id="deleteClip" class="danger">Удалить звук</button><button class="primary">Сохранить</button></div><p id="cardStatus" class="inlineStatus" role="status" hidden></p></form></dialog>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+.venv/
+.env
+build/
+__pycache__/
+*.pyc
+*.pem
+.DS_Store
+*.gguf
+*.sqlite3*
+*.p12
+*.pfx
+*.key
+runtime.json
+search-providers.json
