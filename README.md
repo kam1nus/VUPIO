@@ -1,5 +1,11 @@
 # VUPIO
 
+## Скачать VUPIO
+
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/actions/runs/41825070187/artifacts/13318209269)** · **[↓ Mac с Apple Silicon (macOS 26+)](https://github.com/kam1nus/VUPIO/actions/runs/41825070187/artifacts/13319825525)**
+
+Войдите в GitHub, скачайте и распакуйте ZIP, затем откройте установщик `.exe` или `.pkg`. [Страница сборки](https://github.com/kam1nus/VUPIO/actions/runs/41825070187).
+
 Локальный саундборд, редактор аудио и пульт для телефона. Проект вырос из MIMIC. Существующая библиотека MIMIC на Mac остаётся в прежней папке.
 
 ## Сборки
