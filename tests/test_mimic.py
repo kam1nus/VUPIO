@@ -58,6 +58,16 @@ class ServerTests(unittest.TestCase):
     def test_public_static_and_health(self):
         self.assertEqual(self.req('/')[0],200)
         self.assertEqual(self.req('/api/health')[1]['version'],'0.4.3-unified')
+    def test_remote_home_screen_has_public_vupio_icons(self):
+        status,manifest,_=self.req('/manifest.webmanifest')
+        self.assertEqual(status,200)
+        self.assertEqual(manifest['short_name'],'VUPIO')
+        for path,size in [('/apple-touch-icon.png',180),*[(i['src'],int(i['sizes'].split('x')[0])) for i in manifest['icons']]]:
+            with self.subTest(path=path):
+                status,image,_=self.req(path)
+                self.assertEqual(status,200)
+                self.assertEqual(image[:8],b'\x89PNG\r\n\x1a\n')
+                self.assertEqual(struct.unpack('>II',image[16:24]),(size,size))
     def test_no_anonymous_controls(self):
         for path in ['/api/play','/api/stop','/api/panic','/api/upload','/api/output']:
             self.assertEqual(self.req(path,{},None)[0],403)

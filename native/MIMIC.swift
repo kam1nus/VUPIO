@@ -87,7 +87,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         web.navigationDelegate=self;web.uiDelegate=self
         web.underPageBackgroundColor=window.backgroundColor
         web.autoresizingMask=[.width,.height]; web.isHidden=true
-        statusLabel=NSTextField(wrappingLabelWithString:"Запускаем локальный сервер MIMIC…")
+        statusLabel=NSTextField(wrappingLabelWithString:"Запускаем локальный сервер VUPIO…")
         statusLabel.frame=NSRect(x:60,y:300,width:1000,height:280)
         statusLabel.autoresizingMask=[.width,.minYMargin,.maxYMargin]
         statusLabel.font=NSFont.systemFont(ofSize:18)
@@ -151,7 +151,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         proc.terminationHandler = { _ in DispatchQueue.main.async {
             self.web.isHidden=true; self.statusLabel.isHidden=false
             self.window.title="VUPIO · сервер остановлен"
-            self.statusLabel.stringValue="Сервер MIMIC остановлен.\n"+self.errorBuffer+"\nЗакройте приложение. Подробности: запустите scripts/start.sh в Терминале."
+            self.statusLabel.stringValue="Сервер VUPIO остановлен.\n"+self.errorBuffer+"\nЗакройте приложение. Подробности: запустите scripts/start.sh в Терминале."
         }}
         do { try proc.run() } catch {
             statusLabel.stringValue="Не удалось запустить сервер:\n"+error.localizedDescription
@@ -207,7 +207,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         panel.canChooseDirectories=false
         panel.allowsMultipleSelection=parameters.allowsMultipleSelection
         panel.allowedContentTypes=[.audio,.mpeg4Movie]+["ogg","opus","flac","m4a","webm"].compactMap{UTType(filenameExtension:$0)}
-        panel.message="Выберите аудиофайл для библиотеки MIMIC."
+        panel.message="Выберите аудиофайл для библиотеки VUPIO."
         panel.beginSheetModal(for:window){result in completionHandler(result == .OK ? panel.urls : nil)}
     }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
@@ -224,7 +224,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         let packages=["installDriver":"MIMIC-Audio-0.3.pkg","uninstallDriver":"MIMIC-Audio-Uninstall-0.3.pkg"]
         guard let name=packages[action] else{return}
         guard let url=Bundle.main.resourceURL?.appendingPathComponent("Audio/"+name),FileManager.default.fileExists(atPath:url.path),NSWorkspace.shared.open(url) else{
-            web.callAsyncJavaScript("window.mimicNativeError(message)",arguments:["message":"Установщик недоступен. Откройте полную сборку MIMIC."],in:nil,in:.page,completionHandler:nil)
+            web.callAsyncJavaScript("window.mimicNativeError(message)",arguments:["message":"Установщик недоступен. Откройте полную сборку VUPIO."],in:nil,in:.page,completionHandler:nil)
             return
         }
     }
@@ -233,7 +233,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
             retryCount += 1
             DispatchQueue.main.asyncAfter(deadline:.now()+0.5) { webView.reload() }
         } else {
-            let alert=NSAlert(); alert.messageText="Не удалось открыть интерфейс MIMIC"; alert.informativeText=error.localizedDescription; alert.runModal()
+            let alert=NSAlert(); alert.messageText="Не удалось открыть интерфейс VUPIO"; alert.informativeText=error.localizedDescription; alert.runModal()
         }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication)->Bool { true }

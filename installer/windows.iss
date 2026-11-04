@@ -1,6 +1,9 @@
 #ifndef AppDir
 #error AppDir must point to the frozen Windows application
 #endif
+#ifndef AppIcon
+#error AppIcon must point to the Windows application icon
+#endif
 [Setup]
 AppId=VUPIO
 AppName=VUPIO
@@ -16,6 +19,7 @@ OutputBaseFilename=VUPIO-Windows-x64-Setup
 Compression=lzma2/fast
 SolidCompression=yes
 UninstallDisplayIcon={app}\VUPIO.exe
+SetupIconFile={#AppIcon}
 CloseApplications=force
 RestartIfNeededByRun=yes
 

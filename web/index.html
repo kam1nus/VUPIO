@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#17191d"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VUPIO">
 <title>VUPIO</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/discover.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script>
 </head>
 <body>
 <section id="login" class="login" hidden>
-  <img src="/icon.svg" width="56" height="56" alt="MIMIC"><h1>VUPIO Remote</h1>
+  <img src="/icon.svg" width="56" height="56" alt="VUPIO"><h1>VUPIO Remote</h1>
   <p class="muted">Откройте Remote на компьютере и введите код подключения.</p>
   <form id="pairForm" class="stack">
     <label>Код с компьютера<input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" maxlength="8" placeholder="0000 0000" required></label>
@@ -16,11 +18,11 @@
     <button class="primary">Подключить пульт</button><p id="loginError" class="error" role="alert"></p>
   </form>
 </section>
-<p id="starting" role="status">Подключаем MIMIC…</p>
+<p id="starting" role="status">Подключаем VUPIO…</p>
 <div id="shell" class="shell" hidden>
   <aside id="sidebar" class="sidebar admin">
     <div class="brand"><img src="/icon.svg" width="38" height="38" alt=""><div><strong>VUPIO</strong><small>Alpha 0.4.3</small></div></div>
-    <nav id="nav" aria-label="Разделы MIMIC">
+    <nav id="nav" aria-label="Разделы VUPIO">
       <button data-view="soundboard" data-icon="grid" aria-current="page">Soundboard</button>
       <button data-view="discover" data-icon="search">Discover</button>
       <button data-view="studio" data-icon="wave">Studio</button>
@@ -44,7 +46,7 @@
         <div id="pages" class="pages" hidden><button id="prevPage" data-icon="left" aria-label="Предыдущая страница"></button><span id="pageText"></span><button id="nextPage" data-icon="right" aria-label="Следующая страница"></button></div>
       </section>
       <section id="discover" class="view admin" hidden>
-        <div class="pagehead"><div><h1>Discover</h1><p class="muted">Опишите звук — MIMIC поищет его в вашей коллекции и в интернете.</p></div></div>
+        <div class="pagehead"><div><h1>Discover</h1><p class="muted">Опишите звук — VUPIO поищет его в вашей коллекции и в интернете.</p></div></div>
         <form id="discoverForm" class="panel stack">
           <label for="discoverQuery">Какой звук ищем?</label><div class="searchRow"><input id="discoverQuery" type="search" placeholder="Название звука или ссылка HTTPS" maxlength="1000" required><button class="primary" id="discoverGo" data-icon="search">Найти</button><button type="button" id="quickAdd" data-icon="bolt">Quick Add</button></div>
           <div class="filters"><label class="check chip"><input id="localSource" type="checkbox" checked> Библиотека</label><label class="check chip"><input id="webSource" type="checkbox" checked> Интернет</label><label class="check chip"><input id="catalogSource" type="checkbox"> Аудиокаталоги</label><label class="check chip"><input id="favoriteBias" type="checkbox"> Учесть избранное</label><select id="importCategory" aria-label="Категория добавления"><option value="All">Категория: авто</option><option value="Meme">Мемы</option><option value="Music">Музыка</option><option value="Reaction">Реакции</option><option value="Effect">Эффекты</option></select></div>
@@ -106,7 +108,7 @@
         <p id="settingsStatus" class="inlineStatus" role="status" hidden></p>
         <div id="settingsAudio" class="settingsPage stack">
           <div class="columns"><article class="panel stack"><div class="split"><h2>Микрофон</h2><span id="micChip" class="chip">Выключен</span></div><label>Физический вход<select id="inputDevice"></select></label><label>Уровень голоса <output id="micPercent">70%</output><input id="micGain" type="range" min="0" max="1" step="0.01" value="0.7"></label><p id="micStatus" class="muted"></p><div class="row wrap"><button id="micToggle" class="primary">Включить микрофон</button><button id="applyInput">Применить вход</button></div></article>
-          <article class="panel stack"><div class="split"><h2>Выход и мониторинг</h2><button id="refreshDevices" data-icon="refresh" class="quiet" aria-label="Обновить устройства"></button></div><label>Выход MIMIC<select id="output"></select></label><div><button id="applyOutput">Применить выход</button></div><label>Наушники или динамики<select id="monitorDevice"></select></label><label class="check"><input id="monitor" type="checkbox"> Слышать клипы на Mac</label><label class="check"><input id="polyphony" type="checkbox"> Воспроизводить до 8 клипов одновременно</label></article></div>
+          <article class="panel stack"><div class="split"><h2>Выход и мониторинг</h2><button id="refreshDevices" data-icon="refresh" class="quiet" aria-label="Обновить устройства"></button></div><label>Выход VUPIO<select id="output"></select></label><div><button id="applyOutput">Применить выход</button></div><label>Наушники или динамики<select id="monitorDevice"></select></label><label class="check"><input id="monitor" type="checkbox"> Слышать клипы на Mac</label><label class="check"><input id="polyphony" type="checkbox"> Воспроизводить до 8 клипов одновременно</label></article></div>
           <article class="panel stack"><h2>Подключение Discord</h2><p id="driverStatus"></p><p class="muted">В Discord → Voice &amp; Video выберите вход MIMIC Microphone, выход — свои наушники, профиль — Studio. Mic Test возвращает ваш голос с задержкой только во время проверки.</p><div class="row wrap"><button id="audioTest" data-icon="play">Проверочный сигнал</button><button id="restartAudio" data-icon="refresh">Перезапустить звук</button><button id="openDiagnostics">Открыть диагностику</button></div></article>
         </div>
         <div id="settingsDiagnostics" class="settingsPage stack" hidden>
@@ -119,7 +121,7 @@
         <div id="settingsNetwork" class="settingsPage stack" hidden><article class="panel stack"><h2>Локальный доступ</h2><p id="networkStatus"></p><p class="muted">Пульт работает в доверенной локальной сети. Не пробрасывайте порт на роутере.</p><div><button id="goRemote" data-icon="phone">Управлять пультами</button></div></article></div>
         <div id="settingsAdvanced" class="settingsPage stack" hidden>
           <article class="panel stack"><h2>Веб-поиск</h2><p id="webMode" class="muted"></p><label>Необязательный ключ Tavily<input id="tavilyKey" type="password" autocomplete="off" placeholder="tvly-…"></label><div class="row wrap"><button id="saveKey">Сохранить ключ</button><button id="clearKey">Режим без ключа</button><a href="https://app.tavily.com/" target="_blank" rel="noopener noreferrer">Получить ключ ↗</a></div></article>
-          <article id="macDriverPanel" class="panel stack"><h2>Драйвер MIMIC Microphone</h2><p class="muted">Установщик macOS попросит подтвердить действие. Для обычного обновления MIMIC переустановка драйвера не нужна.</p><div class="row wrap"><button id="installDriver" class="nativeOnly">Открыть установщик…</button><button id="uninstallDriver" class="danger nativeOnly">Открыть удаление драйвера…</button></div><details><summary>Расположение данных</summary><p id="dataPath"></p></details></article>
+          <article id="macDriverPanel" class="panel stack"><h2>Драйвер MIMIC Microphone</h2><p class="muted">Установщик macOS попросит подтвердить действие. Для обычного обновления VUPIO переустановка драйвера не нужна.</p><div class="row wrap"><button id="installDriver" class="nativeOnly">Открыть установщик…</button><button id="uninstallDriver" class="danger nativeOnly">Открыть удаление драйвера…</button></div><details><summary>Расположение данных</summary><p id="dataPath"></p></details></article>
         </div>
       </section>
     </main>

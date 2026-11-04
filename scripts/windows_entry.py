@@ -7,7 +7,7 @@ import threading
 import webbrowser
 
 from mimic.models import tool
-from mimic.server import App, Handler, ThreadingHTTPServer, detect_lan
+from mimic.server import ROOT, App, Handler, ThreadingHTTPServer, detect_lan
 from mimic.windows_audio import WindowsAudio
 
 
@@ -34,7 +34,8 @@ def main():
     from tkinter import messagebox, ttk
 
     window = tk.Tk()
-    window.title('MIMIC')
+    window.title('VUPIO')
+    window.iconphoto(True, tk.PhotoImage(file=str(ROOT/'web/vupio-icon-192.png')))
     window.resizable(False, False)
     window.withdraw()
     servers = []
@@ -60,7 +61,7 @@ def main():
             server.server_close()
         if audio is not None:
             audio.close()
-        messagebox.showerror('MIMIC', str(error), parent=window)
+        messagebox.showerror('VUPIO', str(error), parent=window)
         window.destroy()
         return
 
@@ -69,13 +70,13 @@ def main():
 
     panel = ttk.Frame(window, padding=22)
     panel.grid()
-    ttk.Label(panel, text='MIMIC работает. Окно Soundboard открывается в браузере.').grid(sticky='w')
-    ttk.Label(panel, text='Оставьте это окно открытым, пока пользуетесь MIMIC.').grid(sticky='w', pady=(4,14))
+    ttk.Label(panel, text='VUPIO работает. Окно Soundboard открывается в браузере.').grid(sticky='w')
+    ttk.Label(panel, text='Оставьте это окно открытым, пока пользуетесь VUPIO.').grid(sticky='w', pady=(4,14))
     ttk.Button(panel, text='Открыть Soundboard', command=open_board).grid(sticky='ew')
     if not audio.virtual_output:
         ttk.Button(panel, text='Официальный драйвер VB-CABLE',
                    command=lambda: webbrowser.open('https://vb-audio.com/Cable/')).grid(sticky='ew', pady=(8,0))
-    ttk.Button(panel, text='Выключить MIMIC', command=window.destroy).grid(sticky='ew', pady=(8,0))
+    ttk.Button(panel, text='Выключить VUPIO', command=window.destroy).grid(sticky='ew', pady=(8,0))
     window.deiconify()
     window.after_idle(open_board)
     try:

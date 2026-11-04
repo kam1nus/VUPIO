@@ -1,6 +1,6 @@
 :root{
  color-scheme:dark;--bg:#17191d;--nav:#1c1e23;--panel:#21242a;--raise:#292d34;--line:#353941;
- --text:#f3f4f6;--muted:#a9afb9;--accent:#b8ee77;--accent-soft:#303d2a;--danger:#ff9a9f;--danger-soft:#39282d;
+ --text:#f3f4f6;--muted:#a9afb9;--accent:#9bc6ff;--accent-hover:#bcd8ff;--accent-ink:#14213a;--accent-soft:#24344c;--accent-border:#4d6a92;--accent-fill:#9bc6ff1a;--danger:#ff9a9f;--danger-soft:#39282d;
  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s6:24px;--s8:32px;--r:8px;--card:12px;
  --body:13px;--small:12px;--heading:28px;--sidebar:196px;
  font:var(--body)/1.5 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
@@ -17,8 +17,8 @@ textarea{min-height:72px;resize:vertical}
 button,.button{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;font-weight:550;background:var(--raise);cursor:pointer;line-height:1.2}
 button:hover,.button:hover{background:#343943;border-color:#50555f}
 button:disabled{opacity:.48;cursor:default}
-.primary{background:var(--accent);color:#1b2712;border-color:transparent;font-weight:700}
-.primary:hover{background:#c6f58e;border-color:transparent}
+.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700}
+.primary:hover{background:var(--accent-hover);border-color:transparent}
 .quiet{background:transparent;border-color:transparent}
 .danger{background:var(--danger-soft);color:var(--danger);border-color:#63434a}
 .danger:hover{background:#4a3038;color:#ffc0c4;border-color:#8a535c}
@@ -42,7 +42,7 @@ small{font-size:var(--small);color:var(--muted)}
 .brand small,.sidebarFoot small{display:block}
 nav{display:grid;gap:var(--s1)}
 nav button{justify-content:flex-start;min-height:40px;padding:9px 11px;background:transparent;border-color:transparent;color:var(--muted);gap:10px}
-nav button[aria-current=page]{color:var(--accent);background:var(--accent-soft);border-color:#3b4c34}
+nav button[aria-current=page]{color:var(--accent);background:var(--accent-soft);border-color:var(--accent-border)}
 nav .icon{width:18px;height:18px}
 .sidebarFoot{display:flex;align-items:center;gap:9px;border-top:1px solid var(--line);padding:14px 3px 0;margin-top:auto;min-width:0}
 .sidebarFoot strong{font-size:var(--small)}.sidebarFoot small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
@@ -59,7 +59,7 @@ main{overflow:auto;outline:none!important;scrollbar-gutter:stable}
 .pagehead p{margin-top:6px}
 .toolbar,.filters{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s2)}
 .toolbar{margin-bottom:var(--s4)}.toolbar input{flex:1 1 240px}.toolbar select,.filters select{width:auto;max-width:100%}
-#favorites[aria-pressed=true],.tabs [aria-pressed=true]{background:var(--accent-soft);border-color:#4c6340;color:var(--accent)}
+#favorites[aria-pressed=true],.tabs [aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent)}
 .panel,.card,.resultCard{padding:var(--s4);background:var(--panel);border:1px solid var(--line);border-radius:var(--card);min-width:0}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:var(--s3)}
 .card{position:relative;display:grid;grid-template-rows:auto 1fr auto;gap:8px;min-height:112px}
@@ -109,7 +109,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0;font-size:11px}
 summary{cursor:pointer;color:var(--muted)}
 dialog{max-width:min(520px,calc(100vw - 24px));width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:var(--card);padding:var(--s6)}
 dialog::backdrop{background:#101114bd}
-#toast{position:fixed;right:var(--s6);bottom:76px;max-width:min(420px,calc(100vw - 32px));border:1px solid #4a5350;border-radius:var(--r);background:var(--raise);padding:12px 16px;box-shadow:0 6px 22px #0005;z-index:5;overflow-wrap:anywhere}
+#toast{position:fixed;right:var(--s6);bottom:76px;max-width:min(420px,calc(100vw - 32px));border:1px solid var(--line);border-radius:var(--r);background:var(--raise);padding:12px 16px;box-shadow:0 6px 22px #0005;z-index:5;overflow-wrap:anywhere}
 #starting{padding:24px;color:var(--muted)}
 .login{max-width:400px;margin:10vh auto;padding:var(--s6);display:grid;gap:var(--s3)}
 body.remoteMode .shell{grid-template-columns:minmax(0,1fr)}

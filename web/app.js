@@ -136,7 +136,7 @@ function renderLibrary(){
  by('librarySummary').textContent=items.length?(filtered.length===items.length?'Звуков в коллекции: '+items.length:'Найдено '+filtered.length+' из '+items.length):'Ваша коллекция звуков.';
  by('empty').hidden=Boolean(filtered.length);
  by('emptyTitle').textContent=items.length?'Ничего не найдено':'Здесь будут ваши звуки';
- by('emptyDescription').textContent=items.length?'Попробуйте другой запрос или сбросьте фильтры.':role==='admin'?'Добавьте аудиофайл или найдите мем в Discover.':'Добавьте первый звук в MIMIC на Mac.';
+ by('emptyDescription').textContent=items.length?'Попробуйте другой запрос или сбросьте фильтры.':role==='admin'?'Добавьте аудиофайл или найдите мем в Discover.':'Добавьте первый звук в VUPIO на компьютере.';
  by('pages').hidden=pages<=1;by('pageText').textContent=(page+1)+' / '+pages;by('prevPage').disabled=page===0;by('nextPage').disabled=page+1>=pages;
  const frag=document.createDocumentFragment();
  for(const i of filtered.slice(page*perPage,(page+1)*perPage)){
@@ -267,7 +267,7 @@ by('editForm').onsubmit=async e=>{e.preventDefault();const data={id:editing.id};
 };
 bind('cardMetadata',async()=>{const id=editing.id;status('cardStatus','Предлагаем название и теги…');const r=await runJob('metadata',{id});await sync();if(editing.id===id&&by('editor').open)for(const field of ['Title','Category','Tags'])by('edit'+field).value=r.item[field.toLowerCase()];status('cardStatus');notify('Название и теги обновлены');},'cardStatus');
 bind('cardIndex',async()=>{status('cardStatus','Анализируем звук…');await runJob('index',{id:editing.id});status('cardStatus');notify('Индекс звука обновлён');},'cardStatus');
-bind('deleteClip',async()=>{if(!confirm('Удалить «'+editing.title+'» из библиотеки MIMIC?'))return;await api('delete',{id:editing.id});by('editor').close();await sync();},'cardStatus');
+bind('deleteClip',async()=>{if(!confirm('Удалить «'+editing.title+'» из библиотеки VUPIO?'))return;await api('delete',{id:editing.id});by('editor').close();await sync();},'cardStatus');
 by('pairForm').onsubmit=async e=>{e.preventDefault();try{await api('pair',{code:by('code').value,name:by('phoneName').value});by('code').value='';await sync();show('soundboard');}catch(err){status('loginError',err.message,true);}};
 window.addEventListener('DOMContentLoaded',async()=>{
  document.querySelectorAll('.nativeOnly').forEach(el=>el.hidden=!window.webkit?.messageHandlers?.mimicNative);

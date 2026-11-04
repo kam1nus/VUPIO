@@ -15,7 +15,7 @@ let openStudio,openExternal;
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
   if(!peaks.length||!duration)return;
   const a=start/duration*w,b=end/duration*w;
-  ctx.fillStyle='rgba(184,238,119,.10)';ctx.fillRect(a,0,b-a,h);
+  ctx.fillStyle=tone.getPropertyValue('--accent-fill').trim();ctx.fillRect(a,0,b-a,h);
   ctx.strokeStyle='#454b54';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();
   const scale=.43*h/Math.max(.12,...peaks.map(p=>Math.max(Math.abs(p[0]),Math.abs(p[1]))));
   for(let i=0;i<peaks.length;i++){

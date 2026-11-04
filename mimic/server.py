@@ -279,11 +279,13 @@ class Handler(BaseHTTPRequestHandler):
             if method == 'GET':
                 static = {'/':'index.html','/app.js':'app.js','/style.css':'style.css',
                           '/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js',
-                          '/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/icon.svg':'icon.svg'}
+                          '/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/icon.svg':'icon.svg',
+                          '/apple-touch-icon.png':'apple-touch-icon.png',
+                          '/vupio-icon-192.png':'vupio-icon-192.png','/vupio-icon-512.png':'vupio-icon-512.png'}
                 if path in static:
                     file = ROOT/'web'/static[path]
                     types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8',
-                             '.css':'text/css; charset=utf-8','.webmanifest':'application/manifest+json','.svg':'image/svg+xml'}
+                             '.css':'text/css; charset=utf-8','.webmanifest':'application/manifest+json','.svg':'image/svg+xml','.png':'image/png'}
                     return self.send(file.read_bytes(),content=types[file.suffix])
                 if path == '/api/health':
                     return self.send({'ok':True,'version':'0.4.3-unified'})
