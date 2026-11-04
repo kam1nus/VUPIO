@@ -26,7 +26,7 @@ if [[ "${MIMIC_BUNDLE_MODELS:-0}" == 1 ]]; then
 fi
 ./scripts/package_audio.sh
 MIMIC_SIGN_STAGE=$(mktemp -d /private/tmp/mimic-sign.XXXXXX)
-ditto --norsrc build/MIMIC.app "$MIMIC_SIGN_STAGE/MIMIC.app"
+ditto --norsrc --noextattr --noqtn --noacl build/MIMIC.app "$MIMIC_SIGN_STAGE/MIMIC.app"
 xattr -cr "$MIMIC_SIGN_STAGE/MIMIC.app"
 if [[ -n "${MIMIC_APP_SIGN_IDENTITY:-}" ]]; then
  .venv/bin/python scripts/sign_macho.py "$MIMIC_SIGN_STAGE/MIMIC.app"
@@ -35,6 +35,6 @@ else
  codesign --force --deep --sign - "$MIMIC_SIGN_STAGE/MIMIC.app"
 fi
 codesign --verify --deep --strict "$MIMIC_SIGN_STAGE/MIMIC.app"
-ditto --norsrc "$MIMIC_SIGN_STAGE/MIMIC.app" build/MIMIC.app
+ditto --norsrc --noextattr --noqtn --noacl "$MIMIC_SIGN_STAGE/MIMIC.app" build/MIMIC.app
 echo "Подпись проверена в $MIMIC_SIGN_STAGE/MIMIC.app"
 echo "Готовая переносимая сборка: $MIMIC_PROJECT_DIR/build/MIMIC.app"

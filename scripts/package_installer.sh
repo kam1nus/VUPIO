@@ -6,7 +6,7 @@ MIMIC_INSTALL_STAGE=$(mktemp -d /private/tmp/mimic-installer.XXXXXX)
 mkdir -p "$MIMIC_INSTALL_STAGE/root/Applications"
 app_bundle="${MIMIC_APP_BUNDLE:-build/MIMIC.app}"
 target="$MIMIC_INSTALL_STAGE/root/Applications/VUPIO.app"
-ditto --norsrc "$app_bundle" "$target"
+ditto --norsrc --noextattr --noqtn --noacl "$app_bundle" "$target"
 xattr -cr "$target"
 codesign --verify --deep --strict "$target"
 version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$target/Contents/Info.plist")

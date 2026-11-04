@@ -39,7 +39,12 @@ def bundle(tools, cache):
     output.mkdir(exist_ok=True)
     for file in staged.iterdir():
         if file.name=='llama-server' or file.suffix=='.dylib':
-            shutil.copy2(file,output/file.name,follow_symlinks=False)
+            target=output/file.name
+            if file.is_symlink():
+                target.symlink_to(file.readlink())
+            else:
+                shutil.copyfile(file,target)
+                target.chmod(file.stat().st_mode & 0o777)
     license_url='https://raw.githubusercontent.com/ggml-org/llama.cpp/b10917/LICENSE'
     download(license_url,output/'LICENSE.txt',maximum=256*1024)
 
@@ -53,7 +58,8 @@ def bundle(tools, cache):
     subprocess.run([cmake,'--build',str(build),'--target','whisper-cli','--parallel','6'],check=True)
     output=tools/'whisper-cli'
     output.mkdir(exist_ok=True)
-    shutil.copy2(build/'bin/whisper-cli',output/'whisper-cli')
+    shutil.copyfile(build/'bin/whisper-cli',output/'whisper-cli')
+    (output/'whisper-cli').chmod(0o755)
     shutil.copyfile(staged/'LICENSE',output/'LICENSE.txt')
     (tools/'ai-dependencies.json').write_text(json.dumps({'llama':LLAMA,'whisper':WHISPER},indent=2))
 

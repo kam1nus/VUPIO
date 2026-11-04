@@ -1,6 +1,7 @@
 """Windows desktop launcher; the UI opens in the installed default browser."""
 import os
 from pathlib import Path
+import subprocess
 import sys
 import threading
 import webbrowser
@@ -23,8 +24,10 @@ def main():
     data = configure()
     if '--smoke-test' in sys.argv:
         import sounddevice
-        for name in ('ffmpeg','ffprobe','llama-server','whisper-cli'):
-            assert Path(tool(name)).is_file()
+        for name, flag in [('ffmpeg','-version'),('ffprobe','-version'),
+                           ('llama-server','--version'),('whisper-cli','--help')]:
+            subprocess.run([tool(name),flag],check=True,stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
         return
 
     import tkinter as tk

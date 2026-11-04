@@ -10,7 +10,7 @@ function Run($Executable, [string[]]$Arguments) {
 }
 Run python @('-m','PyInstaller','--noconfirm','--clean','--windowed','--onedir','--name','VUPIO',
     '--distpath','build/windows/dist','--workpath','build/windows/temp','--specpath','build/windows',
-    '--paths',$Root,'--add-data','web:web','--collect-all','certifi','--collect-all','_sounddevice_data',
+    '--paths',$Root,'--add-data',"$Root/web;web",'--collect-all','certifi','--collect-all','_sounddevice_data',
     '--hidden-import','qrcode.image.svg','scripts/windows_entry.py')
 $App = Join-Path $Root 'build/windows/dist/VUPIO'
 Run python @('scripts/bundle_windows_tools.py', (Join-Path $App 'Tools'))
