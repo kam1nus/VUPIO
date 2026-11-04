@@ -13,6 +13,7 @@ from pathlib import Path
 from .catalog import Commons
 from .finder import Finder
 from .autofetch import AutoFetch
+from .radar import Radar
 from .editor import make_plan,parse_rule,render_filters
 from .features import analyze
 from .jobs import Jobs,Cancelled
@@ -35,6 +36,7 @@ class Studio:
             db.execute('CREATE TABLE IF NOT EXISTS ai_drafts (id TEXT PRIMARY KEY, filename TEXT, parent TEXT, plan TEXT, committed TEXT, created REAL)')
         self.finder=Finder(self)
         self.autofetch=AutoFetch(self)
+        self.radar=Radar(self)
         self.jobs=Jobs(library)
     def execute(self,args,job,timeout=300):
         job.check()
@@ -332,6 +334,8 @@ class Studio:
           'model_import':lambda j:self.models.import_language(body['path'],body.get('title','Локальный GGUF'),j),
           'search':lambda j:self.search(body,j),
           'internet_search':lambda j:self.finder.search(body,j),
+          'radar':lambda j:self.radar.refresh(body,j),
+          'radar_clip':lambda j:self.radar.prepare_clip(body['source_id'],j),
           'quick_add':lambda j:self.autofetch.quick(body,j),
           'fetch':lambda j:self.autofetch.prepare(body,j),
           'fetch_commit':lambda j:self.autofetch.commit(body['asset_id'],j,body),

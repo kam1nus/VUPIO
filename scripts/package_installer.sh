@@ -16,6 +16,12 @@ cat > "$MIMIC_INSTALL_STAGE/app.plist" <<'XML'
 <?xml version="1.0"?><plist version="1.0"><array><dict><key>BundleIsRelocatable</key><false/><key>BundleIsVersionChecked</key><true/><key>RootRelativeBundlePath</key><string>Applications/VUPIO.app</string></dict></array></plist>
 XML
 pkgbuild --root "$MIMIC_INSTALL_STAGE/root" --install-location / --ownership recommended --identifier local.mimic.app --version "$version" --component-plist "$MIMIC_INSTALL_STAGE/app.plist" "$MIMIC_INSTALL_STAGE/app.pkg"
+if [[ "${MIMIC_APP_ONLY_INSTALLER:-0}" == 1 ]]; then
+ package=build/releases/VUPIO-macOS-AppleSilicon-App.pkg
+ cp "$MIMIC_INSTALL_STAGE/app.pkg" "$package"
+ echo "Installer created: $PWD/$package"
+ exit 0
+fi
 cp build/audio/driver-component.pkg "$MIMIC_INSTALL_STAGE/driver.pkg"
 cat > "$MIMIC_INSTALL_STAGE/distribution.xml" <<'XML'
 <?xml version="1.0" encoding="utf-8"?>

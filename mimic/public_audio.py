@@ -107,14 +107,14 @@ def download_public(url,path,job=None,maximum=100*1024*1024):
     try:
         with open_public(url,job) as response,open(path,'wb') as target:
             length=int(response.headers.get('Content-Length',0) or 0)
-            if length>maximum:raise ValueError('Аудиофайл больше 100 МБ')
+            if length>maximum:raise ValueError(f'Аудиофайл больше {maximum//1048576} МБ')
             while True:
                 if job:job.check()
                 if time.monotonic()>deadline:raise ValueError('Превышено время загрузки')
                 data=response.read(128*1024)
                 if not data:break
                 size+=len(data)
-                if size>maximum:raise ValueError('Аудиофайл больше 100 МБ')
+                if size>maximum:raise ValueError(f'Аудиофайл больше {maximum//1048576} МБ')
                 target.write(data)
                 if job:job.update(.2+min(.25,size/max(1,length)*.25),f'Downloading · {size/1048576:.1f} МБ')
         if not size:raise ValueError('Источник вернул пустой файл')

@@ -72,13 +72,15 @@ def web_row(url, title, source):
 class Tavily:
     name='Tavily · Internet'
     def __init__(self,settings):self.settings=settings
-    def search(self,query,domains=None):
+    def search(self,query,domains=None,*,time_range=None,max_results=8):
         key=self.settings.key()
         headers={'Content-Type':'application/json','Accept':'application/json'}
         if key:headers['Authorization']='Bearer '+key
         else:headers['X-Tavily-Access-Mode']='keyless'
         # Each request uses the basic search tier.
-        payload={'query':query,'search_depth':'basic','max_results':8,'include_answer':False,'include_raw_content':False,'auto_parameters':False,'topic':'general'}
+        payload={'query':query,'search_depth':'basic','max_results':max_results,'include_answer':False,'include_raw_content':False,'auto_parameters':False,'topic':'general'}
+        if time_range:
+            payload.update(time_range=time_range, include_published_date=True)
         if domains:
             payload['include_domains'] = domains
         class NoRedirect(HTTPRedirectHandler):
@@ -95,7 +97,7 @@ class Tavily:
         except ValueError:raise ValueError('Поисковый сервис вернул текст вместо результатов; возможно, исчерпан бесплатный лимит.') from None
         if not isinstance(data.get('results'),list):raise ValueError('Поисковый сервис не вернул список результатов. Попробуйте позже.')
         rows=[];seen=set()
-        for item in data['results'][:8]:
+        for item in data['results'][:max_results]:
             url=str(item.get('url',''));u=urlsplit(url)
             if u.scheme!='https' or not u.hostname or u.username or u.password or url in seen:continue
             seen.add(url)
@@ -103,6 +105,8 @@ class Tavily:
             score = float(item.get('score', 0) or 0)
             r.update(description=str(item.get('content', ''))[:3000],
                      score=max(0, min(1, score)) if math.isfinite(score) else 0)
+            if time_range and item.get('published_date'):
+                r['published_date'] = str(item['published_date'])[:60]
             rows.append(r)
         return rows
     def resolve(self,id):raise ValueError('Выберите сохранённый результат в Discover.')

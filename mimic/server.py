@@ -20,10 +20,43 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from . import BUILD
 from .library import Library, select_fragment, suggest
+from .net import open_url
 from .sources import LicensedCatalog
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def installed_build():
+    value = os.environ.get('MIMIC_BUILD_NUMBER', '')
+    return int(value) if re.fullmatch(r'[1-9][0-9]{0,8}', value) else BUILD
+
+
+def public_update():
+    repo = 'https://github.com/kam1nus/VUPIO'
+    filename = 'VUPIO-Windows-x64-Setup.exe' if sys.platform == 'win32' else 'VUPIO-macOS-AppleSilicon.pkg'
+    try:
+        with open_url('https://api.github.com/repos/kam1nus/VUPIO/releases?per_page=20', timeout=8) as response:
+            raw = response.read(1_000_001)
+        if len(raw) > 1_000_000:
+            raise ValueError('Large release response')
+        releases = json.loads(raw)
+        if not isinstance(releases, list):
+            raise ValueError('Invalid release response')
+    except (OSError, ValueError):
+        raise ValueError('Не удалось проверить GitHub. Откройте страницу релизов или повторите позже.') from None
+    available = {}
+    for release in releases:
+        tag = release.get('tag_name', '')
+        if release.get('draft') or not re.fullmatch(r'alpha-[1-9][0-9]{0,8}', tag):
+            continue
+        url = f'{repo}/releases/download/{tag}/{filename}'
+        if any(asset.get('browser_download_url') == url and asset.get('state') == 'uploaded'
+               for asset in release.get('assets', [])):
+            available[int(tag.removeprefix('alpha-'))] = url
+    newest = max(available, default=0)
+    return {'latest': newest, 'download': available.get(newest), 'installed': installed_build()}
 
 
 class Audio:
@@ -278,7 +311,7 @@ class Handler(BaseHTTPRequestHandler):
             a = self.app
             if method == 'GET':
                 static = {'/':'index.html','/app.js':'app.js','/style.css':'style.css',
-                          '/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js',
+                          '/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
                           '/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/icon.svg':'icon.svg',
                           '/apple-touch-icon.png':'apple-touch-icon.png',
                           '/vupio-icon-192.png':'vupio-icon-192.png','/vupio-icon-512.png':'vupio-icon-512.png'}
@@ -318,13 +351,17 @@ class Handler(BaseHTTPRequestHandler):
                         _,file=studio.draft(path.rsplit('/',1)[1])
                         return self.send_audio(file)
                     raise ValueError('Неизвестный адрес AI Studio')
+                if path == '/api/updates':
+                    self.auth(True)
+                    return self.send(public_update())
                 if path == '/api/state':
                     try:audio = a.audio.command('status')
                     except (ValueError,OSError) as error:
                         audio = {'running':False,'error':str(error),'volume':a.preferences.get('volume',.65),'activeClips':[]}
 
                     return self.send({'role':self.session['role'],'revision':a.revision,
-                                      'items':a.library.items(),'audio':audio,'preview_stop_epoch':a.preview_stop_epoch})
+                                      'items':a.library.items(),'audio':audio,'preview_stop_epoch':a.preview_stop_epoch,
+                                      'build':installed_build()})
                 if path == '/api/remotes':
                     self.auth(True)
                     with a.library.db() as db:

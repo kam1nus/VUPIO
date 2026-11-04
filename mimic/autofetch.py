@@ -36,9 +36,14 @@ def cut_plan(command,duration,analysis,previous=None):
     if not all(math.isfinite(v) for v in [start,end]) or not 0<=start<end<=duration+.01:raise ValueError('Некорректные границы фрагмента')
     return dict(start=round(start,3),end=min(duration,round(end,3)),basis=basis,warning=warning,normalize=True)
 
+def radar_asset(id,data):
+    return dict(asset_id=id,preview_url='/api/ai/asset/'+id,
+                metadata=data['metadata'],report=data['report'],plan=data['report']['plan'])
+
+
 class AutoFetch:
     def __init__(self,studio):self.s=studio
-    def prepare(self,body,job):
+    def prepare(self,body,job,*,radar=False):
         started=time.monotonic()
         s=self.s;id=str(body['source_id']);saved=s.finder.saved(id);job.update(.05,'Checking · доступность источника')
         source=s.finder.resolve(id,job)
@@ -48,17 +53,22 @@ class AutoFetch:
             job.update(.15,'Downloading · аудиофайл')
             if source.get('personal_import'):
                 from .public_audio import download_public
-                download_public(source['download_url'],raw,job)
+                if radar:
+                    download_public(source['download_url'],raw,job,maximum=8*1024*1024)
+                else:
+                    download_public(source['download_url'],raw,job)
             else:catalog_download(source['download_url'],raw,job)
             job.update(.45,'Checking · формат, длительность, качество')
             probe=json.loads(s.execute([tool('ffprobe'),'-v','error','-protocol_whitelist','file,pipe','-format_whitelist',FORMATS,'-show_format','-show_streams','-of','json',str(raw)],job,30))
             streams=probe.get('streams',[]);audio=[x for x in streams if x.get('codec_type')=='audio'];fmt=probe.get('format',{})
             duration=float(fmt.get('duration',0))
             if not audio or any(x.get('codec_type') not in {'audio'} for x in streams) or not math.isfinite(duration) or not 0<duration<=1200:raise ValueError('Нужен аудиофайл без видео, длительностью до 20 минут')
+            if radar and duration>120:
+                raise ValueError('Trend Radar подготавливает звуки до двух минут. Для этого файла используйте Discover.')
             stream=audio[0];rate=int(stream.get('sample_rate',0));channels=int(stream.get('channels',0))
             if rate<8000 or channels<1 or channels>8:raise ValueError('Неподдерживаемые параметры аудио')
             bitrate=int(fmt.get('bit_rate',0) or 0)
-            s.execute([tool('ffmpeg'),'-v','error','-nostdin','-protocol_whitelist','file,pipe','-format_whitelist',FORMATS,'-i',str(raw),'-map','0:a:0','-t','1200','-ac','2','-ar','48000','-c:a','pcm_s16le',str(pcm)],job)
+            s.execute([tool('ffmpeg'),'-v','error','-nostdin','-protocol_whitelist','file,pipe','-format_whitelist',FORMATS,'-i',str(raw),'-map','0:a:0','-t','120' if radar else '1200','-ac','2','-ar','48000','-c:a','pcm_s16le',str(pcm)],job)
             # Hash decoded audio frames: detect same recording in different containers.
             sha=pcm_hash(pcm)
             with s.library.db() as db:duplicate=db.execute('SELECT * FROM finder_imports WHERE hash=?',(sha,)).fetchone()
@@ -70,6 +80,20 @@ class AutoFetch:
             features=analyze(pcm)
             if features.get('peak',0)<.0001:raise ValueError('Файл содержит только тишину')
             duration=features['duration']
+            if radar:
+                # The same decoded audio serves preview, Studio and Add.
+                with wave.open(str(pcm)) as decoded:
+                    duration=decoded.getnframes()/decoded.getframerate()
+                plan=dict(start=0.,end=duration,normalize=False)
+                metadata=dict(title=source['title'],category='Meme',tags='')
+                report=dict(duration=duration,sha256=sha,plan=plan,output=features,analysis={})
+                data=dict(source=source,report=report,metadata=metadata,original=raw.name,pcm=pcm.name)
+                job.check()
+                with s.library.db() as db:
+                    db.execute('INSERT INTO ai_assets VALUES (?,?,?,?)',(key,pcm.name,json.dumps(data,ensure_ascii=False),time.time()))
+                    db.execute('INSERT OR REPLACE INTO radar_clips VALUES (?,?)',(id,key))
+                keep=True
+                return radar_asset(key,data)
             # Bounded first 60 seconds; do not imply complete analysis of long music.
             sample=s.cache/(key+'.sample.wav')
             try:

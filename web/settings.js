@@ -123,6 +123,15 @@ let openSettings;
  settingButton('saveKey',async()=>{if(!by('tavilyKey').value)throw Error('Введите ключ Tavily');await api('ai/web-settings',{tavily_key:by('tavilyKey').value});by('tavilyKey').value='';notify('Ключ сохранён на Mac');await updateJobs();});
  settingButton('clearKey',async()=>{await api('ai/web-settings',{tavily_key:''});by('tavilyKey').value='';notify('Включён поиск без ключа');await updateJobs();});
  for(const id of ['installDriver','uninstallDriver','importModel'])settingButton(id,()=>window.webkit.messageHandlers.mimicNative.postMessage(id));
+ by('checkUpdates').onclick=()=>{
+  by('checkUpdates').disabled=true;
+  status('updateStatus','Проверяем обновления…');
+  window.webkit.messageHandlers.mimicNative.postMessage('checkUpdates');
+ };
+ window.vupioUpdateStatus=(message,error,busy)=>{
+  by('checkUpdates').disabled=busy;
+  status('updateStatus',message,error);
+ };
  window.mimicNativeError=message=>status('settingsStatus',message,true);
  window.mimicImportModel=async (path,title)=>{try{openSettings('jobs');await runJob('model_import',{path,title});notify('Модель импортирована');}catch(e){status('settingsStatus',e.message,true);}};
 })();

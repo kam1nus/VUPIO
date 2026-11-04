@@ -173,6 +173,14 @@
   }catch(e){status('discoverStatus',e.message,true);}
   finally{busy=false;by('discoverGo').disabled=false;by('quickAdd').disabled=false;updateProgress();}
  }
+ document.addEventListener('mimic:radar-search',({detail})=>{
+  show('discover');
+  by('discoverQuery').value=detail.query;
+  by('importCategory').value=detail.category;
+  by('webSource').checked=true;
+  by('discoverQuery').focus();
+  search();
+ });
  by('discoverForm').onsubmit=e=>{e.preventDefault();search();};
  by('quickAdd').onclick=()=>search(true);
  document.querySelectorAll('.example').forEach(b=>b.onclick=()=>{by('discoverQuery').value=b.textContent;search();});

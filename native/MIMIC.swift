@@ -59,6 +59,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     var errorBuffer=""
     var statusLabel:NSTextField!
     var appURL:URL?
+    var updateBusy=false
     let root=Bundle.main.bundleURL.deletingLastPathComponent()
     func applicationDidFinishLaunching(_ notification:Notification) {
         let app=NSApplication.shared
@@ -111,6 +112,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         proc.standardInput=FileHandle.nullDevice
         var env=ProcessInfo.processInfo.environment
         env["MIMIC_AUDIO_EXECUTABLE"]=Bundle.main.executablePath!
+        env["MIMIC_BUILD_NUMBER"]=Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
         if portable {
             let tools=resources.appendingPathComponent("Tools").path
             env["MIMIC_TOOLS"]=tools
@@ -212,6 +214,10 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
         guard message.frameInfo.isMainFrame,trusted(message.frameInfo.request.url),let action=message.body as? String else{return}
+        if action == "checkUpdates" {
+            checkLocalUpdate()
+            return
+        }
         if action=="importModel" {
             let panel=NSOpenPanel();panel.canChooseDirectories=false
             panel.allowedContentTypes=[UTType(filenameExtension:"gguf") ?? .data]
@@ -226,6 +232,66 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         guard let url=Bundle.main.resourceURL?.appendingPathComponent("Audio/"+name),FileManager.default.fileExists(atPath:url.path),NSWorkspace.shared.open(url) else{
             web.callAsyncJavaScript("window.mimicNativeError(message)",arguments:["message":"Установщик недоступен. Откройте полную сборку VUPIO."],in:nil,in:.page,completionHandler:nil)
             return
+        }
+    }
+    func updateStatus(_ text: String, error: Bool = false, busy: Bool = false) {
+        updateBusy = busy
+        web.callAsyncJavaScript("window.vupioUpdateStatus(text,error,busy)",arguments:["text":text,"error":error,"busy":busy],in:nil,in:.page,completionHandler:nil)
+    }
+
+    func checkLocalUpdate() {
+        guard !updateBusy else { return }
+        let installed = Bundle.main.bundleURL
+        guard let folder = Bundle.main.object(forInfoDictionaryKey: "VUPIOLocalUpdateFolder") as? String,
+              let value = Bundle.main.object(forInfoDictionaryKey: "VUPIOLocalUpdatePublicKey") as? String,
+              let key = Data(base64Encoded: value), let build = LocalUpdate.version(of: installed) else {
+            updateStatus("У этой сборки нет локального канала обновлений.")
+            return
+        }
+        let channel = URL(fileURLWithPath: folder, isDirectory: true)
+        updateStatus("Проверяем локальный канал…", busy: true)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let release = try LocalRelease.verified(in: channel, publicKey: key)
+                DispatchQueue.main.async {
+                    guard let release, release.build > build else {
+                        self.updateStatus("Установлена актуальная локальная сборка · " + String(build))
+                        return
+                    }
+                    let alert = NSAlert()
+                    alert.messageText = "Доступна сборка VUPIO " + String(release.build)
+                    alert.informativeText = "VUPIO обновится и перезапустится. Если вы редактируете звук, сохраните его перед обновлением."
+                    alert.addButton(withTitle: "Обновить и перезапустить")
+                    alert.addButton(withTitle: "Позже")
+                    alert.beginSheetModal(for: self.window) { response in
+                        guard response == .alertFirstButtonReturn else { self.updateStatus("Обновление отложено."); return }
+                        self.applyLocalUpdate(release, channel: channel, installed: installed)
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { self.updateStatus(error.localizedDescription, error: true) }
+            }
+        }
+    }
+
+    func applyLocalUpdate(_ release: LocalRelease, channel: URL, installed: URL) {
+        updateStatus("Подготавливаем и проверяем сборку…", busy: true)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let staged = try LocalUpdate.stage(release, channel: channel, installed: installed)
+                DispatchQueue.main.async {
+                    do {
+                        let pid = ProcessInfo.processInfo.processIdentifier
+                        let serverPID = self.process.flatMap { $0.isRunning ? $0.processIdentifier : nil } ?? 0
+                        try LocalUpdate.install(staged, at: installed, appPID: pid, serverPID: serverPID)
+                        NSApplication.shared.terminate(nil)
+                    } catch {
+                        self.updateStatus(error.localizedDescription, error: true)
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { self.updateStatus(error.localizedDescription, error: true) }
+            }
         }
     }
     func webView(_ webView:WKWebView,didFailProvisionalNavigation navigation:WKNavigation!,withError error:Error) {
@@ -246,7 +312,9 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     }
 }
 
-if CommandLine.arguments.contains("--analyze"),let index=CommandLine.arguments.firstIndex(of:"--analyze"),CommandLine.arguments.count>index+1 {
+if CommandLine.arguments.dropFirst().first == "--vupio-relaunch" {
+    LocalUpdate.relaunch(Array(CommandLine.arguments.dropFirst(2)))
+} else if CommandLine.arguments.contains("--analyze"),let index=CommandLine.arguments.firstIndex(of:"--analyze"),CommandLine.arguments.count>index+1 {
     let result=classifyFile(CommandLine.arguments[index+1])
     let data=try! JSONSerialization.data(withJSONObject:result)
     print(String(data:data,encoding:.utf8)!)

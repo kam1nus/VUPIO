@@ -4,6 +4,7 @@ const by=id=>document.getElementById(id);
 const icons={
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/><rect x="3" y="14" width="7" height="7" rx="1.4"/><rect x="14" y="14" width="7" height="7" rx="1.4"/>',
  search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+ radar:'<circle cx="12" cy="12" r="9"/><path d="M7 12a5 5 0 0 0 5 5m0-5 5-5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
  wave:'<path d="M2 12h3l2-5 3 12 3-15 3 13 2-5h4"/>',
  phone:'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>',
  settings:'<path d="M3 6h18M3 12h18M3 18h18"/><path d="M7 4v4m10 2v4M9 16v4" stroke-width="3"/>',
@@ -50,7 +51,7 @@ function link(text,url){
  try{const u=new URL(url,location.href);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)return node('span',text,'muted');const a=node('a',text);a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';return a;}catch{return node('span',text,'muted');}
 }
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const jobLabels={internet_search:'Интернет-поиск',quick_add:'Быстрое добавление',search:'Поиск в библиотеке',fetch:'Подготовка звука',fetch_recut:'Обработка фрагмента',fetch_commit:'Добавление звука',render:'Обработка фрагмента',plan:'Команда для AI',commit:'Сохранение копии',metadata:'Название и теги',index:'Анализ звука',index_all:'Индексирование библиотеки',model:'Загрузка модели',model_import:'Импорт модели',asset_speech:'Распознавание речи'};
+const jobLabels={radar:'Trend Radar',radar_clip:'Подгрузка звука',internet_search:'Интернет-поиск',quick_add:'Быстрое добавление',search:'Поиск в библиотеке',fetch:'Подготовка звука',fetch_recut:'Обработка фрагмента',fetch_commit:'Добавление звука',render:'Обработка фрагмента',plan:'Команда для AI',commit:'Сохранение копии',metadata:'Название и теги',index:'Анализ звука',index_all:'Индексирование библиотеки',model:'Загрузка модели',model_import:'Импорт модели',asset_speech:'Распознавание речи'};
 const jobStates={queued:'В очереди',running:'В работе',done:'Готово',failed:'Ошибка',cancelled:'Отменено'};
 function jobCard(j){
  const box=node('article',undefined,'job'),head=node('div',undefined,'split');head.append(node('strong',jobLabels[j.kind]||j.kind),node('small',jobStates[j.status]||j.status));box.append(head);
@@ -60,14 +61,14 @@ function jobCard(j){
  if(active){const cancel=button('Отменить',()=>api('ai/cancel',{job_id:j.id}),{cls:'quiet'});const row=node('div');row.append(cancel);box.append(row);}
  return box;
 }
-async function runJob(kind,data={},onProgress){
+async function runJob(kind,data={},onProgress,pollMs=850){
  const {job_id:id}=await api('ai/submit',{kind,...data});
  for(;;){
   const job=await api('ai/job/'+id);
   onProgress?.(job);
   if(job.status==='done')return job.result;
   if(job.status==='failed'||job.status==='cancelled')throw Error(job.error||'Задача отменена');
-  await pause(850);
+  await pause(pollMs);
  }
 }
 let role='',items=[],audio={},revision=null,previewEpoch=null,view='soundboard',syncing;
@@ -188,6 +189,7 @@ function sync(){
   const version=audioVersion;
   const data=await api('state'),newRole=role!==data.role;
   role=data.role;
+  if(data.build)by('currentBuild').textContent='Установлена сборка '+data.build;
   if(version===audioVersion)audio=data.audio;
   if(previewEpoch!==null&&previewEpoch!==data.preview_stop_epoch)stopPreview();
   previewEpoch=data.preview_stop_epoch;
@@ -215,6 +217,16 @@ for(const el of document.querySelectorAll('[data-icon]')){
  else el.prepend(icon(el.dataset.icon));
 }
 by('nav').addEventListener('click',e=>{const target=e.target.closest('[data-view]');if(target)show(target.dataset.view);});
+bind('checkPublicUpdate',async()=>{
+ status('publicUpdateStatus','Проверяем GitHub…');
+ const download=by('publicUpdateDownload');
+ download.replaceChildren();
+ const data=await api('updates');
+ if(data.latest>data.installed&&data.download){
+  status('publicUpdateStatus','Доступна сборка '+data.latest);
+  download.append(link('Скачать установщик ↗',data.download));
+ }else status('publicUpdateStatus',data.latest?'Установлена актуальная сборка.':'Для вашей платформы пока нет опубликованных установщиков.');
+},'publicUpdateStatus');
 bind('findSound',()=>{show('discover');by('discoverQuery').focus();});
 by('search').oninput=e=>{query=e.target.value;page=0;renderLibrary();};by('category').onchange=e=>{activeCategory=e.target.value;page=0;renderLibrary();};
 by('favorites').onclick=()=>{favoritesOnly=!favoritesOnly;by('favorites').setAttribute('aria-pressed',String(favoritesOnly));page=0;renderLibrary();};

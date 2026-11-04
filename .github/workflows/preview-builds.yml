@@ -1,9 +1,11 @@
 name: VUPIO preview installers
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/preview-builds.yml', 'scripts/package*.ps1', 'scripts/package*.sh', 'scripts/bundle*.py', 'installer/windows.iss']
+    inputs:
+      publish:
+        description: Publish both verified installers as a GitHub prerelease
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -60,3 +62,37 @@ jobs:
           name: VUPIO-macOS-AppleSilicon-preview
           path: build/releases/VUPIO-macOS-AppleSilicon.pkg
           if-no-files-found: error
+
+  publish:
+    if: inputs.publish && github.ref == 'refs/heads/main'
+    needs: [windows, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: VUPIO-*-preview
+          path: release
+          merge-multiple: true
+      - name: Publish the tested Mac and Windows installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          build=$(python3 -c 'from mimic import BUILD; print(BUILD)')
+          tag="alpha-$build"
+          cd release
+          sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
+          cat > /tmp/vupio-release-notes <<'EOF'
+          - Trend Radar и региональные подборки для Mac и Windows.
+          - Предзагрузка, замена недоступных мем-звуков и добавление одним нажатием.
+          - Раздел «Обновления» с проверкой релизов GitHub для текущей платформы.
+
+          Это тестовые установщики для macOS 26+ (Apple Silicon) и Windows 11 x64. Пакет macOS содержит подпись для локального тестирования, без нотарификации Apple. Установщик Windows не подписан Authenticode. Контрольные суммы доступны в SHA256SUMS.txt. Нужная сборка скачивается отдельным установщиком из раздела «Обновления».
+          EOF
+          gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease \
+            --title "VUPIO Alpha · сборка $build" --notes-file /tmp/vupio-release-notes \
+            VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe SHA256SUMS.txt
+          gh release edit "$tag" --draft=false

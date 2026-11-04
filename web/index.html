@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="VUPIO">
 <title>VUPIO</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/discover.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script>
+<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/discover.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script>
 </head>
 <body>
 <section id="login" class="login" hidden>
@@ -25,8 +25,10 @@
     <nav id="nav" aria-label="Разделы VUPIO">
       <button data-view="soundboard" data-icon="grid" aria-current="page">Soundboard</button>
       <button data-view="discover" data-icon="search">Discover</button>
+      <button data-view="radar" data-icon="radar">Trend Radar</button>
       <button data-view="studio" data-icon="wave">Studio</button>
       <button data-view="remote" data-icon="phone">Remote</button>
+      <button data-view="updates" data-icon="refresh">Обновления</button>
       <button data-view="settings" data-icon="settings">Settings</button>
     </nav>
     <div class="sidebarFoot"><span id="sideMic" class="signal"></span><div><strong id="sideAudio">Аудио</strong><small id="sideRoute">Подключение…</small></div></div>
@@ -66,6 +68,17 @@
         <div id="discoverEmpty" class="empty"><span class="emptyIcon" data-icon="search"></span><h2>Найдите тот самый звук</h2><p>Попробуйте точное название мема или опишите, как он звучит.</p><div class="row center"><button class="example">Emotional Damage</button><button class="example">Неожиданный крик</button><button class="example">Эпичная музыка</button></div></div>
         <div id="discoverResults" class="stack results"></div>
       </section>
+      <section id="radar" class="view admin" hidden>
+        <div class="pagehead"><div><h1>Trend Radar</h1><p class="muted">Мем-звуки и треки по странам. Найдите новый звук для саундборда.</p></div><button id="radarRefresh" data-icon="refresh">Обновить</button></div>
+        <div class="panel radarFilters">
+          <div class="tabs" id="radarKinds" aria-label="Тип аудио"><button data-kind="memes" aria-pressed="true">Мем-звуки</button><button data-kind="tracks" aria-pressed="false">Треки</button></div>
+          <label>Страна<select id="radarRegion"><option value="ru">Россия</option><option value="us">США</option><option value="gb">Великобритания</option><option value="br">Бразилия</option><option value="de">Германия</option><option value="jp">Япония</option><option value="ua">Украина</option></select></label>
+          <label>Источник<select id="radarSource"><option value="chart">Региональный чарт</option><option value="tiktok">TikTok</option><option value="reels">Instagram Reels</option><option value="shorts">YouTube Shorts</option></select></label>
+        </div>
+        <p id="radarStatus" class="inlineStatus" role="status" hidden></p>
+        <div id="radarHeading" class="split wrap radarHeading" hidden><div><h2 id="radarTitle"></h2><p class="muted" id="radarScope"></p></div><div id="radarSourceLink"></div></div>
+        <div id="radarResults" class="stack results"></div>
+      </section>
       <section id="studio" class="view admin" hidden>
         <div class="pagehead"><div><h1>Studio</h1><p class="muted">Выберите фрагмент, обработайте звук и сохраните отдельную копию.</p></div><button id="studioCard" data-icon="edit" hidden>Карточка звука</button></div>
         <div id="studioEmpty" class="empty"><span class="emptyIcon" data-icon="wave"></span><h2>Откройте звук для редактирования</h2><p>Выберите клип из библиотеки или нажмите Edit в Discover.</p></div>
@@ -99,6 +112,17 @@
           </article>
           <article class="panel stack"><div class="split"><h2>Сопряжённые пульты</h2><button id="refreshRemotes" class="quiet" data-icon="refresh" aria-label="Обновить список пультов"></button></div><div id="remoteDevices" class="stack"></div><p class="muted">Добавьте пульт в Safari: Поделиться → На экран «Домой».</p><div><button id="revoke" class="danger">Отключить все пульты + PANIC</button></div></article>
         </div>
+      </section>
+      <section id="updates" class="view admin" hidden>
+        <div class="pagehead"><div><h1>Обновления</h1><p id="currentBuild" class="muted"></p></div></div>
+        <article class="panel stack">
+          <h2>Тестовые релизы VUPIO</h2>
+          <p class="muted">Сравните установленную сборку с последним релизом для вашего компьютера.</p>
+          <div class="row wrap"><button id="checkPublicUpdate" class="primary" data-icon="refresh">Проверить обновления</button><a href="https://github.com/kam1nus/VUPIO/releases" target="_blank" rel="noopener noreferrer">Все релизы на GitHub ↗</a></div>
+          <p id="publicUpdateStatus" class="inlineStatus" role="status" hidden></p><div id="publicUpdateDownload"></div>
+        </article>
+        <article class="panel stack nativeOnly"><h2>Локальные сборки Mac</h2><p class="muted">Для сборок с настроенной локальной папкой обновлений.</p><div><button id="checkUpdates" data-icon="refresh">Проверить локальный канал</button></div><p id="updateStatus" class="inlineStatus" role="status" hidden></p></article>
+        <article class="panel stack"><h2>Что нового</h2><p>Trend Radar проверяет и подгружает мем-звуки заранее, заменяет недоступные записи и добавляет готовый звук в Soundboard одной кнопкой.</p></article>
       </section>
       <section id="settings" class="view admin" hidden>
         <div class="pagehead"><div><h1>Settings</h1><p class="muted">Устройства, микрофон, модели и фоновые операции.</p></div></div>

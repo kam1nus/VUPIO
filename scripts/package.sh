@@ -2,7 +2,7 @@
 set -eu
 cd "${0:A:h:h}"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-./scripts/build.sh
+MIMIC_SKIP_INITIAL_SIGN=1 ./scripts/build.sh
 MIMIC_PROJECT_DIR="$PWD"
 MIMIC_BUILD_WORK="${MIMIC_BUILD_WORK:-$PWD/build/packaging}"
 mkdir -p "$MIMIC_BUILD_WORK" build/MIMIC.app/Contents/Resources
@@ -36,5 +36,8 @@ else
 fi
 codesign --verify --deep --strict "$MIMIC_SIGN_STAGE/MIMIC.app"
 ditto --norsrc --noextattr --noqtn --noacl "$MIMIC_SIGN_STAGE/MIMIC.app" build/MIMIC.app
+if [[ -n "${MIMIC_LOCAL_UPDATE_CHANNEL:-}" ]]; then
+ build/vupio-local-update publish "$MIMIC_LOCAL_UPDATE_KEY" "$MIMIC_LOCAL_UPDATE_CHANNEL" "$MIMIC_SIGN_STAGE/MIMIC.app"
+fi
 echo "Подпись проверена в $MIMIC_SIGN_STAGE/MIMIC.app"
 echo "Готовая переносимая сборка: $MIMIC_PROJECT_DIR/build/MIMIC.app"
