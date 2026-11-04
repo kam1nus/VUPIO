@@ -28,16 +28,30 @@ Source: "{#AppDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cre
 [Icons]
 Name: "{autoprograms}\VUPIO"; Filename: "{app}\VUPIO.exe"
 
+[Tasks]
+Name: "discord"; Description: "Скачать VB-CABLE с сайта VB-Audio и открыть установщик драйвера для Discord"; Flags: unchecked
+
 [Run]
-Filename: "https://vb-audio.com/Cable/"; Description: "Открыть официальную страницу VB-CABLE для Discord"; Flags: shellexec postinstall skipifsilent unchecked
 Filename: "{app}\VUPIO.exe"; Description: "Открыть VUPIO"; Flags: nowait postinstall skipifsilent
 
 [Code]
+function PowerShellQuote(Value: String): String;
+begin
+  StringChangeEx(Value, '''', '''''', True);
+  Result := '''' + Value + '''';
+end;
+
+function RunPowerShell(Command: String; var Code: Integer): Boolean;
+begin
+  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -Command "' + Command + '"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Installed: Cardinal;
   Code: Integer;
-  Runtime, Literal, Params: String;
+  Runtime, Command: String;
 begin
   Result := '';
   if RegQueryDWordValue(HKLM64, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1) then
@@ -45,12 +59,9 @@ begin
   try
     DownloadTemporaryFile('https://aka.ms/vc14/vc_redist.x64.exe', 'vupio-vc-redist.exe', '', nil);
     Runtime := ExpandConstant('{tmp}\vupio-vc-redist.exe');
-    Literal := Runtime;
-    StringChangeEx(Literal, '''', '''''', True);
-    Params := '-NoProfile -NonInteractive -Command "$s=Get-AuthenticodeSignature -LiteralPath ''' +
-      Literal + '''; if ($s.Status -ne ''Valid'' -or $s.SignerCertificate.Subject -notmatch ''Microsoft Corporation'') { exit 1 }"';
-    if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-      Params, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then begin
+    Command := '$s=Get-AuthenticodeSignature -LiteralPath ' + PowerShellQuote(Runtime) +
+      '; if ($s.Status -ne ''Valid'' -or $s.SignerCertificate.Subject -notmatch ''Microsoft Corporation'') { exit 1 }';
+    if not RunPowerShell(Command, Code) or (Code <> 0) then begin
       Result := 'Не удалось проверить подпись Microsoft Visual C++ Runtime.';
       exit;
     end;
@@ -61,5 +72,29 @@ begin
       Result := 'Установщик Microsoft Visual C++ Runtime вернул ошибку ' + IntToStr(Code) + '.';
   except
     Result := 'Не удалось загрузить Microsoft Visual C++ Runtime. Проверьте подключение к интернету.';
+  end;
+end;
+
+procedure CurStepChanged(Step: TSetupStep);
+var
+  Code: Integer;
+  Folder, Setup, Command: String;
+begin
+  if (Step <> ssPostInstall) or WizardSilent or not WizardIsTaskSelected('discord') then
+    exit;
+  try
+    DownloadTemporaryFile('https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip',
+      'vbcable.zip', 'b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb', nil);
+    Folder := ExpandConstant('{tmp}\VBCable');
+    Setup := Folder + '\VBCABLE_Setup_x64.exe';
+    Command := 'Expand-Archive -ErrorAction Stop -LiteralPath ' + PowerShellQuote(ExpandConstant('{tmp}\vbcable.zip')) +
+      ' -DestinationPath ' + PowerShellQuote(Folder) + '; $s=Get-AuthenticodeSignature -LiteralPath ' +
+      PowerShellQuote(Setup) + '; if ($s.Status -ne ''Valid'' -or $s.SignerCertificate.Subject -notmatch ''BUREL VINCENT'') { exit 1 }';
+    if not RunPowerShell(Command, Code) or (Code <> 0) then
+      RaiseException('Не удалось проверить подпись установщика VB-Audio.');
+    if not Exec(Setup, '', Folder, SW_SHOW, ewWaitUntilTerminated, Code) or (Code <> 0) then
+      RaiseException('Установщик VB-Audio завершился с ошибкой.');
+  except
+    MsgBox(GetExceptionMessage + #13#10 + 'VUPIO установлен. Драйвер доступен отдельно на https://vb-audio.com/Cable/.', mbInformation, MB_OK);
   end;
 end;
