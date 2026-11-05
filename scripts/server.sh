@@ -8,7 +8,7 @@ if [[ -f .env ]]; then
   set +a
 fi
 if [[ ! -x .venv/bin/python ]]; then
-  echo "Сначала запустите scripts/setup.sh" >&2
+  echo "Run scripts/setup.sh first" >&2
   exit 1
 fi
 exec .venv/bin/python -m mimic.server --audio "${MIMIC_AUDIO_EXECUTABLE:-$PWD/build/MIMIC.app/Contents/MacOS/MIMIC}"

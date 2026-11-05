@@ -25,7 +25,7 @@ func classifyFile(_ path:String)->[String:Any] {
     do {
         let file=try AVAudioFile(forReading:URL(fileURLWithPath:path))
         let duration=Double(file.length)/file.processingFormat.sampleRate
-        if duration<1.6 {return ["labels":[],"windows":0,"model":"Apple SoundAnalysis version1","warning":"Файл короче окна классификатора; используйте текст и измеряемые признаки"]}
+        if duration<1.6 {return ["labels":[],"windows":0,"model":"Apple SoundAnalysis version1","warning":"File shorter than the classifier window. Use metadata and measured features"]}
         let analyzer=try SNAudioFileAnalyzer(url:URL(fileURLWithPath:path))
         let request=try SNClassifySoundRequest(classifierIdentifier:.version1)
         let observer=FileSoundObserver()
@@ -35,7 +35,7 @@ func classifyFile(_ path:String)->[String:Any] {
         withExtendedLifetime(analyzer) {
             while !observer.complete && Date()<deadline {RunLoop.current.run(until:Date(timeIntervalSinceNow:0.02))}
         }
-        if !observer.complete {return ["error":"SoundAnalysis не завершил анализ за 120 секунд"]}
+        if !observer.complete {return ["error":"SoundAnalysis timed out after 120 seconds"]}
         return observer.result()
     } catch { return ["error":error.localizedDescription] }
 }

@@ -7,7 +7,7 @@
 [Setup]
 AppId=VUPIO
 AppName=VUPIO
-AppVersion=0.4.3.4044
+AppVersion=0.4.3.4045
 AppPublisher=VUPIO
 DefaultDirName={autopf}\VUPIO
 DefaultGroupName=VUPIO
@@ -24,7 +24,7 @@ CloseApplications=force
 RestartIfNeededByRun=yes
 
 [Languages]
-Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "{#AppDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -33,10 +33,10 @@ Source: "{#AppDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cre
 Name: "{autoprograms}\VUPIO"; Filename: "{app}\VUPIO.exe"
 
 [Tasks]
-Name: "discord"; Description: "Скачать VB-CABLE с сайта VB-Audio и открыть установщик драйвера для Discord"; Flags: unchecked
+Name: "discord"; Description: "Download VB-CABLE from VB-Audio and open its driver installer for Discord"; Flags: unchecked
 
 [Run]
-Filename: "{app}\VUPIO.exe"; Description: "Открыть VUPIO"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\VUPIO.exe"; Description: "Open VUPIO"; Flags: nowait postinstall skipifsilent
 
 [Code]
 function PowerShellQuote(Value: String): String;
@@ -66,16 +66,16 @@ begin
     Command := '$s=Get-AuthenticodeSignature -LiteralPath ' + PowerShellQuote(Runtime) +
       '; if ($s.Status -ne ''Valid'' -or $s.SignerCertificate.Subject -notmatch ''Microsoft Corporation'') { exit 1 }';
     if not RunPowerShell(Command, Code) or (Code <> 0) then begin
-      Result := 'Не удалось проверить подпись Microsoft Visual C++ Runtime.';
+      Result := 'Could not verify the Microsoft Visual C++ Runtime signature.';
       exit;
     end;
     if not Exec(Runtime, '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, Code) then
-      Result := 'Не удалось открыть установщик Microsoft Visual C++ Runtime.'
+      Result := 'Could not open the Microsoft Visual C++ Runtime installer.'
     else if Code = 3010 then NeedsRestart := True
     else if (Code <> 0) and (Code <> 1638) then
-      Result := 'Установщик Microsoft Visual C++ Runtime вернул ошибку ' + IntToStr(Code) + '.';
+      Result := 'The Microsoft Visual C++ Runtime installer returned error ' + IntToStr(Code) + '.';
   except
-    Result := 'Не удалось загрузить Microsoft Visual C++ Runtime. Проверьте подключение к интернету.';
+    Result := 'Could not download Microsoft Visual C++ Runtime. Check your internet connection.';
   end;
 end;
 
@@ -95,10 +95,10 @@ begin
       ' -DestinationPath ' + PowerShellQuote(Folder) + '; $s=Get-AuthenticodeSignature -LiteralPath ' +
       PowerShellQuote(Setup) + '; if ($s.Status -ne ''Valid'' -or $s.SignerCertificate.Subject -notmatch ''BUREL VINCENT'') { exit 1 }';
     if not RunPowerShell(Command, Code) or (Code <> 0) then
-      RaiseException('Не удалось проверить подпись установщика VB-Audio.');
+      RaiseException('Could not verify the VB-Audio installer signature.');
     if not Exec(Setup, '', Folder, SW_SHOW, ewWaitUntilTerminated, Code) or (Code <> 0) then
-      RaiseException('Установщик VB-Audio завершился с ошибкой.');
+      RaiseException('The VB-Audio installer failed.');
   except
-    MsgBox(GetExceptionMessage + #13#10 + 'VUPIO установлен. Драйвер доступен отдельно на https://vb-audio.com/Cable/.', mbInformation, MB_OK);
+    MsgBox(GetExceptionMessage + #13#10 + 'VUPIO is installed. Download the driver separately at https://vb-audio.com/Cable/.', mbInformation, MB_OK);
   end;
 end;

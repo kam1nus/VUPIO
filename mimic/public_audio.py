@@ -20,11 +20,11 @@ def view_only(url):
 
 def public_target(url):
     u=urlsplit(str(url))
-    if len(url)>16384 or u.scheme!='https' or not u.hostname or u.username or u.password or u.port not in (None,443):raise ValueError('Нужен публичный HTTPS-адрес без пароля и нестандартного порта')
+    if len(url)>16384 or u.scheme!='https' or not u.hostname or u.username or u.password or u.port not in (None,443):raise ValueError('Use a public HTTPS URL without credentials or a custom port')
     host=u.hostname.encode('idna').decode('ascii')
     records=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
     ips=list(dict.fromkeys(r[4][0] for r in records))
-    if not ips or any(not ipaddress.ip_address(ip).is_global for ip in ips):raise ValueError('Загрузка из локальной/служебной сети запрещена')
+    if not ips or any(not ipaddress.ip_address(ip).is_global for ip in ips):raise ValueError('Downloads from private or reserved networks are blocked')
     path=quote(u.path or '/',safe="/%:@!$&'()*+,;=-._~")
     if u.query:path+='?'+quote(u.query,safe="%=&/:?@!$'()*+,;~-._")
     return host,ips,path
@@ -53,16 +53,16 @@ def open_public(url,job=None):
                 connection.request('GET',path,headers={'User-Agent':'MIMIC/0.4.3 (desktop personal soundboard)','Accept':'audio/*,text/html;q=0.9,*/*;q=0.5'})
                 response=connection.getresponse();break
             except OSError as e:connection.close();error=e
-        else:raise ValueError('Не удалось соединиться с сервером аудио: '+str(error))
+        else:raise ValueError('Could not connect to the audio server: '+str(error))
         if response.status in {301,302,303,307,308}:
             location=response.getheader('Location');response.close();connection.close()
-            if not location:raise ValueError('Пустое перенаправление источника')
+            if not location:raise ValueError('Empty source redirect')
             url=urljoin(url,location);continue
         if response.status<200 or response.status>=300:
             status=response.status;response.close();connection.close()
-            raise ValueError('Источник вернул HTTP '+str(status)+'. Возможно, файл недоступен или требует входа.')
+            raise ValueError('Source returned HTTP '+str(status)+'. The file may be unavailable or require sign-in.')
         return PublicResponse(response,connection,url)
-    raise ValueError('Слишком много перенаправлений источника')
+    raise ValueError('Too many source redirects')
 
 class AudioPage(HTMLParser):
     def __init__(self):super().__init__(convert_charrefs=True);self.primary=[];self.audio=[];self.downloads=[];self.in_audio=False
@@ -80,26 +80,26 @@ class AudioPage(HTMLParser):
         for candidates in [self.primary,self.audio,self.downloads]:
             urls=list(dict.fromkeys(urljoin(base,v.strip()) for v in candidates if v.strip()))
             if not urls:continue
-            if len(urls)>1:raise ValueError('На странице несколько аудиофайлов. Откройте конкретную кнопку/запись, а не общий список.')
+            if len(urls)>1:raise ValueError('This page contains multiple audio files. Open an individual sound.')
             return urls[0]
-        raise ValueError('На странице не найден прямой публичный аудиофайл. Выберите карточку со звуком, вставьте ссылку на MP3 в Discover или добавьте скачанный файл через Soundboard.')
+        raise ValueError('No direct public audio file found. Choose a sound card, paste an MP3 URL in Discover or import a local file in Soundboard.')
 
 def resolve_public_audio(source,job=None):
     page=source.get('page_url','');result=dict(source)
     if view_only(page):
-        raise ValueError('Эта ссылка открывает проигрыватель. Выберите отдельную звуковую страницу в Discover или добавьте файл с компьютера.')
-    if job:job.update(.08,'Checking · ищем публичный аудиофайл (без проверки лицензии)')
+        raise ValueError('This URL opens a player. Choose an individual sound page in Discover or import a local file.')
+    if job:job.update(.08,'Checking · finding a public audio file')
     with open_public(page,job) as response:
         mime=response.headers.get_content_type()
         if mime.startswith('audio/') or urlsplit(response.url).path.lower().endswith(EXTENSIONS):audio=response.url
         else:
             raw=response.read(3*1024*1024+1)
-            if len(raw)>3*1024*1024:raise ValueError('Страница источника слишком большая')
+            if len(raw)>3*1024*1024:raise ValueError('The source page is too large')
             parser=AudioPage();parser.feed(raw.decode(response.headers.get_content_charset() or 'utf-8',errors='replace'));audio=parser.candidate(response.url)
     # Validate now as well as when actually connecting/downloading.
     public_target(audio)
     result.update(download_url=audio,can_import=True,personal_import=True,rights_checked=False,
-                  license=result.get('license') or 'Не проверена · личный тест',reason='Личный тест: проверка прав отключена, источник сохранён.')
+                  license=result.get('license') or 'Unverified · personal test',reason='Personal test import. Source metadata retained.')
     return result
 
 def download_public(url,path,job=None,maximum=100*1024*1024):
@@ -107,16 +107,16 @@ def download_public(url,path,job=None,maximum=100*1024*1024):
     try:
         with open_public(url,job) as response,open(path,'wb') as target:
             length=int(response.headers.get('Content-Length',0) or 0)
-            if length>maximum:raise ValueError(f'Аудиофайл больше {maximum//1048576} МБ')
+            if length>maximum:raise ValueError(f'Audio file exceeds {maximum//1048576} MB')
             while True:
                 if job:job.check()
-                if time.monotonic()>deadline:raise ValueError('Превышено время загрузки')
+                if time.monotonic()>deadline:raise ValueError('Download timed out')
                 data=response.read(128*1024)
                 if not data:break
                 size+=len(data)
-                if size>maximum:raise ValueError(f'Аудиофайл больше {maximum//1048576} МБ')
+                if size>maximum:raise ValueError(f'Audio file exceeds {maximum//1048576} MB')
                 target.write(data)
-                if job:job.update(.2+min(.25,size/max(1,length)*.25),f'Downloading · {size/1048576:.1f} МБ')
-        if not size:raise ValueError('Источник вернул пустой файл')
+                if job:job.update(.2+min(.25,size/max(1,length)*.25),f'Downloading · {size/1048576:.1f} MB')
+        if not size:raise ValueError('Source returned an empty file')
         return size
     except Exception:path.unlink(missing_ok=True);raise

@@ -66,17 +66,17 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         app.setActivationPolicy(.regular)
         let menu=NSMenu(); let item=NSMenuItem(); menu.addItem(item)
         let sub=NSMenu()
-        sub.addItem(withTitle:"О VUPIO",action:#selector(NSApplication.orderFrontStandardAboutPanel(_:)),keyEquivalent:"")
+        sub.addItem(withTitle:"About VUPIO",action:#selector(NSApplication.orderFrontStandardAboutPanel(_:)),keyEquivalent:"")
         sub.addItem(NSMenuItem.separator())
-        sub.addItem(withTitle:"Выйти из VUPIO",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q"); item.submenu=sub; app.mainMenu=menu
-        let editItem=NSMenuItem(title:"Правка",action:nil,keyEquivalent:"");let editMenu=NSMenu(title:"Правка")
-        editMenu.addItem(withTitle:"Вырезать",action:#selector(NSText.cut(_:)),keyEquivalent:"x")
-        editMenu.addItem(withTitle:"Копировать",action:#selector(NSText.copy(_:)),keyEquivalent:"c")
-        editMenu.addItem(withTitle:"Вставить",action:#selector(NSText.paste(_:)),keyEquivalent:"v")
-        editMenu.addItem(withTitle:"Выделить всё",action:#selector(NSText.selectAll(_:)),keyEquivalent:"a")
+        sub.addItem(withTitle:"Quit VUPIO",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q"); item.submenu=sub; app.mainMenu=menu
+        let editItem=NSMenuItem(title:"Edit",action:nil,keyEquivalent:"");let editMenu=NSMenu(title:"Edit")
+        editMenu.addItem(withTitle:"Cut",action:#selector(NSText.cut(_:)),keyEquivalent:"x")
+        editMenu.addItem(withTitle:"Copy",action:#selector(NSText.copy(_:)),keyEquivalent:"c")
+        editMenu.addItem(withTitle:"Paste",action:#selector(NSText.paste(_:)),keyEquivalent:"v")
+        editMenu.addItem(withTitle:"Select All",action:#selector(NSText.selectAll(_:)),keyEquivalent:"a")
         editItem.submenu=editMenu;menu.addItem(editItem)
         window=NSWindow(contentRect:NSRect(x:0,y:0,width:1200,height:820),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
-        window.title="VUPIO Alpha v0.4.3 · запуск…"
+        window.title="VUPIO Alpha v0.4.3 · starting…"
         window.minSize=NSSize(width:660,height:490)
         window.appearance=NSAppearance(named:.darkAqua)
         window.backgroundColor=NSColor(srgbRed:23/255.0,green:25/255.0,blue:29/255.0,alpha:1)
@@ -88,7 +88,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         web.navigationDelegate=self;web.uiDelegate=self
         web.underPageBackgroundColor=window.backgroundColor
         web.autoresizingMask=[.width,.height]; web.isHidden=true
-        statusLabel=NSTextField(wrappingLabelWithString:"Запускаем локальный сервер VUPIO…")
+        statusLabel=NSTextField(wrappingLabelWithString:"Starting the VUPIO local server…")
         statusLabel.frame=NSRect(x:60,y:300,width:1000,height:280)
         statusLabel.autoresizingMask=[.width,.minYMargin,.maxYMargin]
         statusLabel.font=NSFont.systemFont(ofSize:18)
@@ -132,7 +132,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
             let data=handle.availableData
             if data.isEmpty { return }
             let text=String(data:data,encoding:.utf8) ?? ""
-            DispatchQueue.main.async { self.errorBuffer += text; self.statusLabel.stringValue="Запуск сервера…\n"+self.errorBuffer }
+            DispatchQueue.main.async { self.errorBuffer += text; self.statusLabel.stringValue="Starting server…\n"+self.errorBuffer }
         }
         process=proc
         pipe.fileHandleForReading.readabilityHandler = { handle in
@@ -152,11 +152,11 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         }
         proc.terminationHandler = { _ in DispatchQueue.main.async {
             self.web.isHidden=true; self.statusLabel.isHidden=false
-            self.window.title="VUPIO · сервер остановлен"
-            self.statusLabel.stringValue="Сервер VUPIO остановлен.\n"+self.errorBuffer+"\nЗакройте приложение. Подробности: запустите scripts/start.sh в Терминале."
+            self.window.title="VUPIO · server stopped"
+            self.statusLabel.stringValue="The VUPIO server stopped.\n"+self.errorBuffer+"\nClose the app. For details, run scripts/start.sh in Terminal."
         }}
         do { try proc.run() } catch {
-            statusLabel.stringValue="Не удалось запустить сервер:\n"+error.localizedDescription
+            statusLabel.stringValue="Could not start the server:\n"+error.localizedDescription
         }
         launchTimer=Timer.scheduledTimer(withTimeInterval:0.2,repeats:true) { timer in
             if self.interfaceLoaded { timer.invalidate(); return }
@@ -200,7 +200,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     func webView(_ webView:WKWebView,runJavaScriptConfirmPanelWithMessage message:String,initiatedByFrame frame:WKFrameInfo,completionHandler:@escaping(Bool)->Void){
         guard trusted(frame.request.url) else{completionHandler(false);return}
         let alert=NSAlert();alert.messageText=message
-        alert.addButton(withTitle:"Продолжить");alert.addButton(withTitle:"Отмена")
+        alert.addButton(withTitle:"Continue");alert.addButton(withTitle:"Cancel")
         alert.beginSheetModal(for:window){completionHandler($0 == .alertFirstButtonReturn)}
     }
     func webView(_ webView:WKWebView,runOpenPanelWith parameters:WKOpenPanelParameters,initiatedByFrame frame:WKFrameInfo,completionHandler:@escaping([URL]?)->Void) {
@@ -209,7 +209,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         panel.canChooseDirectories=false
         panel.allowsMultipleSelection=parameters.allowsMultipleSelection
         panel.allowedContentTypes=[.audio,.mpeg4Movie]+["ogg","opus","flac","m4a","webm"].compactMap{UTType(filenameExtension:$0)}
-        panel.message="Выберите аудиофайл для библиотеки VUPIO."
+        panel.message="Choose an audio file for your VUPIO library."
         panel.beginSheetModal(for:window){result in completionHandler(result == .OK ? panel.urls : nil)}
     }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
@@ -230,7 +230,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         let packages=["installDriver":"MIMIC-Audio-0.3.pkg","uninstallDriver":"MIMIC-Audio-Uninstall-0.3.pkg"]
         guard let name=packages[action] else{return}
         guard let url=Bundle.main.resourceURL?.appendingPathComponent("Audio/"+name),FileManager.default.fileExists(atPath:url.path),NSWorkspace.shared.open(url) else{
-            web.callAsyncJavaScript("window.mimicNativeError(message)",arguments:["message":"Установщик недоступен. Откройте полную сборку VUPIO."],in:nil,in:.page,completionHandler:nil)
+            web.callAsyncJavaScript("window.mimicNativeError(message)",arguments:["message":"The installer is unavailable. Open a full VUPIO build."],in:nil,in:.page,completionHandler:nil)
             return
         }
     }
@@ -245,26 +245,26 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         guard let folder = Bundle.main.object(forInfoDictionaryKey: "VUPIOLocalUpdateFolder") as? String,
               let value = Bundle.main.object(forInfoDictionaryKey: "VUPIOLocalUpdatePublicKey") as? String,
               let key = Data(base64Encoded: value), let build = LocalUpdate.version(of: installed) else {
-            updateStatus("У этой сборки нет локального канала обновлений.")
+            updateStatus("This build has no local update channel configured.")
             return
         }
         let channel = URL(fileURLWithPath: folder, isDirectory: true)
-        updateStatus("Проверяем локальный канал…", busy: true)
+        updateStatus("Checking the local channel…", busy: true)
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let release = try LocalRelease.verified(in: channel, publicKey: key)
                 DispatchQueue.main.async {
                     guard let release, release.build > build else {
-                        self.updateStatus("Установлена актуальная локальная сборка · " + String(build))
+                        self.updateStatus("Your local build is up to date · " + String(build))
                         return
                     }
                     let alert = NSAlert()
-                    alert.messageText = "Доступна сборка VUPIO " + String(release.build)
-                    alert.informativeText = "VUPIO обновится и перезапустится. Если вы редактируете звук, сохраните его перед обновлением."
-                    alert.addButton(withTitle: "Обновить и перезапустить")
-                    alert.addButton(withTitle: "Позже")
+                    alert.messageText = "VUPIO build available " + String(release.build)
+                    alert.informativeText = "VUPIO will update and restart. Save any audio edits before updating."
+                    alert.addButton(withTitle: "Update and restart")
+                    alert.addButton(withTitle: "Later")
                     alert.beginSheetModal(for: self.window) { response in
-                        guard response == .alertFirstButtonReturn else { self.updateStatus("Обновление отложено."); return }
+                        guard response == .alertFirstButtonReturn else { self.updateStatus("Update postponed."); return }
                         self.applyLocalUpdate(release, channel: channel, installed: installed)
                     }
                 }
@@ -275,7 +275,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     }
 
     func applyLocalUpdate(_ release: LocalRelease, channel: URL, installed: URL) {
-        updateStatus("Подготавливаем и проверяем сборку…", busy: true)
+        updateStatus("Preparing and verifying the build…", busy: true)
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let staged = try LocalUpdate.stage(release, channel: channel, installed: installed)
@@ -299,7 +299,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
             retryCount += 1
             DispatchQueue.main.asyncAfter(deadline:.now()+0.5) { webView.reload() }
         } else {
-            let alert=NSAlert(); alert.messageText="Не удалось открыть интерфейс VUPIO"; alert.informativeText=error.localizedDescription; alert.runModal()
+            let alert=NSAlert(); alert.messageText="Could not open the VUPIO interface"; alert.informativeText=error.localizedDescription; alert.runModal()
         }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication)->Bool { true }

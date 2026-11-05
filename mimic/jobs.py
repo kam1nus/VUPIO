@@ -16,7 +16,7 @@ class Job:
         self.cancelled = threading.Event()
     def check(self):
         if self.cancelled.is_set() or self.owner.closed.is_set():
-            raise Cancelled('Операция отменена')
+            raise Cancelled('Operation cancelled')
     def update(self, progress, message):
         self.check()
         with self.owner.library.db() as db:
@@ -34,16 +34,16 @@ class Jobs:
             db.execute('''CREATE TABLE IF NOT EXISTS ai_jobs
                 (id TEXT PRIMARY KEY, kind TEXT, status TEXT, progress REAL,
                  message TEXT, result TEXT, error TEXT, created REAL, updated REAL)''')
-            db.execute("UPDATE ai_jobs SET status='cancelled', error='Приложение было закрыто' WHERE status IN ('queued','running')")
+            db.execute("UPDATE ai_jobs SET status='cancelled', error='The app was closed' WHERE status IN ('queued','running')")
         self.worker=threading.Thread(target=self._run,daemon=True,name='MIMIC-AI')
         self.worker.start()
     def submit(self, kind, function):
-        if self.queue.full(): raise ValueError('Очередь заполнена. Дождитесь завершения задач.')
+        if self.queue.full(): raise ValueError('Task queue full. Wait for tasks to finish.')
         id=uuid.uuid4().hex
         job=Job(self,id)
         with self.library.db() as db:
             db.execute('INSERT INTO ai_jobs VALUES (?,?,?,?,?,?,?,?,?)',
-                       (id,kind,'queued',0,'В очереди','{}','',time.time(),time.time()))
+                       (id,kind,'queued',0,'Queued','{}','',time.time(),time.time()))
         self.active[id]=job
         self.queue.put_nowait((job,function))
         return {'job_id':id}
@@ -57,7 +57,7 @@ class Jobs:
                 result=fn(job)
                 job.check()
                 with self.library.db() as db:
-                    db.execute("UPDATE ai_jobs SET status='done',progress=1,message='Готово',result=?,updated=? WHERE id=?",
+                    db.execute("UPDATE ai_jobs SET status='done',progress=1,message='Done',result=?,updated=? WHERE id=?",
                                (json.dumps(result,ensure_ascii=False),time.time(),job.id))
             except Exception as e:
                 status='cancelled' if isinstance(e,Cancelled) else 'failed'
@@ -75,7 +75,7 @@ class Jobs:
         return [dict(dict(r),result=json.loads(r['result']) if include_results else {}) for r in rows]
     def get(self,id):
         with self.library.db() as db:row=db.execute('SELECT * FROM ai_jobs WHERE id=?',(id,)).fetchone()
-        if not row:raise ValueError('Задача не найдена')
+        if not row:raise ValueError('Task not found')
         return dict(dict(row),result=json.loads(row['result']))
     def close(self):
         self.closed.set()

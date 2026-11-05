@@ -125,7 +125,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(('volume',{'value':.42}),replacement.calls)
         self.assertNotIn('mic',[op for op,_ in replacement.calls])
     def test_preview_volume_survives_a_stopped_audio_helper(self):
-        with patch.object(self.audio, 'command', side_effect=ValueError('Аудиоустройство не отвечает')):
+        with patch.object(self.audio, 'command', side_effect=ValueError('\u0410\u0443\u0434\u0438\u043e\u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u043e \u043d\u0435 \u043e\u0442\u0432\u0435\u0447\u0430\u0435\u0442')):
             status, result, _ = self.req('/api/volume', {'value': .24}, self.admin)
             self.assertEqual(status, 200)
             self.assertEqual(result['volume'], .24)
@@ -194,13 +194,13 @@ class ServerTests(unittest.TestCase):
         self.assertIn(('output',{'device':42,'start':False}),audio.calls)
         self.assertNotIn('mic',[op for op,_ in audio.calls])
     def test_library_still_loads_after_audio_disconnect(self):
-        with patch.object(self.audio,'command',side_effect=ValueError('Аудиодвижок остановлен')):
+        with patch.object(self.audio,'command',side_effect=ValueError('\u0410\u0443\u0434\u0438\u043e\u0434\u0432\u0438\u0436\u043e\u043a \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d')):
             status,body,_=self.req('/api/state',token=self.admin)
             self.assertEqual(status,200);self.assertEqual(body['items'],[])
-            self.assertFalse(body['audio']['running']);self.assertIn('остановлен',body['audio']['error'])
+            self.assertFalse(body['audio']['running']);self.assertIn('\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d',body['audio']['error'])
     def test_semantic_explicitly_needs_model(self):
         with patch.dict(os.environ,{},clear=True):
-            status,body,_=self.req('/api/search',{'query':'гора','semantic':True},self.remote)
+            status,body,_=self.req('/api/search',{'query':'\u0433\u043e\u0440\u0430','semantic':True},self.remote)
         self.assertEqual(status,400);self.assertIn('MIMIC_EMBED_MODEL',body['error'])
 
 
@@ -209,14 +209,14 @@ class AudioFileTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
         self.lib=Library(self.root/'library');self.source=self.root/'tone.wav';tone(self.source)
-        self.item=self.lib.import_file(self.source,'Тестовая гора','Эффекты','аура, эпично','Вид с вершины')
+        self.item=self.lib.import_file(self.source,'\u0422\u0435\u0441\u0442\u043e\u0432\u0430\u044f \u0433\u043e\u0440\u0430','\u042d\u0444\u0444\u0435\u043a\u0442\u044b','\u0430\u0443\u0440\u0430, \u044d\u043f\u0438\u0447\u043d\u043e','\u0412\u0438\u0434 \u0441 \u0432\u0435\u0440\u0448\u0438\u043d\u044b')
     def tearDown(self):self.tmp.cleanup()
     def test_import_format_persistence_and_search(self):
         self.assertAlmostEqual(self.item['duration'],2,places=2)
         with wave.open(str(self.lib.path(self.item['id']))) as f:
             self.assertEqual((f.getnchannels(),f.getframerate()),(2,48000))
-        self.assertEqual(Library(self.lib.root).items()[0]['title'],'Тестовая гора')
-        self.assertEqual(self.lib.search('аура')['items'][0]['id'],self.item['id'])
+        self.assertEqual(Library(self.lib.root).items()[0]['title'],'\u0422\u0435\u0441\u0442\u043e\u0432\u0430\u044f \u0433\u043e\u0440\u0430')
+        self.assertEqual(self.lib.search('\u0430\u0443\u0440\u0430')['items'][0]['id'],self.item['id'])
     def test_trim_original_preserved(self):
         result=self.lib.prepare({'id':self.item['id'],'start':.3,'end':1.4,'normalize':True})
         self.assertNotEqual(result['id'],self.item['id']);self.assertEqual(len(self.lib.items()),2)
@@ -228,7 +228,7 @@ class AudioFileTests(unittest.TestCase):
         for start,end in [(-1,1),(1,0),(0,99),(float('nan'),2)]:
             with self.assertRaises(ValueError):self.lib.prepare({'id':self.item['id'],'start':start,'end':end})
     def test_edit_favorite_delete(self):
-        id=self.item['id'];self.lib.edit(id,{'favorite':True,'title':'Новое'})
+        id=self.item['id'];self.lib.edit(id,{'favorite':True,'title':'\u041d\u043e\u0432\u043e\u0435'})
         self.assertEqual(self.lib.get(id)['favorite'],1)
         path=self.lib.path(id);self.lib.delete(id)
         self.assertFalse(path.exists());self.assertTrue(self.source.exists())
@@ -237,33 +237,33 @@ class AudioFileTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.lib.import_file(invalid,'Bad')
         self.assertEqual(len(list(self.lib.files.iterdir())),1)
     def test_embedding_api_ranking_and_cache(self):
-        other=self.lib.import_file(self.source,'Смешной провал','Мемы')
+        other=self.lib.import_file(self.source,'\u0421\u043c\u0435\u0448\u043d\u043e\u0439 \u043f\u0440\u043e\u0432\u0430\u043b','\u041c\u0435\u043c\u044b')
         calls=[]
         def fake_open(request,timeout):
             text=json.loads(request.data)['input'];calls.append(text)
-            vector=[1,0] if ('вершины' in text or text=='красивый пейзаж') else [0,1]
+            vector=[1,0] if ('\u0432\u0435\u0440\u0448\u0438\u043d\u044b' in text or text=='\u043a\u0440\u0430\u0441\u0438\u0432\u044b\u0439 \u043f\u0435\u0439\u0437\u0430\u0436') else [0,1]
             return io.BytesIO(json.dumps({'embeddings':[vector]}).encode())
         with patch.dict(os.environ,{'MIMIC_EMBED_MODEL':'test-local'}), patch('mimic.library.urlopen',side_effect=fake_open):
-            result=self.lib.search('красивый пейзаж',True)
+            result=self.lib.search('\u043a\u0440\u0430\u0441\u0438\u0432\u044b\u0439 \u043f\u0435\u0439\u0437\u0430\u0436',True)
             self.assertEqual(result['items'][0]['id'],self.item['id'])
-            self.lib.search('красивый пейзаж',True)
+            self.lib.search('\u043a\u0440\u0430\u0441\u0438\u0432\u044b\u0439 \u043f\u0435\u0439\u0437\u0430\u0436',True)
         self.assertEqual(len(calls),3)
 
 
 class StudioTests(unittest.TestCase):
     def test_fragment(self):
-        r=select_fragment('эта аура',[{'start':1,'end':3,'text':'ну вот эта аура'}])
+        r=select_fragment('\u044d\u0442\u0430 \u0430\u0443\u0440\u0430',[{'start':1,'end':3,'text':'\u043d\u0443 \u0432\u043e\u0442 \u044d\u0442\u0430 \u0430\u0443\u0440\u0430'}])
         self.assertEqual((r['start'],r['end']),(1,3))
-        with self.assertRaises(ValueError):select_fragment('нет',[])
+        with self.assertRaises(ValueError):select_fragment('\u043d\u0435\u0442',[])
     def test_suggest(self):
-        self.assertEqual(suggest('Эпичная гора')['tags'],'эпичная, гора')
+        self.assertEqual(suggest('\u042d\u043f\u0438\u0447\u043d\u0430\u044f \u0433\u043e\u0440\u0430')['tags'],'\u044d\u043f\u0438\u0447\u043d\u0430\u044f, \u0433\u043e\u0440\u0430')
     def test_catalog_license_and_https(self):
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'sources.json'
-            path.write_text(json.dumps([{'title':'гора','page_url':'https://example.com','license':'CC0'},
-                                        {'title':'гора','page_url':'javascript:alert(1)','license':'CC0'},
-                                        {'title':'гора','page_url':'https://example.com'}]))
-            self.assertEqual(len(LicensedCatalog(path).search('гора')),1)
+            path.write_text(json.dumps([{'title':'\u0433\u043e\u0440\u0430','page_url':'https://example.com','license':'CC0'},
+                                        {'title':'\u0433\u043e\u0440\u0430','page_url':'javascript:alert(1)','license':'CC0'},
+                                        {'title':'\u0433\u043e\u0440\u0430','page_url':'https://example.com'}]))
+            self.assertEqual(len(LicensedCatalog(path).search('\u0433\u043e\u0440\u0430')),1)
 
 
 if __name__=='__main__':unittest.main()

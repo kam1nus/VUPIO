@@ -15,27 +15,27 @@ from test_mimic import tone
 
 class EditorTests(unittest.TestCase):
     def test_russian_and_english_operations(self):
-        for text in ['Обрежь первые пять секунд','remove first five seconds']:
+        for text in ['\u041e\u0431\u0440\u0435\u0436\u044c \u043f\u0435\u0440\u0432\u044b\u0435 \u043f\u044f\u0442\u044c \u0441\u0435\u043a\u0443\u043d\u0434','remove first five seconds']:
             plan=make_plan(parse_rule(text),20)
             self.assertEqual(plan['start'],5)
-        plan=make_plan(parse_rule('Убери тишину, сделай громкость ровнее и плавное окончание'),20)
+        plan=make_plan(parse_rule('\u0423\u0431\u0435\u0440\u0438 \u0442\u0438\u0448\u0438\u043d\u0443, \u0441\u0434\u0435\u043b\u0430\u0439 \u0433\u0440\u043e\u043c\u043a\u043e\u0441\u0442\u044c \u0440\u043e\u0432\u043d\u0435\u0435 \u0438 \u043f\u043b\u0430\u0432\u043d\u043e\u0435 \u043e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u0435'),20)
         self.assertTrue(plan['silence']);self.assertTrue(plan['normalize']);self.assertEqual(plan['fade_out'],.5)
     def test_phrase_timing_and_tail(self):
-        segments=[{'start':1,'end':2,'text':'Ну'},{'start':2,'end':3,'text':'вот'},{'start':3,'end':4,'text':'эта аура'},{'start':5,'end':6,'text':'погнали'}]
-        plan=make_plan(parse_rule('Оставь три секунды после нужной реплики','эта аура'),10,segments)
+        segments=[{'start':1,'end':2,'text':'\u041d\u0443'},{'start':2,'end':3,'text':'\u0432\u043e\u0442'},{'start':3,'end':4,'text':'\u044d\u0442\u0430 \u0430\u0443\u0440\u0430'},{'start':5,'end':6,'text':'\u043f\u043e\u0433\u043d\u0430\u043b\u0438'}]
+        plan=make_plan(parse_rule('\u041e\u0441\u0442\u0430\u0432\u044c \u0442\u0440\u0438 \u0441\u0435\u043a\u0443\u043d\u0434\u044b \u043f\u043e\u0441\u043b\u0435 \u043d\u0443\u0436\u043d\u043e\u0439 \u0440\u0435\u043f\u043b\u0438\u043a\u0438','\u044d\u0442\u0430 \u0430\u0443\u0440\u0430'),10,segments)
         self.assertEqual((plan['start'],plan['end']),(4,7))
-        keep=make_plan(parse_rule('Оставь фразу и три секунды после','эта аура'),10,segments)
+        keep=make_plan(parse_rule('\u041e\u0441\u0442\u0430\u0432\u044c \u0444\u0440\u0430\u0437\u0443 \u0438 \u0442\u0440\u0438 \u0441\u0435\u043a\u0443\u043d\u0434\u044b \u043f\u043e\u0441\u043b\u0435','\u044d\u0442\u0430 \u0430\u0443\u0440\u0430'),10,segments)
         self.assertEqual((keep['start'],keep['end']),(3,7))
     def test_no_invented_phrase(self):
-        with self.assertRaises(ValueError):phrase_span('несуществующая реплика',[{'start':0,'end':1,'text':'проверка'}])
+        with self.assertRaises(ValueError):phrase_span('\u043d\u0435\u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044e\u0449\u0430\u044f \u0440\u0435\u043f\u043b\u0438\u043a\u0430',[{'start':0,'end':1,'text':'\u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430'}])
     def test_unknown_command_and_invalid_time(self):
-        self.assertIsNone(parse_rule('сделай необычное'))
+        self.assertIsNone(parse_rule('\u0441\u0434\u0435\u043b\u0430\u0439 \u043d\u0435\u043e\u0431\u044b\u0447\u043d\u043e\u0435'))
         with self.assertRaises(ValueError):make_plan({'operation':'trim','start':float('nan'),'end':2},3)
         with self.assertRaises(ValueError):make_plan({'operation':'remove_first','seconds':99},3)
     def test_drop_is_only_energy_candidate(self):
-        plan=make_plan(parse_rule('Найди момент перед дропом'),10,features={'onsets':[{'time':6,'strength':.2}]})
+        plan=make_plan(parse_rule('\u041d\u0430\u0439\u0434\u0438 \u043c\u043e\u043c\u0435\u043d\u0442 \u043f\u0435\u0440\u0435\u0434 \u0434\u0440\u043e\u043f\u043e\u043c'),10,features={'onsets':[{'time':6,'strength':.2}]})
         self.assertEqual((plan['start'],plan['end']),(3,6));self.assertIn('warning',plan)
-        with self.assertRaises(ValueError):make_plan(parse_rule('перед дропом'),10,features={'onsets':[]})
+        with self.assertRaises(ValueError):make_plan(parse_rule('\u043f\u0435\u0440\u0435\u0434 \u0434\u0440\u043e\u043f\u043e\u043c'),10,features={'onsets':[]})
 
 
 class CatalogTests(unittest.TestCase):
@@ -89,7 +89,7 @@ class StudioFilesTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
         self.library=Library(self.root/'library');source=self.root/'tone.wav';tone(source)
-        self.item=self.library.import_file(source,'Оригинал','Effect')
+        self.item=self.library.import_file(source,'\u041e\u0440\u0438\u0433\u0438\u043d\u0430\u043b','Effect')
         self.studio=Studio(self.library,'/usr/bin/true')
         class Job:
             def check(self):pass
@@ -99,7 +99,7 @@ class StudioFilesTests(unittest.TestCase):
     def test_render_commit_idempotent_and_undo_preserves_original(self):
         draft=self.studio.render({'id':self.item['id'],'start':.2,'end':1.5,'normalize':True,'fade_out':.2},self.job)
         _,path=self.studio.draft(draft['draft_id']);self.assertTrue(path.exists())
-        with patch.object(self.studio,'metadata',return_value={'title':'Копия','tags':'тест','category':'Effect'}):
+        with patch.object(self.studio,'metadata',return_value={'title':'\u041a\u043e\u043f\u0438\u044f','tags':'\u0442\u0435\u0441\u0442','category':'Effect'}):
             result=self.studio.commit({'draft_id':draft['draft_id']},self.job)
             again=self.studio.commit({'draft_id':draft['draft_id']},self.job)
         self.assertEqual(result['item']['id'],again['item']['id']);self.assertEqual(len(self.library.items()),2)
@@ -115,7 +115,7 @@ class StudioFilesTests(unittest.TestCase):
         usable={'source_id':'commons:2','can_import':True}
         with patch.object(self.studio.models,'generate',return_value={'search_terms':'electronic signal short'}), \
              patch.object(self.studio.catalog,'search',side_effect=[[blocked],[usable,blocked]]) as search:
-            result=self.studio.search({'query':'короткий сигнал','local':False,'external':True},self.job)
+            result=self.studio.search({'query':'\u043a\u043e\u0440\u043e\u0442\u043a\u0438\u0439 \u0441\u0438\u0433\u043d\u0430\u043b','local':False,'external':True},self.job)
         self.assertEqual(search.call_args.args[0],'electronic OR signal')
         self.assertEqual(result['external'],[usable,blocked])
         self.assertTrue(result['warnings'])
@@ -123,7 +123,7 @@ class StudioFilesTests(unittest.TestCase):
         license=json.dumps({'license':'CC BY-SA 4.0','author':'Author '*300,'page_url':'https://commons.wikimedia.org/wiki/File:Example.wav'})
         self.library.edit(self.item['id'],{'license':license})
         draft=self.studio.render({'id':self.item['id'],'start':0,'end':1},self.job)
-        with patch.object(self.studio,'metadata',return_value={'title':'Копия','tags':'тест','category':'Effect'}):
+        with patch.object(self.studio,'metadata',return_value={'title':'\u041a\u043e\u043f\u0438\u044f','tags':'\u0442\u0435\u0441\u0442','category':'Effect'}):
             result=self.studio.commit({'draft_id':draft['draft_id']},self.job)
         self.assertEqual(result['item']['license'],license)
     def test_subframe_audio_features_keep_real_duration(self):

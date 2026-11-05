@@ -1,64 +1,81 @@
 # VUPIO
 
-## Скачать VUPIO Alpha 4044
+A local soundboard, audio editor and wireless phone remote for macOS and Windows.
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/VUPIO-Windows-x64-Setup.exe)** · **[↓ Mac с Apple Silicon (macOS 26+)](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/VUPIO-macOS-AppleSilicon.pkg)**
+## Download VUPIO Alpha 4044
 
-Скачайте установщик для своей системы и откройте его. [Что нового в 4044](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4044) · [Контрольные суммы SHA-256](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/SHA256SUMS.txt)
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/VUPIO-macOS-AppleSilicon.pkg)**
 
-Локальный саундборд, редактор аудио и пульт для телефона. Проект вырос из MIMIC. Существующая библиотека MIMIC на Mac остаётся в прежней папке.
+Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4044) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4044/SHA256SUMS.txt)
 
-## Обновления
+## Updates
 
-**[Все релизы и список изменений](https://github.com/kam1nus/VUPIO/releases)**
+Open **Updates → Check for updates** in VUPIO to find the latest installer for your platform. Published previews are also available in [GitHub Releases](https://github.com/kam1nus/VUPIO/releases).
 
-В VUPIO откройте **Обновления → Проверить обновления**. Приложение покажет доступную сборку для вашей платформы и ссылку на установщик.
+The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote, Updates and Settings. Search queries, meme names and imported metadata can use their original languages. Search quality depends on the model and available sources.
 
-В сборке 4044 появился **Trend Radar** с региональными подборками. Мем-звуки проверяются и подгружаются заранее, недоступные записи заменяются следующими в чарте. Кнопка **Add** добавляет готовый звук в Soundboard.
+## Features
 
-## Сборки
+- Soundboard library with search, categories, favorites, card-triggered playback, volume, STOP and PANIC.
+- Discover searches the web and your local library with natural-language queries. Original queries and names are preserved, with optional English keyword expansion from the local AI model.
+- Studio shows the actual audio waveform and supports trim, silence removal, normalization, fades, speech transcription, AI commands and preview before saving.
+- Trend Radar provides regional meme charts and music charts. Meme sounds are checked and preloaded before appearing, unavailable files are skipped, and Add saves the same audio you previewed.
+- Remote pairs an iPhone or another browser with a QR code and one-time code on your local network.
+- Settings includes audio routing, microphone diagnostics, models, tasks and optional search API configuration.
 
-| Платформа | Установщик | Что входит |
-| --- | --- | --- |
-| macOS 26+, Apple Silicon | `VUPIO-macOS-AppleSilicon.pkg` | Приложение, драйвер MIMIC Microphone, FFmpeg, llama.cpp, whisper.cpp и три модели |
-| Windows 11 x64 | `VUPIO-Windows-x64-Setup.exe` | Приложение, FFmpeg, llama.cpp, whisper.cpp и три модели. При необходимости установщик скачает подписанный Microsoft Visual C++ Runtime |
+Full installers include FFmpeg, llama.cpp, whisper.cpp, Qwen2.5 Instruct, Qwen3 Embedding and multilingual Whisper Base. Local AI features work without Python, Ollama or API keys. Web search uses Tavily with service limits. Add an optional Tavily key in **Settings → Advanced** if needed.
 
-В комплект входят модели Qwen2.5 0.5B Instruct для команд, Qwen3 Embedding 0.6B для смыслового поиска и Whisper Base для распознавания речи. Они проверяются по SHA-256 при сборке и при первом использовании. Для этих функций интернет, Python, Ollama и ключи API не нужны. Интернет-поиск по-прежнему использует внешний поисковый сервис с отдельными лимитами.
+These are Alpha preview installers. The Mac app is ad-hoc signed without Apple notarization. The Windows installer has no Authenticode signature.
 
-**Статус Alpha.** Установщики предназначены для тестирования. Пакет macOS без нотарификации Apple, установщик Windows без Authenticode. На Windows мастер VUPIO предлагает скачать драйвер напрямую у VB-Audio, проверяет хеш ZIP и цифровую подпись, затем открывает окно производителя. Пользователь подтверждает установку в этом окне.
+## Mac setup
 
-## Проверка
+1. Close VUPIO, open the PKG and follow the installer.
+2. Restart your Mac after the first driver installation, then open VUPIO in Applications.
+3. In Discord **Voice & Video**, select **MIMIC Microphone** as input and your headphones as output.
+4. In VUPIO, select your physical microphone and enable it to mix your voice with clips. Grant microphone access when macOS asks.
+5. Start Discord Mic Test and trigger a sound in Soundboard. Stop Mic Test afterward to end voice playback.
 
-### Mac
+MIMIC Microphone keeps its existing device name for compatibility with saved Discord settings. Your library and preferences are stored in `~/Library/Application Support/MIMIC`.
 
-1. Закройте MIMIC, если он запущен. Откройте PKG и подтвердите установку.
-2. Перезагрузите Mac для регистрации устройства. Откройте VUPIO в «Программах».
-3. В Discord выберите **MIMIC Microphone** как вход, а наушники как выход.
-4. В VUPIO включите физический микрофон, если хотите передавать голос. Подтвердите разрешение macOS при запросе.
-5. В Discord запустите проверку микрофона и нажмите карточку в Soundboard.
+## Windows setup
 
-Локальная Alpha-сборка имеет подпись для разработки. Для обычной публичной установки с проверкой Apple нужны Developer ID Application, Developer ID Installer и нотарификация. Тестовый PKG сам не меняет устройство Discord.
+1. Run `VUPIO-Windows-x64-Setup.exe`. Keep the small VUPIO launcher window open while using the browser interface.
+2. For Discord routing, select **Download VB-CABLE** during setup. The installer downloads it from VB-Audio, checks the archive hash and vendor signature, then opens the vendor installer. Confirm installation there and restart Windows.
+3. In VUPIO **Settings → Audio devices**, select **CABLE Input** as output and your physical microphone as input.
+4. In Discord, select **CABLE Output** as input and your headphones as output.
+5. Enable clip monitoring in VUPIO if you want to hear the soundboard. Keep Windows **Listen to this device** disabled to avoid doubled audio.
 
-### Windows
+Windows uses WASAPI. Speech transcription, waveform editing, energy-based highlights and semantic search are available on both platforms. Core Audio and Apple SoundAnalysis diagnostics run on Mac. Windows data is stored in `%LOCALAPPDATA%\MIMIC`.
 
-1. Запустите `VUPIO-Windows-x64-Setup.exe`. Приложение откроет Soundboard в браузере. Оставьте небольшое окно VUPIO открытым.
-2. Для Discord отметьте в мастере **«Скачать VB-CABLE»**, подтвердите установку в окне VB-Audio и перезагрузите Windows. При необходимости можно отдельно взять [установщик производителя](https://vb-audio.com/Cable/).
-3. Откройте VUPIO. В **Settings → Audio Devices** выберите **CABLE Input** как выход, а свой физический микрофон как вход. Включите микрофон в VUPIO, если хотите передавать голос.
-4. В Discord выберите **CABLE Output** как вход и физические наушники как выход. Если нужно одновременно слышать мемы, включите мониторинг клипов в VUPIO на наушники.
-5. Проверьте голос и клипы через Discord Mic Test. В обычном звонке держите **Listen to this device** в настройках Windows выключенным, чтобы избежать двойного звука.
+## Phone remote
 
-Windows использует WASAPI. Предпрослушивание играет в браузере, обычное нажатие на карточку передаёт звук в выбранный аудиовыход. Apple SoundAnalysis и специальные тесты Core Audio работают на Mac. Windows сохраняет распознавание Whisper, измерение звуковой волны, выбор по энергии и текстовый поиск.
+Connect your computer and phone to the same trusted local network. Open **Remote**, create a pairing code and scan the QR with the phone camera. Open the link in Safari and enter the code. Use **Share → Add to Home Screen** for quick access.
 
-### Пульт
+On Windows, allow VUPIO through the firewall on private networks. Keep router port forwarding disabled.
 
-Откройте **Remote** на компьютере, создайте QR и одноразовый код. На iPhone в той же локальной сети откройте QR в Safari, введите код и нажмите карточку. Для Windows разрешайте сетевой доступ только в частной сети. При переходе между Wi‑Fi и Ethernet перезапустите VUPIO. Проброс порта в интернет не нужен.
+## Build from source
 
-## Сборка разработчиком
+Use **Actions → VUPIO preview installers → Run workflow** on GitHub. Enable **Publish** to create a prerelease after both platform builds succeed.
 
-В GitHub откройте **Actions → VUPIO preview installers → Run workflow**. Артефакты сборки появятся на странице прогона. Включите параметр **Publish** для публикации тестового релиза после успешной сборки обеих платформ.
+For Mac, install FFmpeg and CMake, create a Python environment, then build:
 
-- Mac Apple Silicon: `brew install ffmpeg cmake`, `python3 -m venv .venv`, `.venv/bin/python -m pip install -r requirements.txt pyinstaller==6.22.3`, затем `MIMIC_BUNDLE_MODELS=1 ./scripts/package.sh` и `./scripts/package_installer.sh`. Для подписанной сборки задайте `MIMIC_APP_SIGN_IDENTITY`, `MIMIC_INSTALLER_SIGN_IDENTITY` и `MIMIC_NOTARY_PROFILE`.
-- Windows 11 x64: Python 3.14 и Inno Setup 6 требуются на машине сборки. Выполните `python -m pip install -r requirements-windows.txt`, затем `pwsh -File scripts/package_windows.ps1`.
-- Результаты попадают в `build/releases`. Локальные данные хранятся в `~/Library/Application Support/MIMIC` и `%LOCALAPPDATA%\MIMIC`.
+```sh
+brew install ffmpeg cmake
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt pyinstaller==6.22.3
+MIMIC_BUNDLE_MODELS=1 ./scripts/package.sh
+./scripts/package_installer.sh
+```
 
-Перед публикацией с FFmpeg сохраните лицензии и обеспечьте доступ к соответствующим исходникам конкретных бинарных сборок и зависимостей. Сборка включает ссылки, контрольные суммы и лицензии в каталогах `Tools`, `Models` и `ThirdPartyLicenses`. Условия и исходники компонентов перечислены в [THIRD_PARTY.md](THIRD_PARTY.md).
+For Windows, install Python 3.14 and Inno Setup 6, then run:
+
+```powershell
+python -m pip install -r requirements-windows.txt
+pwsh -File scripts/package_windows.ps1
+```
+
+Installers are written to `build/releases`. For Mac release signing, configure `MIMIC_APP_SIGN_IDENTITY`, `MIMIC_INSTALLER_SIGN_IDENTITY` and `MIMIC_NOTARY_PROFILE`.
+
+Mac developer builds can use a signed local update folder through `MIMIC_LOCAL_UPDATE_CHANNEL` and `MIMIC_LOCAL_UPDATE_KEY`. Each release needs a higher `MIMIC_BUILD_NUMBER`. Keep the private key outside the repository.
+
+The project uses the MIT license. Bundled dependencies and imported media have their own terms. Component notices, source references and recipes ship in Tools, Models and ThirdPartyLicenses. See [THIRD_PARTY.md](THIRD_PARTY.md) for dependency details.

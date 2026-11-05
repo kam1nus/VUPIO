@@ -49,15 +49,15 @@ class Library:
         with self.db() as db:
             row = db.execute('SELECT * FROM clips WHERE id=?', (id,)).fetchone()
         if not row:
-            raise ValueError('Файл не найден')
+            raise ValueError('File not found')
         return dict(row)
 
     def path(self, id):
         return self.files / self.get(id)['filename']
 
-    def import_file(self, source, title, category='Мемы', tags='', description='', license=''):
+    def import_file(self, source, title, category='Memes', tags='', description='', license=''):
         if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
-            raise ValueError('Установите FFmpeg: brew install ffmpeg')
+            raise ValueError('Install FFmpeg: brew install ffmpeg')
         id = uuid.uuid4().hex
         target = self.files / (id + '.wav')
         try:
@@ -65,15 +65,15 @@ class Library:
             probe = json.loads(run(['ffprobe', '-v', 'error', '-protocol_whitelist', 'file,pipe',
                                    '-show_format', '-of', 'json', str(source)], 30))
             try:duration = float(probe['format']['duration'])
-            except (KeyError,TypeError,ValueError):raise ValueError('Аудиофайл пустой или его длительность не определяется')
+            except (KeyError,TypeError,ValueError):raise ValueError('The audio file is empty or its duration cannot be determined')
             if not math.isfinite(duration) or not 0 < duration <= 1200:
-                raise ValueError('Допускаются файлы длительностью до 20 минут')
+                raise ValueError('Files up to 20 minutes are supported')
             run(['ffmpeg', '-v', 'error', '-nostdin', '-protocol_whitelist', 'file,pipe',
                  '-i', str(source), '-vn', '-t', '1200', '-ar', '48000', '-ac', '2',
                  '-c:a', 'pcm_s16le', str(target)])
             with self.db() as db:
                 db.execute('INSERT INTO clips VALUES (?,?,?,?,?,?,?,?,?)',
-                           (id, title[:160] or 'Без названия', category[:80] or 'Мемы', tags[:500],
+                           (id, title[:160] or 'Untitled', category[:80] or 'Memes', tags[:500],
                             description[:4000], 0, duration, target.name, license[:16000]))
             return self.get(id)
         except Exception:
@@ -101,7 +101,7 @@ class Library:
         item = self.get(data['id'])
         start, end = float(data.get('start', 0)), float(data.get('end', item['duration']))
         if not all(map(math.isfinite, [start, end])) or not 0 <= start < end <= item['duration'] + .05:
-            raise ValueError('Проверьте начало и конец фрагмента')
+            raise ValueError('Check the start and end of the selection')
         filters = []
         if data.get('silence'):
             filters.append('silenceremove=start_periods=1:start_duration=0.08:start_threshold=-45dB:stop_periods=-1:stop_duration=0.25:stop_threshold=-45dB')
@@ -127,7 +127,7 @@ class Library:
         if semantic:
             model = os.environ.get('MIMIC_EMBED_MODEL')
             if not model:
-                raise ValueError('Для смыслового поиска задайте MIMIC_EMBED_MODEL=embeddinggemma и запустите Ollama. Обычный поиск доступен без модели.')
+                raise ValueError('Set MIMIC_EMBED_MODEL=embeddinggemma and start Ollama for the legacy semantic search.')
             def embed(text):
                 key = model + ':' + text
                 with self.db() as db:
@@ -155,9 +155,9 @@ class Library:
 
 def suggest(text):
     words = re.findall(r'[\w-]+', text.lower())
-    stop = {'для','это','как','что','или','the','and','with','звук','мем'}
+    stop = {'\u0434\u043b\u044f','\u044d\u0442\u043e','\u043a\u0430\u043a','\u0447\u0442\u043e','\u0438\u043b\u0438','the','and','with','\u0437\u0432\u0443\u043a','\u043c\u0435\u043c'}
     tags = list(dict.fromkeys(w for w in words if len(w)>2 and w not in stop))[:10]
-    return {'title':' '.join(text.strip().split()[:8])[:100] or 'Новый фрагмент', 'tags':', '.join(tags), 'mode':'Локальная эвристика по описанию, без анализа аудио'}
+    return {'title':' '.join(text.strip().split()[:8])[:100] or 'New clip', 'tags':', '.join(tags), 'mode':'Local description-based heuristic'}
 
 
 def select_fragment(request, segments):
@@ -170,6 +170,6 @@ def select_fragment(request, segments):
         if score and 0 <= start < end:
             candidates.append((score, start, end, segment['text']))
     if not candidates:
-        raise ValueError('Совпадений в расшифровке нет. Задайте секунды вручную.')
+        raise ValueError('No transcript matches. Enter timestamps manually.')
     _, start, end, text = max(candidates, key=lambda x:x[0])
-    return {'start':start, 'end':end, 'text':text, 'mode':'Совпадение слов по вашей расшифровке'}
+    return {'start':start, 'end':end, 'text':text, 'mode':'Keyword match in your transcript'}

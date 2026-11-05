@@ -33,11 +33,11 @@ let openStudio,openExternal;
   for(const id of ['trimStart','trimEnd','trimStartRange','trimEndRange','trimDuration'])by(id).max=duration;
   by('trimStart').value=ms(start);by('trimEnd').value=ms(end);by('trimDuration').value=ms(end-start);
   by('trimStartRange').value=start;by('trimEndRange').value=end;
-  by('selectionLength').textContent=fmt(start,true)+' — '+fmt(end,true)+' · '+(end-start).toFixed(2)+' с';
+  by('selectionLength').textContent=fmt(start,true)+' — '+fmt(end,true)+' · '+(end-start).toFixed(2)+' s';
   draw();
  }
  function ruler(){by('ruler').replaceChildren(...Array.from({length:5},(_,i)=>node('span',fmt(duration*i/4,true))));}
- function invalidate(){by('draftStatus').textContent='Изменения применятся при предпрослушивании или сохранении.';}
+ function invalidate(){by('draftStatus').textContent='Changes will apply when you preview or save.';}
  function moveBound(id,value){
   if(!source||!Number.isFinite(value))return;
   if(id.startsWith('trimStart'))setBounds(Math.min(value,end-Math.min(.01,duration)),end);
@@ -63,7 +63,7 @@ let openStudio,openExternal;
  });
  for(const ev of ['pointerup','pointercancel','lostpointercapture'])c.addEventListener(ev,()=>drag=null);
  function options(){
-  const sel=by('studioClip');sel.replaceChildren(new Option('Выбрать из библиотеки…',''),...items.map(i=>new Option(i.title,i.id)));
+  const sel=by('studioClip');sel.replaceChildren(new Option('Choose from library…',''),...items.map(i=>new Option(i.title,i.id)));
   sel.value=source?.itemId||'';
  }
  document.addEventListener('mimic:library',options);
@@ -74,7 +74,7 @@ let openStudio,openExternal;
  }
  function displaySpeech(segments){
   segmentList=segments||[];by('segments').replaceChildren();
-  if(!segmentList.length){by('segments').append(node('p','Фразы пока не найдены. Запустите распознавание речи.','muted'));return;}
+  if(!segmentList.length){by('segments').append(node('p','No phrases found yet. Run speech transcription.','muted'));return;}
   for(const s of segmentList.slice(0,1000)){
    by('segments').append(button(fmt(s.start,true)+' · '+s.text,()=>{setBounds(s.start,s.end);invalidate();},{cls:'quiet'}));
   }
@@ -88,11 +88,11 @@ let openStudio,openExternal;
   removeDraft().catch(e=>notify(e.message,true));
   source=next;peaks=[];duration=next.duration;initial=plan;
   by('studioEmpty').hidden=true;by('studioWorkspace').hidden=false;by('studioCard').hidden=!next.itemId;
-  by('editorTitle').textContent=next.title;by('editorSource').textContent=next.kind==='clip'?'Исходник из библиотеки':'Исходник из интернета';
+  by('editorTitle').textContent=next.title;by('editorSource').textContent=next.kind==='clip'?'Library original':'Internet original';
   by('copyTitle').value=(next.title+(next.itemId?' · edit':'')).slice(0,160);by('copyTags').value='';
   by('editCommand').value='';by('playhead').textContent='0:00';by('speechDetails').open=false;displaySpeech(segments);
-  options();show('studio');applyPlan(plan);ruler();status('editorStatus');status('waveMessage','Загружаем волну…');
-  by('draftStatus').textContent='Подготовьте предпрослушивание перед сохранением.';
+  options();show('studio');applyPlan(plan);ruler();status('editorStatus');status('waveMessage','Loading waveform…');
+  by('draftStatus').textContent='Preview your changes before saving.';
   try{
    const waveform=await api('ai/wave/'+next.kind+'/'+next.id);if(token!==sourceToken)return;
    peaks=waveform.peaks;duration=Math.min(next.duration,waveform.duration);
@@ -100,7 +100,7 @@ let openStudio,openExternal;
   }catch(e){if(token===sourceToken)status('waveMessage',e.message,true);}
  }
  openStudio=async id=>{
-  const item=items.find(i=>i.id===id);if(!item)throw Error('Звук не найден в библиотеке');
+  const item=items.find(i=>i.id===id);if(!item)throw Error('Sound not found in the library');
   const token=++sourceToken;
   const original=await api('ai/source/'+id);
   if(token!==sourceToken)return;
@@ -139,26 +139,26 @@ let openStudio,openExternal;
  bind('editorStop',()=>{if(selectionPlayback){stopPreview();selectionPlayback=false;}by('playhead').textContent=fmt(start,true);draw();});
  preview.addEventListener('emptied',()=>{if(!preview.getAttribute('src')||preview.getAttribute('src')!==source?.url)selectionPlayback=false;draw();});
  async function work(kind,data){
-  if(busy)throw Error('Дождитесь текущей операции Studio.');
+  if(busy)throw Error('Wait for the current Studio operation.');
   busy=true;
   try{return await runJob(kind,data,j=>{
    if(['queued','running'].includes(j.status))status('editorStatus',(j.message||jobLabels[kind])+' · '+Math.round((j.progress||0)*100)+'%');
   });}finally{busy=false;}
  }
  async function applyCommand(command){
-  if(!command)throw Error('Введите команду для обработки звука.');
+  if(!command)throw Error('Enter an audio editing command.');
   const current=source,r=await work('plan',{...(current.kind==='clip'?{id:current.id}:{asset_id:current.id}),command});
   if(source!==current)return;
   applyPlan(r.plan);displaySpeech(r.segments);status('editorStatus',r.plan.warning||'');
-  if(!r.plan.warning)notify('Команда применена. Проверьте выделение.');
+  if(!r.plan.warning)notify('Command applied. Check the selection.');
  }
  bind('applyCommand',()=>applyCommand(by('editCommand').value.trim()),'editorStatus');
- bind('suggestMoment',()=>applyCommand('Подбери момент'),'editorStatus');
+ bind('suggestMoment',()=>applyCommand('Suggest a highlight'),'editorStatus');
  bind('transcribe',async()=>{
   const current=source;
   const r=await work(current.kind==='clip'?'index':'asset_speech',current.kind==='clip'?{id:current.id,require_speech:true}:{asset_id:current.id});
   if(source!==current)return;
-  displaySpeech(r.segments);by('speechDetails').open=true;status('editorStatus',r.segments?.length?'':'Речь не распознана. Можно задать границы вручную.');
+  displaySpeech(r.segments);by('speechDetails').open=true;status('editorStatus',r.segments?.length?'':'No speech detected. Set the range manually.');
  },'editorStatus');
  async function render(){
   const current=source,p=bounds(),key=JSON.stringify(p);
@@ -166,24 +166,24 @@ let openStudio,openExternal;
   const r=await work(current.kind==='clip'?'render':'fetch_recut',current.kind==='clip'?{id:current.id,...p}:{asset_id:current.id,...p});
   if(source!==current||JSON.stringify(bounds())!==key){
    if(r.draft_id)await api('ai/discard',{draft_id:r.draft_id});
-   throw Error('Границы изменились во время обработки. Подготовьте результат снова.');
+   throw Error('The selection changed during processing. Prepare the result again.');
   }
   await removeDraft();draft={...r,key};
-  by('draftStatus').textContent='Черновик готов. Исходный звук сохранён.';status('editorStatus');return draft;
+  by('draftStatus').textContent='Draft ready. Original audio retained.';status('editorStatus');return draft;
  }
  bind('previewEdit',async()=>{const r=await render();selectionPlayback=false;await playPreview(r.preview_url,by('copyTitle').value.trim()||source.title);},'editorStatus');
  bind('discardEdit',async()=>{
-  if(busy)throw Error('Дождитесь обработки или отмените её в списке задач.');
+  if(busy)throw Error('Wait for processing or cancel it in Tasks.');
   selectionPlayback=false;stopPreview();await removeDraft();applyPlan(initial);by('copyTitle').value=(source.title+(source.itemId?' · edit':'')).slice(0,160);by('copyTags').value='';by('editCommand').value='';status('editorStatus');
-  by('draftStatus').textContent='Изменения отменены.';
+  by('draftStatus').textContent='Changes discarded.';
  },'editorStatus');
  bind('saveEdit',async()=>{
   const current=source,r=await render(),title=by('copyTitle').value.trim(),tags=by('copyTags').value.trim();
   const result=await work(current.kind==='clip'?'commit':'fetch_commit',current.kind==='clip'?{draft_id:r.draft_id,title,tags}:{asset_id:r.asset_id,title,tags,variant:true});
   r.saved=true;
   if(result.undo_draft_id){undo=result.undo_draft_id;by('undoSave').hidden=false;}
-  await sync();status('editorStatus');by('draftStatus').textContent=result.duplicate?'Этот звук уже в библиотеке.':'Сохранено: '+result.item.title;
-  notify(result.duplicate?'Этот звук уже в библиотеке':'Копия в Soundboard');
+  await sync();status('editorStatus');by('draftStatus').textContent=result.duplicate?'This sound is already in your library.':'Saved: '+result.item.title;
+  notify(result.duplicate?'This sound is already in your library':'Copy saved to Soundboard');
  },'editorStatus');
- bind('undoSave',async()=>{await api('ai/undo',{draft_id:undo});undo='';by('undoSave').hidden=true;if(draft?.saved)draft=null;await sync();by('draftStatus').textContent='Добавление отменено; исходник сохранён.';},'editorStatus');
+ bind('undoSave',async()=>{await api('ai/undo',{draft_id:undo});undo='';by('undoSave').hidden=true;if(draft?.saved)draft=null;await sync();by('draftStatus').textContent='Addition undone. Original retained.';},'editorStatus');
 })();

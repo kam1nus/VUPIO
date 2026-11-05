@@ -15,13 +15,13 @@ from .web_agent import web_row
 LIMIT = 10
 MEME_CANDIDATES = 30
 REGIONS = {
-    'ru': ('Россия', 'в России', 'мемный звук', 'популярный трек'),
-    'us': ('США', 'in the United States', 'viral meme sound', 'trending song'),
-    'gb': ('Великобритания', 'in the UK', 'viral meme sound', 'trending song'),
-    'br': ('Бразилия', 'no Brasil', 'áudio de meme viral', 'música viral'),
-    'de': ('Германия', 'in Deutschland', 'viraler Meme-Sound', 'angesagter Song'),
-    'jp': ('Япония', '日本', 'バズったミーム音源', '人気曲'),
-    'ua': ('Украина', 'в Україні', 'вірусний звук мему', 'популярна пісня'),
+    'ru': ('Russia', '\u0432 \u0420\u043e\u0441\u0441\u0438\u0438', '\u043c\u0435\u043c\u043d\u044b\u0439 \u0437\u0432\u0443\u043a', '\u043f\u043e\u043f\u0443\u043b\u044f\u0440\u043d\u044b\u0439 \u0442\u0440\u0435\u043a'),
+    'us': ('United States', 'in the United States', 'viral meme sound', 'trending song'),
+    'gb': ('United Kingdom', 'in the UK', 'viral meme sound', 'trending song'),
+    'br': ('Brazil', 'no Brasil', 'áudio de meme viral', 'música viral'),
+    'de': ('Germany', 'in Deutschland', 'viraler Meme-Sound', 'angesagter Song'),
+    'jp': ('Japan', '日本', 'バズったミーム音源', '人気曲'),
+    'ua': ('Ukraine', '\u0432 \u0423\u043a\u0440\u0430\u0457\u043d\u0456', '\u0432\u0456\u0440\u0443\u0441\u043d\u0438\u0439 \u0437\u0432\u0443\u043a \u043c\u0435\u043c\u0443', '\u043f\u043e\u043f\u0443\u043b\u044f\u0440\u043d\u0430 \u043f\u0456\u0441\u043d\u044f'),
 }
 SOCIAL = {
     'tiktok': ('TikTok', 'tiktok.com', r'/@[^/]+/video/\d+/?|/music/[^/]+-\d+/?',
@@ -50,10 +50,10 @@ def https_on(url, host):
 def read_feed(url, timeout=8):
     with open_url(url, timeout=timeout) as response:
         if not https_on(response.geturl(), urlsplit(url).hostname):
-            raise ValueError('Источник перенаправил запрос на другой сайт.')
+            raise ValueError('Source redirected to a different website.')
         raw = response.read(2_000_001)
     if len(raw) > 2_000_000:
-        raise ValueError('Ответ источника слишком большой.')
+        raise ValueError('Source response is too large.')
     return raw
 
 
@@ -176,14 +176,14 @@ def relevance_order(rows, kind, models):
                     similarities[i] = sum(x*y for x, y in zip(query, vector)) / norm
     except (OSError, ValueError, KeyError, TypeError):
         pass
-    terms = (r'\b(?:original sound|sound effect|catchphrase|звук|цитата|озвучка)\b' if kind == 'memes'
-             else r'\b(?:remix|mashup|artist|track|song name|трек|ремикс|песня)\b')
+    terms = (r'\b(?:original sound|sound effect|catchphrase|\u0437\u0432\u0443\u043a|\u0446\u0438\u0442\u0430\u0442\u0430|\u043e\u0437\u0432\u0443\u0447\u043a\u0430)\b' if kind == 'memes'
+             else r'\b(?:remix|mashup|artist|track|song name|\u0442\u0440\u0435\u043a|\u0440\u0435\u043c\u0438\u043a\u0441|\u043f\u0435\u0441\u043d\u044f)\b')
     def score(i):
         title = rows[i]['title'].lower()
         evidence = .12 if re.search(terms, texts[i], re.I) else 0
         if kind == 'tracks' and re.search(r'\S+ (?:–|—|x|×) \S+', title):
             evidence += .12
-        if re.search(r'\b(?:how to|tutorial|как скачать|как добавить)\b', title):
+        if re.search(r'\b(?:how to|tutorial|\u043a\u0430\u043a \u0441\u043a\u0430\u0447\u0430\u0442\u044c|\u043a\u0430\u043a \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c)\b', title):
             evidence -= .35
         return .65*similarities[i] + .2*rows[i]['web_score'] + evidence
     return [rows[i] for i in sorted(range(len(rows)), key=score, reverse=True)]
@@ -206,7 +206,7 @@ class Radar:
         if not https_on(url, 'www.myinstants.com') or not re.fullmatch(
             r'/(?:[a-z]{2}(?:-[a-z]{2})?/)?instant/[\w%-]+/?', urlsplit(url).path, re.I
         ):
-            raise ValueError('Для этой карточки нужен отдельный аудиофайл. Попробуйте «Найти аудио».')
+            raise ValueError('This card needs an individual audio file. Try Find audio.')
         with studio.library.db() as db:
             asset = db.execute('''SELECT ai_assets.* FROM radar_clips
                 JOIN ai_assets ON ai_assets.id=radar_clips.asset_id
@@ -225,7 +225,7 @@ class Radar:
         kind = str(body.get('category', 'memes'))
         source = str(body.get('source', 'chart'))
         if region not in REGIONS or kind not in {'memes', 'tracks'} or source not in {'chart', *SOCIAL}:
-            raise ValueError('Выберите страну, категорию и источник из списка.')
+            raise ValueError('Select a listed country, category and source.')
         now = datetime.now(timezone.utc)
         day = now.date()
         key = (region, kind, source)
@@ -250,7 +250,7 @@ class Radar:
             # Older snapshots stored only the top ten, without replacement candidates.
             fresh = False
         if not (fresh and not body.get('force')):
-            job.update(.12, 'Проверяем ' + title + '…')
+            job.update(.12, 'Checking ' + title + '…')
             try:
                 if chart and kind == 'memes':
                     parser = InstantLinks()
@@ -261,14 +261,14 @@ class Radar:
                 else:
                     rows = self.discover(region, kind, source, job)
                 if chart and not rows:
-                    raise ValueError('Источник вернул пустой список.')
+                    raise ValueError('Source returned an empty list.')
             except (OSError, ValueError, KeyError, TypeError) as error:
                 if isinstance(error, HTTPError) and error.code == 404:
-                    warning = f'{title} не предоставил чарт для этой страны.'
+                    warning = f'{title} has no chart available for this country.'
                 elif chart:
-                    warning = f'Не удалось обновить {title}. Попробуйте позже.'
+                    warning = f'Could not refresh {title}. Try again later.'
                 else:
-                    warning = str(error) if isinstance(error, ValueError) else f'Поиск по {title} недоступен. Попробуйте позже.'
+                    warning = str(error) if isinstance(error, ValueError) else f'Search on {title} unavailable. Try again later.'
             else:
                 job.check()
                 with self.studio.library.db() as db:
@@ -300,11 +300,11 @@ class Radar:
         provider = self.studio.finder.web.provider
         rows = social_candidates(provider.search(query, domains=[domain], time_range='week', max_results=20), source)
         if len(rows) > 1:
-            job.update(.66, 'Сравниваем описания звуков…')
+            job.update(.66, 'Comparing sound descriptions…')
             rows = relevance_order(rows, kind, self.studio.models)
             try:
                 self.studio.models.path('language')
-                job.update(.72, 'Локальный AI сортирует находки…')
+                job.update(.72, 'Local AI is ranking results…')
                 ranking = self.studio.models.generate(RANK_PROMPT, json.dumps({
                     'query': query, 'candidates': [dict(row, id=i) for i, row in enumerate(rows[:14])],
                 }, ensure_ascii=False), max_tokens=100)

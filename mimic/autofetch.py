@@ -18,22 +18,22 @@ def pcm_hash(path):
     return digest.hexdigest()
 
 def cut_plan(command,duration,analysis,previous=None):
-    text=command.lower();start=0.;end=min(duration,8.);warning='Короткий начальный фрагмент; узнаваемость не установлена.';basis='initial'
+    text=command.lower();start=0.;end=min(duration,8.);warning='Short opening clip. Sound identity has not been verified.';basis='initial'
     previous=previous or {'start':start,'end':end}
-    if re.search(r'раньше|earlier',text):start=max(0,float(previous['start'])-number(text,1));end=float(previous['end']);basis='relative';warning=''
-    elif re.search(r'обрежь конец|shorten|trim.*end',text):start=float(previous['start']);end=float(previous['end'])-number(text,1);basis='relative';warning=''
-    elif re.search(r'секунд|seconds|\bsec\b',text) and not re.search(r'крик|scream|дроп|drop|фраз|phrase',text):end=min(duration,number(text,3));warning='';basis='duration'
-    elif re.search(r'фраз|реплик|phrase',text):
+    if re.search(r'\u0440\u0430\u043d\u044c\u0448\u0435|earlier',text):start=max(0,float(previous['start'])-number(text,1));end=float(previous['end']);basis='relative';warning=''
+    elif re.search(r'\u043e\u0431\u0440\u0435\u0436\u044c \u043a\u043e\u043d\u0435\u0446|shorten|trim.*end',text):start=float(previous['start']);end=float(previous['end'])-number(text,1);basis='relative';warning=''
+    elif re.search(r'\u0441\u0435\u043a\u0443\u043d\u0434|seconds|\bsec\b',text) and not re.search(r'\u043a\u0440\u0438\u043a|scream|\u0434\u0440\u043e\u043f|drop|\u0444\u0440\u0430\u0437|phrase',text):end=min(duration,number(text,3));warning='';basis='duration'
+    elif re.search(r'\u0444\u0440\u0430\u0437|\u0440\u0435\u043f\u043b\u0438\u043a|phrase',text):
         quoted=re.search(r'[«“"]([^»”"]+)[»”"]',command)
-        if not quoted:raise ValueError('Для точной обрезки укажите фразу в кавычках или выберите таймкоды.')
+        if not quoted:raise ValueError('Enter a quoted phrase or select timestamps for an exact cut.')
         span=phrase_span(quoted.group(1),analysis.get('segments',[]));start=max(0,span['start']-.1);end=min(duration,span['end']+.15);warning='';basis='Whisper timestamps'
-    elif re.search(r'крик|scream|дроп|drop',text):
+    elif re.search(r'\u043a\u0440\u0438\u043a|scream|\u0434\u0440\u043e\u043f|drop',text):
         labels={'scream','screaming','shout','yell','battle_cry','children_shouting'}
-        windows=[w for w in analysis.get('windows',[]) if any(x['label'] in labels and x['confidence']>.08 for x in w.get('labels',[]))] if re.search(r'крик|scream',text) else []
+        windows=[w for w in analysis.get('windows',[]) if any(x['label'] in labels and x['confidence']>.08 for x in w.get('labels',[]))] if re.search(r'\u043a\u0440\u0438\u043a|scream',text) else []
         onset=windows[0]['start'] if windows else next((x['time'] for x in analysis.get('features',{}).get('onsets',[])),None)
-        if onset is None:raise ValueError('Нужный момент не определён анализом. Выберите границы вручную.')
-        start=max(0,onset-1);end=min(duration,onset+5);basis='SoundAnalysis window' if windows else 'energy onset';warning='Кандидат по окну классификатора.' if windows else 'Скачок энергии — кандидат, крик/дроп не подтверждён.'
-    if not all(math.isfinite(v) for v in [start,end]) or not 0<=start<end<=duration+.01:raise ValueError('Некорректные границы фрагмента')
+        if onset is None:raise ValueError('Analysis could not identify the requested moment. Set the range manually.')
+        start=max(0,onset-1);end=min(duration,onset+5);basis='SoundAnalysis window' if windows else 'energy onset';warning='Candidate based on the classifier window.' if windows else 'Energy onset candidate. Scream or drop not confirmed.'
+    if not all(math.isfinite(v) for v in [start,end]) or not 0<=start<end<=duration+.01:raise ValueError('Invalid clip boundaries')
     return dict(start=round(start,3),end=min(duration,round(end,3)),basis=basis,warning=warning,normalize=True)
 
 def radar_asset(id,data):
@@ -45,12 +45,12 @@ class AutoFetch:
     def __init__(self,studio):self.s=studio
     def prepare(self,body,job,*,radar=False):
         started=time.monotonic()
-        s=self.s;id=str(body['source_id']);saved=s.finder.saved(id);job.update(.05,'Checking · доступность источника')
+        s=self.s;id=str(body['source_id']);saved=s.finder.saved(id);job.update(.05,'Checking · source availability')
         source=s.finder.resolve(id,job)
         key=uuid.uuid4().hex;raw=s.cache/(key+'.original');pcm=s.cache/(key+'.wav');preview=s.cache/(key+'.clip.wav')
         keep=False
         try:
-            job.update(.15,'Downloading · аудиофайл')
+            job.update(.15,'Downloading · audio file')
             if source.get('personal_import'):
                 from .public_audio import download_public
                 if radar:
@@ -58,15 +58,15 @@ class AutoFetch:
                 else:
                     download_public(source['download_url'],raw,job)
             else:catalog_download(source['download_url'],raw,job)
-            job.update(.45,'Checking · формат, длительность, качество')
+            job.update(.45,'Checking · format, duration and quality')
             probe=json.loads(s.execute([tool('ffprobe'),'-v','error','-protocol_whitelist','file,pipe','-format_whitelist',FORMATS,'-show_format','-show_streams','-of','json',str(raw)],job,30))
             streams=probe.get('streams',[]);audio=[x for x in streams if x.get('codec_type')=='audio'];fmt=probe.get('format',{})
             duration=float(fmt.get('duration',0))
-            if not audio or any(x.get('codec_type') not in {'audio'} for x in streams) or not math.isfinite(duration) or not 0<duration<=1200:raise ValueError('Нужен аудиофайл без видео, длительностью до 20 минут')
+            if not audio or any(x.get('codec_type') not in {'audio'} for x in streams) or not math.isfinite(duration) or not 0<duration<=1200:raise ValueError('Use an audio-only file up to 20 minutes long')
             if radar and duration>120:
-                raise ValueError('Trend Radar подготавливает звуки до двух минут. Для этого файла используйте Discover.')
+                raise ValueError('Trend Radar preloads sounds up to two minutes. Use Discover for this file.')
             stream=audio[0];rate=int(stream.get('sample_rate',0));channels=int(stream.get('channels',0))
-            if rate<8000 or channels<1 or channels>8:raise ValueError('Неподдерживаемые параметры аудио')
+            if rate<8000 or channels<1 or channels>8:raise ValueError('Unsupported audio parameters')
             bitrate=int(fmt.get('bit_rate',0) or 0)
             s.execute([tool('ffmpeg'),'-v','error','-nostdin','-protocol_whitelist','file,pipe','-format_whitelist',FORMATS,'-i',str(raw),'-map','0:a:0','-t','120' if radar else '1200','-ac','2','-ar','48000','-c:a','pcm_s16le',str(pcm)],job)
             # Hash decoded audio frames: detect same recording in different containers.
@@ -74,11 +74,11 @@ class AutoFetch:
             with s.library.db() as db:duplicate=db.execute('SELECT * FROM finder_imports WHERE hash=?',(sha,)).fetchone()
             if duplicate:
                 try:
-                    item=s.library.get(duplicate['item']);return {'item':item,'duplicate':True,'warning':'Этот аудиофайл уже добавлен; новая копия не создавалась.'}
+                    item=s.library.get(duplicate['item']);return {'item':item,'duplicate':True,'warning':'This audio file is already in your library.'}
                 except ValueError:pass
-            job.update(.55,'Checking · анализ реального звука')
+            job.update(.55,'Checking · analyzing audio')
             features=analyze(pcm)
-            if features.get('peak',0)<.0001:raise ValueError('Файл содержит только тишину')
+            if features.get('peak',0)<.0001:raise ValueError('The file contains only silence')
             duration=features['duration']
             if radar:
                 # The same decoded audio serves preview, Studio and Add.
@@ -115,15 +115,15 @@ class AutoFetch:
             evidence=max((float(x['confidence']) for x in labels if x['label'] in targets),default=0.)
             transcript=analysis.get('text','').lower()
             transcript_match=any(w in transcript for w in re.findall(r'\w+',terms.lower()) if len(w)>2)
-            exact=bool(saved.get('named_query')) or bool(re.search(r'wide\s+putin|vine\s+boom|аура|aura|phonk|фонк',saved.get('query',''),re.I))
+            exact=bool(saved.get('named_query')) or bool(re.search(r'wide\s+putin|vine\s+boom|\u0430\u0443\u0440\u0430|aura|phonk|\u0444\u043e\u043d\u043a',saved.get('query',''),re.I))
             verified=(evidence>=.08 or transcript_match) and not exact
-            report=dict(format=fmt.get('format_name'),duration=duration,sample_rate=rate,channels=channels,bitrate=bitrate,quality_warning='Низкий битрейт; послушайте перед добавлением' if 0<bitrate<64000 else '',sha256=sha,labels=labels,analyzed_seconds=min(duration,60),content_match=verified,content_score=evidence,identity_verified=False,match_basis='Классы SoundAnalysis / распознанная речь; не музыкальный отпечаток',analysis=analysis)
-            if body.get('require_match') and not verified:raise ValueError('Содержимое не подтвердило запрос; название файла не считается доказательством. Выберите другой вариант или проверьте Preview вручную.')
+            report=dict(format=fmt.get('format_name'),duration=duration,sample_rate=rate,channels=channels,bitrate=bitrate,quality_warning='Low bitrate. Preview before adding.' if 0<bitrate<64000 else '',sha256=sha,labels=labels,analyzed_seconds=min(duration,60),content_match=verified,content_score=evidence,identity_verified=False,match_basis='SoundAnalysis classes and transcript metadata',analysis=analysis)
+            if body.get('require_match') and not verified:raise ValueError('The audio did not confirm the query. Choose another result or preview it manually.')
             metadata=s.metadata(source['title']+' '+source['description'],analysis)
             if metadata.get('warning'):
                 metadata['title']=source['title'][:160]
             category=str(body.get('category','All'))
-            if category=='All' and re.search(r'\b(?:трек\w*|песн\w*|музык\w*|song|music|track|фонк|phonk)\b',saved.get('query',''),re.I):
+            if category=='All' and re.search(r'\b(?:\u0442\u0440\u0435\u043a\w*|\u043f\u0435\u0441\u043d\w*|\u043c\u0443\u0437\u044b\u043a\w*|song|music|track|\u0444\u043e\u043d\u043a|phonk)\b',saved.get('query',''),re.I):
                 category='Music'
             if category in {'Meme','Music','Reaction','Effect'}:metadata['category']=category
             command=str(body.get('command') or ('' if saved.get('topic_search') else saved.get('query','')))[:1000]
@@ -132,13 +132,13 @@ class AutoFetch:
                 plan=dict(start=0.,end=duration,basis='full_track',warning='',normalize=True)
             else:
                 plan=cut_plan(command,duration,analysis)
-            job.update(.8,'Processing · обрезка и нормализация')
+            job.update(.8,'Processing · trimming and normalization')
             audio_filter='loudnorm=I=-16:TP=-1.5:LRA=11'
             if not full_track:
                 audio_filter='silenceremove=start_periods=1:start_duration=0.05:start_threshold=-45dB,'+audio_filter
             s.execute([tool('ffmpeg'),'-v','error','-nostdin','-ss',str(plan['start']),'-i',str(pcm),'-t',str(plan['end']-plan['start']),'-af',audio_filter,'-ar','48000','-ac','2','-c:a','pcm_s16le',str(preview)],job)
             output=analyze(preview)
-            if output.get('duration',0)<.05 or output.get('peak',0)<.0001:raise ValueError('После обработки не осталось слышимого звука')
+            if output.get('duration',0)<.05 or output.get('peak',0)<.0001:raise ValueError('No audible audio remains after processing')
             report['output']=output;report['plan']=plan
             report['processing_seconds']=round(time.monotonic()-started,3)
             if sys.platform=='darwin':
@@ -156,9 +156,9 @@ class AutoFetch:
             data=dict(source=source,report=report,metadata=metadata,original=raw.name,pcm=pcm.name,query=saved.get('query',''))
             with s.library.db() as db:db.execute('INSERT INTO ai_assets VALUES (?,?,?,?)',(key,preview.name,json.dumps(data,ensure_ascii=False),time.time()))
             keep=True
-            result=dict(asset_id=key,preview_url='/api/ai/asset/'+key,report=report,metadata=metadata,plan=plan,warning=plan['warning'] or ('' if verified else 'Соответствие содержимого не подтверждено; проверьте Preview.'))
+            result=dict(asset_id=key,preview_url='/api/ai/asset/'+key,report=report,metadata=metadata,plan=plan,warning=plan['warning'] or ('' if verified else 'Audio match unverified. Check the preview.'))
             if body.get('add',True):result.update(self.commit(key,job))
-            job.update(1,'Ready · готово');return result
+            job.update(1,'Ready · ready');return result
         finally:
             if not keep:
                 for f in [raw,pcm,preview]:f.unlink(missing_ok=True)
@@ -184,7 +184,7 @@ class AutoFetch:
 
     def commit(self,id,job,body=None):
         s=self.s;row,path=s.asset(id);data=json.loads(row['source'])
-        if 'report' not in data:raise ValueError('Это не черновик AutoFetch')
+        if 'report' not in data:raise ValueError('This is not an AutoFetch draft')
         if not data['source'].get('personal_import'):s.finder.resolve(data['source']['source_id'])
         job.check()
         body=body or {}
@@ -213,7 +213,7 @@ class AutoFetch:
         s.changed();return {'item':item}
     def recut(self,body,job):
         s=self.s;row,path=s.asset(body['asset_id']);data=json.loads(row['source'])
-        if 'report' not in data:raise ValueError('Не черновик AutoFetch')
+        if 'report' not in data:raise ValueError('Not an AutoFetch draft')
         report=data['report']
         if 'start' in body:
             plan=make_plan(dict(body,operation='trim'),report['duration'])
@@ -225,7 +225,7 @@ class AutoFetch:
         try:
             s.execute([tool('ffmpeg'),'-v','error','-nostdin','-ss',str(plan['start']),'-i',str(s.cache/data['pcm']),'-af',render_filters(plan),'-ar','48000','-ac','2','-c:a','pcm_s16le',str(target)],job)
             output=analyze(target)
-            if output['duration']<.01:raise ValueError('После обработки не осталось звука')
+            if output['duration']<.01:raise ValueError('No audio remains after processing')
             report['plan']=plan;report['output']=output
             with s.library.db() as db:db.execute('INSERT INTO ai_assets VALUES (?,?,?,?)',(key,target.name,json.dumps(data,ensure_ascii=False),time.time()))
             return dict(asset_id=key,preview_url='/api/ai/asset/'+key,report=report,plan=plan,warning=plan.get('warning',''))
@@ -234,7 +234,7 @@ class AutoFetch:
         found=self.s.finder.search(body,job);errors=[]
         if found.get('topic_search'):
             return {'search': found, 'external': found['external'], 'history': found['history'],
-                    'warning': 'Выберите мем из подборки и послушайте отрезок перед добавлением.'}
+                    'warning': 'Choose a result and preview the clip before adding.'}
         for candidate in [r for r in found['external'] if r['can_import']][:4]:
             job.check()
             try:
@@ -242,4 +242,4 @@ class AutoFetch:
                 r['search']=found;return r
             except Cancelled:raise
             except Exception as e:errors.append(candidate['title']+': '+str(e)[:350])
-        return dict(search=found,external=found['external'],warnings=found['warnings']+errors,history=found['history'],warning='Автодобавление не выполнено: аудиофайл или соответствие запросу не подтверждены. Можно выбрать вариант и нажать Add; проверка лицензии в личном тесте отключена.')
+        return dict(search=found,external=found['external'],warnings=found['warnings']+errors,history=found['history'],warning='Quick Add could not confirm a matching audio file. Preview a result and select Add.')

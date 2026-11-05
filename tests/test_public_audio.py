@@ -15,7 +15,7 @@ class PublicAudioTests(unittest.TestCase):
   with self.assertRaises(ValueError):p.candidate('https://example.org/')
  def test_ambiguous_list_rejected(self):
   p=AudioPage();p.feed('<a href="a.mp3">a</a><a href="b.mp3">b</a>')
-  with self.assertRaisesRegex(ValueError,'несколько'):p.candidate('https://example.org/')
+  with self.assertRaisesRegex(ValueError,'multiple audio files'):p.candidate('https://example.org/')
  def test_private_or_mixed_dns_rejected(self):
   for addresses in [['127.0.0.1'],['169.254.169.254'],['::1'],['8.8.8.8','10.0.0.1']]:
    records=[(socket.AF_INET,socket.SOCK_STREAM,6,'',(ip,443)) for ip in addresses]
@@ -50,7 +50,7 @@ class PublicAudioTests(unittest.TestCase):
   from unittest.mock import MagicMock
   connection=MagicMock();response=connection.getresponse.return_value;response.status=302;response.getheader.return_value='https://127.0.0.1/private'
   def target(url):
-   if '127.0.0.1' in url:raise ValueError('локальной сети')
+   if '127.0.0.1' in url:raise ValueError('\u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0439 \u0441\u0435\u0442\u0438')
    return 'example.org',['8.8.8.8'],'/'
   with patch('mimic.public_audio.public_target',side_effect=target),patch('mimic.public_audio.PinnedHTTPS',return_value=connection) as create:
    with self.assertRaises(ValueError):open_public('https://example.org/')

@@ -34,7 +34,7 @@ class StudioWaveTests(unittest.TestCase):
                 return b'{"labels":[]}' if args[0]=='unused' else execute(args,*other)
 
             with patch.object(studio.finder,'resolve',return_value=source), \
-                 patch.object(studio.finder,'saved',return_value={'query':'Найди трек'}), \
+                 patch.object(studio.finder,'saved',return_value={'query':'\u041d\u0430\u0439\u0434\u0438 \u0442\u0440\u0435\u043a'}), \
                  patch('mimic.public_audio.download_public',side_effect=lambda url,path,*args:shutil.copyfile(original,path)), \
                  patch.object(studio,'execute',side_effect=analyze_or_execute):
                 track=studio.autofetch.prepare({'source_id':'test:track','add':False},Job())
@@ -49,11 +49,11 @@ class StudioWaveTests(unittest.TestCase):
             recovered=studio.autofetch.editable_source(short['id'])
             self.assertEqual(recovered['report']['duration'],40)
             source_id=recovered['asset_id']
-            whole=studio.plan({'asset_id':source_id,'command':'Оставь весь трек'},Job())['plan']
+            whole=studio.plan({'asset_id':source_id,'command':'\u041e\u0441\u0442\u0430\u0432\u044c \u0432\u0435\u0441\u044c \u0442\u0440\u0435\u043a'},Job())['plan']
             self.assertEqual((whole['start'],whole['end']),(0,40))
-            interval=studio.plan({'asset_id':source_id,'command':'Оставь 0:24–0:30'},Job())['plan']
+            interval=studio.plan({'asset_id':source_id,'command':'\u041e\u0441\u0442\u0430\u0432\u044c 0:24–0:30'},Job())['plan']
             self.assertEqual((interval['start'],interval['end']),(24,30))
-            moment=studio.plan({'asset_id':source_id,'command':'Подбери момент'},Job())['plan']
+            moment=studio.plan({'asset_id':source_id,'command':'\u041f\u043e\u0434\u0431\u0435\u0440\u0438 \u043c\u043e\u043c\u0435\u043d\u0442'},Job())['plan']
             self.assertLess(moment['start'],24)
             self.assertGreater(moment['end'],24)
             self.assertGreater(moment['start'],8)

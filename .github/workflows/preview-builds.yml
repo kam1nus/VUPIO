@@ -54,7 +54,7 @@ jobs:
         run: |
           set -o pipefail
           MIMIC_BUNDLE_MODELS=1 ./scripts/package.sh | tee build-vupio.log
-          stage=$(sed -n 's/^Подпись проверена в //p' build-vupio.log | tail -1)
+          stage=$(sed -n 's/^Signature verified at //p' build-vupio.log | tail -1)
           test -d "$stage"
           MIMIC_APP_BUNDLE="$stage" ./scripts/package_installer.sh
       - uses: actions/upload-artifact@v4
@@ -86,13 +86,14 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Trend Radar и региональные подборки для Mac и Windows.
-          - Предзагрузка, замена недоступных мем-звуков и добавление одним нажатием.
-          - Раздел «Обновления» с проверкой релизов GitHub для текущей платформы.
+          - English UI, diagnostics, native Mac dialogs and Windows installer.
+          - Multilingual meme search preserves names and queries in their original language.
+          - Trend Radar preloads playable sounds, skips unavailable files and supports one-click Add.
+          - A visible Updates page checks GitHub releases for your platform.
 
-          Это тестовые установщики для macOS 26+ (Apple Silicon) и Windows 11 x64. Пакет macOS содержит подпись для локального тестирования, без нотарификации Apple. Установщик Windows не подписан Authenticode. Контрольные суммы доступны в SHA256SUMS.txt. Нужная сборка скачивается отдельным установщиком из раздела «Обновления».
+          Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF
           gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease \
-            --title "VUPIO Alpha · сборка $build" --notes-file /tmp/vupio-release-notes \
+            --title "VUPIO Alpha · build $build" --notes-file /tmp/vupio-release-notes \
             VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe SHA256SUMS.txt
           gh release edit "$tag" --draft=false

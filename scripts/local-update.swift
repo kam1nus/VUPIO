@@ -16,7 +16,7 @@ func privateKey(_ path: String, create: Bool) throws -> Curve25519.Signing.Priva
     var info = stat()
     guard lstat(path, &info) == 0, info.st_mode & S_IFMT == S_IFREG,
           info.st_uid == getuid(), info.st_mode & 0o077 == 0 else {
-        throw LocalUpdateError.message("Ключ должен быть обычным файлом текущего пользователя с правами 600.")
+        throw LocalUpdateError.message("The key must be a regular file owned by the current user with mode 600.")
     }
     return try Curve25519.Signing.PrivateKey(rawRepresentation: Data(contentsOf: URL(fileURLWithPath: path)))
 }
@@ -30,13 +30,13 @@ struct ReleaseTool {
             return
         }
         guard args.count == 4, args[0] == "publish" else {
-            throw LocalUpdateError.message("Используйте key <keyfile> или publish <keyfile> <folder> <app>.")
+            throw LocalUpdateError.message("Use key <keyfile> or publish <keyfile> <folder> <app>.")
         }
         let key = try privateKey(args[1], create: false)
         let channel = URL(fileURLWithPath: args[2], isDirectory: true).standardizedFileURL
         let app = URL(fileURLWithPath: args[3], isDirectory: true).standardizedFileURL
         guard let build = LocalUpdate.version(of: app), build > 0 else {
-            throw LocalUpdateError.message("Не удалось прочитать номер сборки VUPIO.")
+            throw LocalUpdateError.message("Could not read the VUPIO build number.")
         }
         let hash = try LocalRelease.codeHash(of: app)
         let metadata = LocalRelease(build: build, codeHash: hash, signature: Data())
@@ -44,13 +44,13 @@ struct ReleaseTool {
         let fm = FileManager.default
         try fm.createDirectory(at: channel, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         if let last = try LocalRelease.verified(in: channel, publicKey: key.publicKey.rawRepresentation), last.build > build {
-            throw LocalUpdateError.message("Номер сборки меньше уже опубликованного.")
+            throw LocalUpdateError.message("Build number is older than the published release.")
         }
         let versionDir = channel.appendingPathComponent(String(build))
         let target = versionDir.appendingPathComponent("VUPIO.app")
         if fm.fileExists(atPath: versionDir.path) {
             guard try LocalRelease.codeHash(of: target) == hash else {
-                throw LocalUpdateError.message("Этот номер уже занят другой сборкой. Увеличьте CFBundleVersion.")
+                throw LocalUpdateError.message("This build number is already used. Increase CFBundleVersion.")
             }
         } else {
             let temp = channel.appendingPathComponent(".release-" + UUID().uuidString)
@@ -59,7 +59,7 @@ struct ReleaseTool {
             let copy = temp.appendingPathComponent("VUPIO.app")
             try LocalUpdate.run("/bin/cp", ["-cRP", app.path, copy.path])
             guard try LocalRelease.codeHash(of: copy) == hash else {
-                throw LocalUpdateError.message("Скопированная сборка не прошла проверку подписи.")
+                throw LocalUpdateError.message("The copied build failed signature verification.")
             }
             try fm.moveItem(at: temp, to: versionDir)
         }

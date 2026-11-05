@@ -24,12 +24,12 @@ struct LocalRelease: Codable {
         catch let error as NSError where error.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(error.code) { return nil }
         defer { try? handle.close() }
         let data = try handle.read(upToCount: 4097) ?? Data()
-        guard data.count <= 4096 else { throw LocalUpdateError.message("Манифест обновления слишком большой.") }
+        guard data.count <= 4096 else { throw LocalUpdateError.message("The update manifest is too large.") }
         let release = try JSONDecoder().decode(LocalRelease.self, from: data)
         let key = try Curve25519.Signing.PublicKey(rawRepresentation: publicKey)
         guard release.build > 0, release.codeHash.count == 40,
               key.isValidSignature(release.signature, for: release.signedBytes) else {
-            throw LocalUpdateError.message("Подпись обновления не совпала с ключом этой сборки.")
+            throw LocalUpdateError.message("The update signature does not match this build's trusted key.")
         }
         return release
     }
@@ -38,12 +38,12 @@ struct LocalRelease: Codable {
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(bundle as CFURL, [], &code) == errSecSuccess, let code,
               SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckNestedCode), nil) == errSecSuccess else {
-            throw LocalUpdateError.message("Проверка целостности приложения не прошла.")
+            throw LocalUpdateError.message("App integrity verification failed.")
         }
         var details: CFDictionary?
         guard SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &details) == errSecSuccess,
               let hash = (details as? [String: Any])?[kSecCodeInfoUnique as String] as? Data else {
-            throw LocalUpdateError.message("У сборки отсутствует контрольный отпечаток подписи.")
+            throw LocalUpdateError.message("The build has no code signature fingerprint.")
         }
         return hash.map { String(format: "%02x", $0) }.joined()
     }
@@ -69,14 +69,14 @@ enum LocalUpdate {
         try proc.run()
         proc.waitUntilExit()
         guard proc.terminationStatus == 0 else {
-            throw LocalUpdateError.message("Не удалось выполнить обновление. Проверьте права на папку приложения и свободное место.")
+            throw LocalUpdateError.message("Update failed. Check app folder permissions and available disk space.")
         }
     }
 
     static func stage(_ release: LocalRelease, channel: URL, installed: URL) throws -> URL {
         let candidate = channel.appendingPathComponent(String(release.build)).appendingPathComponent("VUPIO.app")
         guard let current = version(of: installed), release.build > current, version(of: candidate) == release.build else {
-            throw LocalUpdateError.message("В локальном канале отсутствует подходящая более новая сборка.")
+            throw LocalUpdateError.message("No compatible newer build is available in the local channel.")
         }
         let directory = installed.deletingLastPathComponent().appendingPathComponent(".vupio-update-" + UUID().uuidString)
         let manager = FileManager.default
@@ -87,7 +87,7 @@ enum LocalUpdate {
             try run("/bin/cp", ["-cRP", installed.path, staged.path])
             try run("/usr/bin/rsync", ["-rltp", "--checksum", "--delete", candidate.path + "/", staged.path + "/"])
             guard version(of: staged) == release.build, try LocalRelease.codeHash(of: staged) == release.codeHash else {
-                throw LocalUpdateError.message("Подготовленная сборка отличается от подписанного релиза.")
+                throw LocalUpdateError.message("The staged build does not match the signed release.")
             }
             return staged
         } catch {

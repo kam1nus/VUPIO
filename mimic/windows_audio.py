@@ -91,14 +91,14 @@ class WindowsAudio:
                 self.refresh()
                 self.output = self.virtual_output or self.default_output
             if not self.output:
-                raise ValueError('Выберите доступный аудиовыход Windows.')
+                raise ValueError('Select an available Windows audio output.')
             self.player = self.start_output(self.output, self.render)
 
     @staticmethod
     def map_clip(path):
         with open(path, 'rb') as file, wave.open(file, 'rb') as pcm:
             if pcm.getsampwidth() != 2 or pcm.getframerate() != RATE or pcm.getnchannels() != 2 or not pcm.getnframes():
-                raise ValueError('Ожидается стерео WAV PCM 16 бит, 48 кГц.')
+                raise ValueError('Expected a stereo 16-bit PCM WAV at 48 kHz.')
             return np.memmap(file, dtype='<i2', mode='r', offset=file.tell(), shape=(pcm.getnframes(), 2))
 
     def render(self, out, frames, _time, _status):
@@ -159,9 +159,9 @@ class WindowsAudio:
 
     def start_mic(self):
         if not self.outputs.get(self.output, ({},0))[0].get('virtual'):
-            raise ValueError('Выберите CABLE Input как выход MIMIC перед включением голоса.')
+            raise ValueError('Select CABLE Input as the VUPIO output before enabling your microphone.')
         if self.input not in self.inputs:
-            raise ValueError('Выберите доступный физический микрофон.')
+            raise ValueError('Select an available physical microphone.')
         self.ensure_output()
         self.stop_mic()
         stream = self.sd.InputStream(device=self.input-1, channels=1, samplerate=RATE,
@@ -188,7 +188,7 @@ class WindowsAudio:
             return dict(platform='windows', playing=active[-1] if active else None, activeClips=active,
                         running=running, mic=mic, micRequested=mic, volume=self.volume,
                         micGain=self.gain, polyphony=self.parallel, output=self.output,
-                        outputName=output.get('name','Выберите выход Windows'), outputUID=output.get('uid',''),
+                        outputName=output.get('name','Select a Windows output'), outputUID=output.get('uid',''),
                         input=self.input, inputUID=self.inputs.get(self.input, {}).get('uid',''),
                         monitor=self.monitor is not None, monitorDevice=self.monitor_device,
                         driverRegistered=bool(self.virtual_output), virtualConnected=bool(running and output.get('virtual')),
@@ -200,7 +200,7 @@ class WindowsAudio:
             try:
                 return self._command(op, data)
             except self.sd.PortAudioError as error:
-                raise ValueError('WASAPI: '+str(error)+'. Проверьте устройство и разрешения Windows.') from error
+                raise ValueError('WASAPI: '+str(error)+'. Check the device and Windows permissions.') from error
 
     def _command(self, op, data):
         if op == 'devices':
@@ -224,7 +224,7 @@ class WindowsAudio:
             self.volume = min(1., max(0., float(data['value'])))
         elif op == 'output':
             if data['device'] not in self.outputs:
-                raise ValueError('Выход WASAPI недоступен. Обновите список устройств.')
+                raise ValueError('WASAPI output unavailable. Refresh the device list.')
             self.close()
             self.output = data['device']
             if data.get('start', True):
@@ -233,7 +233,7 @@ class WindowsAudio:
             id = data.get('device', self.input)
             if id != self.input:
                 if id not in self.inputs:
-                    raise ValueError('Вход WASAPI недоступен.')
+                    raise ValueError('WASAPI input unavailable.')
                 active = self.capture is not None
                 self.stop_mic()
                 self.input = id
@@ -256,12 +256,12 @@ class WindowsAudio:
                 if data['monitor']:
                     id = data.get('monitorDevice') or self.default_output
                     if id == self.output or id not in self.outputs or self.outputs[id][0]['virtual']:
-                        raise ValueError('Для мониторинга выберите отдельные наушники или динамики.')
+                        raise ValueError('Select separate headphones or speakers for monitoring.')
                     self.ensure_output()
                     self.monitor = self.start_output(id,self.render_monitor)
                     self.monitor_device = id
         elif op != 'status':
-            raise ValueError('Эта проверка доступна на Mac. В Windows проверьте уровень микрофона и Mic Test в Discord.')
+            raise ValueError('This test is available on Mac. On Windows, check microphone levels and use Discord Mic Test.')
         return self.status()
 
     def emergency_mute(self):

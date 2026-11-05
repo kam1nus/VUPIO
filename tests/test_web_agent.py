@@ -27,7 +27,7 @@ class WebAgentTests(unittest.TestCase):
  def test_quota_is_not_silent_paid_fallback(self):
   opener=MagicMock();opener.open.side_effect=HTTPError('https://api.tavily.com/search',429,'rate limited',{},None)
   with patch('mimic.web_agent.build_opener',return_value=opener):
-   with self.assertRaisesRegex(ValueError,'Лимит бесплатного'):Tavily(self.settings).search('test')
+   with self.assertRaisesRegex(ValueError,'Free search limit'):Tavily(self.settings).search('test')
   self.assertEqual(opener.open.call_count,1)
  def finder(self,model=None):
   class Studio:pass
@@ -35,30 +35,30 @@ class WebAgentTests(unittest.TestCase):
  def test_web_scope_does_not_fall_back_to_catalogs(self):
   f=self.finder();real=web_row('https://example.org/audio.mp3','Emotional Damage','Tavily')
   with patch.object(f.web.provider,'search',return_value=[real]) as search,patch.object(f.providers['commons'],'search',side_effect=AssertionError('catalog called')):
-   r=f.search({'scope':'web','query':'найди мем emotional damage','category':'Meme'},Job())
+   r=f.search({'scope':'web','query':'\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage','category':'Meme'},Job())
   self.assertEqual(r['scope'],'web');self.assertEqual(len(r['external']),1);self.assertIn('emotional damage',search.call_args.args[0]);self.assertEqual(f.saved(real['source_id'])['title'],'Emotional Damage')
  def test_model_cannot_invent_results_or_download_permission(self):
   class Model:
    def path(self,*a):return Path('/unused')
    def generate(self,*args):return {'ranking':[{'id':'invented','score':1,'url':'https://evil.example'},{'id':'0','score':.9,'reason':'reaction','can_import':True}]}
   f=self.finder(Model());real=web_row('https://example.org/audio.mp3','Emotional Damage','Tavily')
-  with patch.object(f.web.provider,'search',return_value=[real]):r=f.search({'scope':'web','query':'найди мем emotional damage'},Job())
+  with patch.object(f.web.provider,'search',return_value=[real]):r=f.search({'scope':'web','query':'\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage'},Job())
   self.assertEqual(len(r['external']),1);self.assertEqual(r['external'][0]['page_url'],'https://example.org/audio.mp3');self.assertTrue(r['external'][0]['can_import']);self.assertFalse(r['external'][0]['rights_checked']);self.assertNotIn('https://evil.example',json.dumps(r));self.assertTrue(r['ai_ranked'])
  def test_empty_ai_ranking_does_not_erase_web_results(self):
   class Model:
    def path(self,*a):return Path('/unused')
    def generate(self,*args):return {'ranking':[]}
   f=self.finder(Model());real=web_row('https://example.org/audio.mp3','Emotional Damage','Tavily')
-  with patch.object(f.web.provider,'search',return_value=[real]):r=f.search({'scope':'web','query':'найди мем emotional damage'},Job())
+  with patch.object(f.web.provider,'search',return_value=[real]):r=f.search({'scope':'web','query':'\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage'},Job())
   self.assertEqual(len(r['external']),1);self.assertFalse(r['ai_ranked'])
 
  def test_cyrillic_search_falls_back_to_sound_sites_and_marks_player_links(self):
   f=self.finder()
-  video=web_row('https://www.youtube.com/watch?v=example','Миша','Tavily')
-  sound=web_row('https://www.myinstants.com/ru/instant/misha/','Давай по новой Миша','Tavily')
+  video=web_row('https://www.youtube.com/watch?v=example','\u041c\u0438\u0448\u0430','Tavily')
+  sound=web_row('https://www.myinstants.com/ru/instant/misha/','\u0414\u0430\u0432\u0430\u0439 \u043f\u043e \u043d\u043e\u0432\u043e\u0439 \u041c\u0438\u0448\u0430','Tavily')
   with patch.object(f.web.provider,'search',side_effect=[[video],[sound]]) as search:
-   result=f.search({'scope':'web','query':'Найди мем Давай по новой, Миша'},Job())
-  self.assertIn('Давай по новой, Миша',search.call_args_list[0].args[0])
+   result=f.search({'scope':'web','query':'\u041d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c \u0414\u0430\u0432\u0430\u0439 \u043f\u043e \u043d\u043e\u0432\u043e\u0439, \u041c\u0438\u0448\u0430'},Job())
+  self.assertIn('\u0414\u0430\u0432\u0430\u0439 \u043f\u043e \u043d\u043e\u0432\u043e\u0439, \u041c\u0438\u0448\u0430',search.call_args_list[0].args[0])
   self.assertIn('myinstants.com',search.call_args_list[1].kwargs['domains'])
   self.assertEqual([r['can_import'] for r in result['external']],[True,False])
   self.assertFalse(f.saved(video['source_id'])['can_import'])
@@ -74,21 +74,49 @@ class WebAgentTests(unittest.TestCase):
 
  def test_topic_returns_distinct_clips_and_labels_collections_as_links(self):
   f=self.finder()
-  button=web_row('https://www.myinstants.com/ru/instant/arsen-markarian/', 'Арсен Маркарян', 'Tavily')
-  duplicate=web_row('https://www.myinstants.com/en/instant/arsen-markarian/', 'Арсен Маркарян', 'Tavily')
-  quote=web_row('https://uwupad.me/sound/66116', 'О господи Арсен Маркарян', 'Tavily')
-  collection=web_row('https://example.org/memes', 'Мемы с Арсеном Маркаряном', 'Tavily')
-  unrelated=web_row('https://example.org/cat.mp3', 'Кот мяукает', 'Tavily')
+  button=web_row('https://www.myinstants.com/ru/instant/arsen-markarian/', '\u0410\u0440\u0441\u0435\u043d \u041c\u0430\u0440\u043a\u0430\u0440\u044f\u043d', 'Tavily')
+  duplicate=web_row('https://www.myinstants.com/en/instant/arsen-markarian/', '\u0410\u0440\u0441\u0435\u043d \u041c\u0430\u0440\u043a\u0430\u0440\u044f\u043d', 'Tavily')
+  quote=web_row('https://uwupad.me/sound/66116', '\u041e \u0433\u043e\u0441\u043f\u043e\u0434\u0438 \u0410\u0440\u0441\u0435\u043d \u041c\u0430\u0440\u043a\u0430\u0440\u044f\u043d', 'Tavily')
+  collection=web_row('https://example.org/memes', '\u041c\u0435\u043c\u044b \u0441 \u0410\u0440\u0441\u0435\u043d\u043e\u043c \u041c\u0430\u0440\u043a\u0430\u0440\u044f\u043d\u043e\u043c', 'Tavily')
+  unrelated=web_row('https://example.org/cat.mp3', '\u041a\u043e\u0442 \u043c\u044f\u0443\u043a\u0430\u0435\u0442', 'Tavily')
 
   def search(query, domains=None):
    if domains:
-    self.assertEqual(query,'Арсен Маркарян')
+    self.assertEqual(query,'\u0410\u0440\u0441\u0435\u043d \u041c\u0430\u0440\u043a\u0430\u0440\u044f\u043d')
     return [button,quote,unrelated]
-   self.assertIn('Арсен Маркарян мемы',query)
+   self.assertIn('\u0410\u0440\u0441\u0435\u043d \u041c\u0430\u0440\u043a\u0430\u0440\u044f\u043d \u043c\u0435\u043c\u044b',query)
    return [duplicate,collection]
 
   with patch.object(f.web.provider,'search',side_effect=search):
-   result=f.search({'scope':'web','query':'Мемы с Арсеном Маркаряном'},Job())
+   result=f.search({'scope':'web','query':'\u041c\u0435\u043c\u044b \u0441 \u0410\u0440\u0441\u0435\u043d\u043e\u043c \u041c\u0430\u0440\u043a\u0430\u0440\u044f\u043d\u043e\u043c'},Job())
   self.assertTrue(result['topic_search'])
   self.assertEqual(result['external'],[button,quote,collection])
   self.assertEqual([r['can_import'] for r in result['external']],[True,True,False])
+
+ def test_multilingual_queries_keep_original_text_with_optional_english_expansion(self):
+  class Model:
+   def path(self,*args):return Path('/unused')
+   def generate(self,prompt,text,*args):
+    return {'search_terms':'screaming cat'} if 'search_terms' in prompt else {'ranking':[]}
+  queries=[
+   '\u043d\u0430\u0439\u0434\u0438 \u0437\u0432\u0443\u043a \u043a\u043e\u0442\u0430', 'encuentra un gato gritando', 'procure gato gritando',
+   'suche eine schreiende Katze', '猫の叫び声', '寻找猫叫声',
+  ]
+  for query in queries:
+   with self.subTest(query=query):
+    finder=self.finder(Model())
+    real=web_row('https://example.org/cat.mp3','Cat','Tavily')
+    with patch.object(finder.web.provider,'search',return_value=[real]) as search:
+     found=finder.search({'scope':'web','query':query},Job())
+    first=search.call_args_list[0].args[0]
+    self.assertIn(query.split()[-1],first)
+    self.assertTrue(any('screaming cat' in call.args[0] for call in search.call_args_list))
+    self.assertEqual(found['query'],query)
+    self.assertEqual(found['external'][0]['page_url'],real['page_url'])
+
+ def test_topics_in_multiple_languages_preserve_person_names(self):
+  from mimic.web_agent import topic_subject
+  for query in ['memes with Keanu Reeves','memes con Keanu Reeves',
+                'memes sobre Keanu Reeves','mèmes avec Keanu Reeves','Memes mit Keanu Reeves']:
+   with self.subTest(query=query):
+    self.assertEqual(topic_subject(query),'Keanu Reeves')

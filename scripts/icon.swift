@@ -3,7 +3,7 @@ import AppKit
 let input = URL(fileURLWithPath: CommandLine.arguments[1])
 let dest = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
 guard let vector = NSImage(contentsOf: input) else {
-    fatalError("Не удалось прочитать SVG иконки VUPIO")
+    fatalError("Could not read the VUPIO SVG icon")
 }
 
 func render(_ size: Int, opaque: Bool = false) -> Data {
@@ -11,7 +11,7 @@ func render(_ size: Int, opaque: Bool = false) -> Data {
                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
           let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
-        fatalError("Иконка: недоступен буфер")
+        fatalError("Icon buffer unavailable")
     }
     let rect = NSRect(x: 0, y: 0, width: size, height: size)
     NSGraphicsContext.saveGraphicsState()

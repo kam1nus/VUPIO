@@ -27,7 +27,7 @@ def skip(file,kind):
         if subtype in SIZES:file.seek(count*SIZES[subtype],1)
         else:
             for _ in range(count):skip(file,subtype)
-    else:raise ValueError('Неизвестный тип метаданных GGUF')
+    else:raise ValueError('Unknown GGUF metadata type')
 
 
 def convert_embedding(source,target):
@@ -36,18 +36,18 @@ def convert_embedding(source,target):
     try:
         with open(source,'rb') as file:
             magic=file.read(4);version=u32(file);tensors=u64(file);entries=u64(file)
-            if magic!=b'GGUF' or version!=3:raise ValueError('Неподдерживаемый GGUF')
+            if magic!=b'GGUF' or version!=3:raise ValueError('Unsupported GGUF format')
             metadata={}
             for _ in range(entries):
                 key=string(file);kind=u32(file);start=file.tell();skip(file,kind);end=file.tell()
                 file.seek(start);value=file.read(end-start);metadata[key]=(kind,value)
             if metadata.get('general.architecture')!=(8,encoded('gemma3')):
-                raise ValueError('Ожидался проверенный формат EmbeddingGemma gemma3')
+                raise ValueError('Expected the verified EmbeddingGemma gemma3 format')
             infos=[];shapes={}
             for _ in range(tensors):
                 name=string(file);count=u32(file);dims=[u64(file) for _ in range(count)];dtype=u32(file);offset=u64(file)
                 infos.append((name,dims,dtype,offset));shapes[name]=dims
-            if not all(name in shapes for name in ['dense.0.weight','dense.1.weight']):raise ValueError('В GGUF отсутствуют проекционные слои EmbeddingGemma')
+            if not all(name in shapes for name in ['dense.0.weight','dense.1.weight']):raise ValueError('The GGUF file is missing EmbeddingGemma projection layers')
             alignment=struct.unpack('<I',metadata['general.alignment'][1])[0] if 'general.alignment' in metadata else 32
             data_offset=(file.tell()+alignment-1)//alignment*alignment
             translated={}

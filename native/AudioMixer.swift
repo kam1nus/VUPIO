@@ -25,7 +25,7 @@ final class ClipFeed {
         self.dsp=dsp;self.slot=slot;self.ticket=ticket
         queue=DispatchQueue(label:"mimic.decode.\(slot)",qos:.userInitiated)
         file=try AVAudioFile(forReading:URL(fileURLWithPath:path))
-        guard file.processingFormat.sampleRate>0,let convert=AVAudioConverter(from:file.processingFormat,to:mixFormat) else{throw AudioFailure.message("Формат файла не поддерживается")}
+        guard file.processingFormat.sampleRate>0,let convert=AVAudioConverter(from:file.processingFormat,to:mixFormat) else{throw AudioFailure.message("Unsupported file format")}
         converter=convert
     }
     func start(){let t=DispatchSource.makeTimerSource(queue:queue);timer=t;t.schedule(deadline:.now(),repeating:.milliseconds(15));t.setEventHandler{[weak self] in self?.pump()};t.resume()}
@@ -82,22 +82,22 @@ final class SoundEngine {
         observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.didWakeNotification,object:nil,queue:.main){[weak self] _ in self?.sleeping=false;self?.checkDevices()})
     }
     func setDevice(_ e:AVAudioEngine,_ id:AudioDeviceID)throws {
-        var d=id;guard let unit=e.outputNode.audioUnit else{throw AudioFailure.message("Нет аудиовыхода")}
+        var d=id;guard let unit=e.outputNode.audioUnit else{throw AudioFailure.message("No audio output")}
         // These engines only render audio. Capture uses a separate, authorized CoreInput.
         var inputEnabled:UInt32=0,inputSize=UInt32(MemoryLayout<UInt32>.size)
         let inputState=AudioUnitGetProperty(unit,kAudioOutputUnitProperty_EnableIO,kAudioUnitScope_Input,1,&inputEnabled,&inputSize)
-        guard inputState==noErr else{throw AudioFailure.message("Core Audio: не удалось проверить вход аудиовыхода (\(inputState))")}
+        guard inputState==noErr else{throw AudioFailure.message("Core Audio: could not check the output input scope (\(inputState))")}
         if inputEnabled != 0 {
             inputEnabled=0
             let code=AudioUnitSetProperty(unit,kAudioOutputUnitProperty_EnableIO,kAudioUnitScope_Input,1,&inputEnabled,inputSize)
-            guard code==noErr else{throw AudioFailure.message("Core Audio: не удалось отключить вход аудиовыхода (\(code))")}
+            guard code==noErr else{throw AudioFailure.message("Core Audio: could not disable the output input scope (\(code))")}
         }
         let code=AudioUnitSetProperty(unit,kAudioOutputUnitProperty_CurrentDevice,kAudioUnitScope_Global,0,&d,UInt32(MemoryLayout<AudioDeviceID>.size))
-        guard code==noErr else{throw AudioFailure.message("Core Audio: не удалось выбрать выход (\(code))")}
+        guard code==noErr else{throw AudioFailure.message("Core Audio: could not select the output (\(code))")}
     }
     func configure()throws {
         engine.stop();monitorEngine?.stop();ready=false
-        guard devices().contains(where:{$0["id"] as? UInt32 == output})else{throw AudioFailure.message("Выход отключён. Выберите MIMIC Microphone либо запасной выход.")}
+        guard devices().contains(where:{$0["id"] as? UInt32 == output})else{throw AudioFailure.message("Output disconnected. Select MIMIC Microphone or a fallback output.")}
         engine=AVAudioEngine();try setDevice(engine,output)
         let p=dsp
         let s=AVAudioSourceNode(format:mixFormat){_,_,n,list in
@@ -113,7 +113,7 @@ final class SoundEngine {
         monitorEngine?.stop();monitorEngine=nil;mimic_mix_monitor(dsp,0)
         guard monitor else{return}
         let forbidden=devices().first(where:{$0["id"] as? UInt32 == monitorDevice})?["name"] as? String ?? ""
-        guard monitorDevice != output,!forbidden.lowercased().contains("blackhole"),!forbidden.lowercased().contains("mimic microphone"),!forbidden.lowercased().contains("multi-output"),!forbidden.lowercased().contains("aggregate")else{monitor=false;throw AudioFailure.message("Для мониторинга выберите физические наушники/динамики, отдельно от виртуального выхода.")}
+        guard monitorDevice != output,!forbidden.lowercased().contains("blackhole"),!forbidden.lowercased().contains("mimic microphone"),!forbidden.lowercased().contains("multi-output"),!forbidden.lowercased().contains("aggregate")else{monitor=false;throw AudioFailure.message("Choose physical headphones or speakers for monitoring.")}
         let e=AVAudioEngine();try setDevice(e,monitorDevice);let p=dsp
         let s=AVAudioSourceNode(format:mixFormat){_,_,n,list in let b=UnsafeMutableAudioBufferListPointer(list);if b.count>=2,let l=b[0].mData?.assumingMemoryBound(to:Float.self),let r=b[1].mData?.assumingMemoryBound(to:Float.self){mimic_monitor_render(p,l,r,n)};return noErr}
         e.attach(s);e.connect(s,to:e.mainMixerNode,format:mixFormat);mimic_mix_monitor(dsp,1);try e.start();monitorEngine=e
@@ -123,9 +123,9 @@ final class SoundEngine {
     }
     func startCapture()throws {
         stopCapture()
-        guard let input=preferredInput ?? suggestedInput(),physicalInputs().contains(where:{$0["id"] as? UInt32 == input})else{throw AudioFailure.message("Выберите доступный физический микрофон")}
+        guard let input=preferredInput ?? suggestedInput(),physicalInputs().contains(where:{$0["id"] as? UInt32 == input})else{throw AudioFailure.message("Select an available physical microphone")}
         let recorder=try CoreInput(device:input);let f=recorder.format
-        guard let converter=AVAudioConverter(from:f,to:mixFormat)else{throw AudioFailure.message("Нельзя преобразовать формат микрофона")}
+        guard let converter=AVAudioConverter(from:f,to:mixFormat)else{throw AudioFailure.message("Cannot convert microphone format")}
         let p=dsp,ticket=mimic_voice_begin(dsp,8),stats=recorder.telemetry
         do{try recorder.start{buffer in
             let cap=AVAudioFrameCount(ceil(Double(buffer.frameLength)*48000/f.sampleRate))+64
@@ -147,7 +147,7 @@ final class SoundEngine {
         sleeping=true;permissionEpoch+=1;permissionPending=false
         if diagnosticActive{finishDiagnostic()}
         probe.stop();stopClips();stopCapture();mimic_mix_stop(dsp,1);monitorEngine?.stop();engine.stop();ready=false
-        notice=micRequested ? "Mac спит. После пробуждения восстановится только ранее выбранный микрофон.":"Mac спит; микрофон выключен."
+        notice=micRequested ? "Mac is sleeping. The previously selected microphone will reconnect after wake.":"Mac is sleeping. Microphone disabled."
         log("Sleep: physical capture suspended")
     }
     func activateRequestedMic()throws {
@@ -156,21 +156,21 @@ final class SoundEngine {
         if permission == .notDetermined {
             if !permissionPending {
                 permissionPending=true;let epoch=permissionEpoch
-                notice="Ожидаем разрешение macOS на микрофон. Захват включится автоматически после разрешения."
+                notice="Waiting for macOS microphone permission. Capture will start after access is granted."
                 log("Microphone permission requested by MIMIC --audio-helper (pid \(ProcessInfo.processInfo.processIdentifier))")
                 AVCaptureDevice.requestAccess(for:.audio){[weak self] allowed in DispatchQueue.main.async{
                     guard let self=self,self.permissionEpoch==epoch,self.micRequested,!self.sleeping,mimic_mix_is_emergency(self.dsp)==0 else{return}
                     self.permissionPending=false
                     if allowed {do{try self.activateRequestedMic()}catch{self.notice=error.localizedDescription;self.log("Capture failed: \(self.notice)");self.micRequested=false}}
-                    else {self.micRequested=false;self.notice="Доступ к микрофону запрещён. macOS → Конфиденциальность и безопасность → Микрофон → MIMIC.";self.log("Microphone permission denied");if self.diagnosticActive{self.finishDiagnostic()}}
+                    else {self.micRequested=false;self.notice="Microphone access denied. Open macOS → Privacy & Security → Microphone → VUPIO.";self.log("Microphone permission denied");if self.diagnosticActive{self.finishDiagnostic()}}
                 }}
             }
             return
         }
-        guard permission == .authorized else{micRequested=false;throw AudioFailure.message("Доступ к микрофону запрещён/ограничен. Разрешите MIMIC в настройках macOS.")}
+        guard permission == .authorized else{micRequested=false;throw AudioFailure.message("Microphone access denied or restricted. Allow VUPIO in macOS Settings.")}
         let uid=deviceString(output,kAudioDevicePropertyDeviceUID)
         let route=deviceName(output).lowercased()
-        guard uid=="MIMICAudioDevice_UID" || route.contains("blackhole") || route.contains("multi-output") || route.contains("aggregate") else{throw AudioFailure.message("Выберите MIMIC Microphone как выход. Голос не направляется в динамики.")}
+        guard uid=="MIMICAudioDevice_UID" || route.contains("blackhole") || route.contains("multi-output") || route.contains("aggregate") else{throw AudioFailure.message("Select MIMIC Microphone as the output to enable microphone routing.")}
         guard mimic_mix_is_emergency(dsp)==0 else{return}
         if !ready || !engine.isRunning{try configure()}
         if !mic{try startCapture()}
@@ -185,7 +185,7 @@ final class SoundEngine {
         permissionEpoch+=1;permissionPending=false;micRequested=enabled
         if enabled{mimic_mix_resume(dsp)}
         if enabled {do{try activateRequestedMic()}catch{notice=error.localizedDescription;log("Capture failed: \(notice)");micRequested=false;throw error}}
-        else {stopCapture();notice="Микрофон выключен";log("Microphone disabled by user")}
+        else {stopCapture();notice="Microphone off";log("Microphone disabled by user")}
     }
     func finishDiagnostic(){
         let raw=retainedTelemetry?.snapshot() ?? [:],read=probe.snapshot()
@@ -193,7 +193,7 @@ final class SoundEngine {
         let rawFrames=raw["physicalFrames"] as? UInt64 ?? 0,converted=raw["pushedMicFrames"] as? UInt64 ?? 0
         let maxPeak=raw["physicalMicMaxPeak"] as? Float ?? 0
         let virtualPeak=read["virtualMicMaxPeak"] as? Float ?? 0
-        diagnosticReport=["completedAt":ISO8601DateFormatter().string(from:Date()),"deviceDetected":preferredInput.map{id in physicalInputs().contains{$0["id"] as? UInt32==id}} ?? false,"permissionGranted":AVCaptureDevice.authorizationStatus(for:.audio) == .authorized,"captureStarted":mic,"samplesReceived":rawFrames>0,"nonzeroPhysicalSignal":maxPeak>0.00001,"physicalFrames":rawFrames,"physicalPeak":maxPeak,"pushedFrames":converted,"mixerConsumedFrames":consumed,"signalReachedMixer":converted>0 && consumed>0,"virtualFrames":read["probeFrames"] ?? 0,"virtualPeak":virtualPeak,"virtualReaderAvailable":read["virtualMeterAvailable"] ?? false,"virtualSignalWithNoClips":!diagnosticHadClips && virtualPeak>0.00001 && converted>0 && consumed>0 && gain>0,"clipsDuringTest":diagnosticHadClips,"speechConfirmedByHuman":false,"instruction":"Уровень может включать фоновый шум. Подтвердите реакцию на свои слова; без этого разборчивость речи не проверена.","error":raw["captureError"] ?? ""]
+        diagnosticReport=["completedAt":ISO8601DateFormatter().string(from:Date()),"deviceDetected":preferredInput.map{id in physicalInputs().contains{$0["id"] as? UInt32==id}} ?? false,"permissionGranted":AVCaptureDevice.authorizationStatus(for:.audio) == .authorized,"captureStarted":mic,"samplesReceived":rawFrames>0,"nonzeroPhysicalSignal":maxPeak>0.00001,"physicalFrames":rawFrames,"physicalPeak":maxPeak,"pushedFrames":converted,"mixerConsumedFrames":consumed,"signalReachedMixer":converted>0 && consumed>0,"virtualFrames":read["probeFrames"] ?? 0,"virtualPeak":virtualPeak,"virtualReaderAvailable":read["virtualMeterAvailable"] ?? false,"virtualSignalWithNoClips":!diagnosticHadClips && virtualPeak>0.00001 && converted>0 && consumed>0 && gain>0,"clipsDuringTest":diagnosticHadClips,"speechConfirmedByHuman":false,"instruction":"The meter may include background noise. Confirm it responds to your voice to check speech capture.","error":raw["captureError"] ?? ""]
         diagnosticActive=false;diagnosticReady=false
         probe.stop()
         if !diagnosticRestore{micRequested=false;stopCapture()}
@@ -206,13 +206,13 @@ final class SoundEngine {
         if mic {
             let frames=mimic_mix_input_frames(dsp)
             if frames != lastInputFrames{lastInputFrames=frames;lastInputTime=Date()}
-            else if Date().timeIntervalSince(lastInputTime)>3{stopCapture();retryAfter=Date(timeIntervalSinceNow:2);notice="Нет блоков захвата. Проверьте captureError; повторное подключение выбранного входа будет проверено.";log(notice)}
+            else if Date().timeIntervalSince(lastInputTime)>3{stopCapture();retryAfter=Date(timeIntervalSinceNow:2);notice="No capture frames received. Check captureError. Retrying the selected input.";log(notice)}
         }
         if ready && (!engine.isRunning || !devices().contains(where:{$0["id"] as? UInt32 == output})){
-            engine.stop();ready=false;stopClips();stopCapture();probe.stop();notice="Выход отключён. Ожидаем выбранное устройство.";log(notice)
+            engine.stop();ready=false;stopClips();stopCapture();probe.stop();notice="Output disconnected. Waiting for the selected device.";log(notice)
         }
         if mic && (capture?.running != true || capture?.formatStillMatches() != true || !physicalInputs().contains(where:{$0["uid"] as? String == selectedInputUID})){
-            stopCapture();retryAfter=Date(timeIntervalSinceNow:1);notice="Вход отключён/изменил формат. Ожидаем тот же выбранный микрофон.";log(notice)
+            stopCapture();retryAfter=Date(timeIntervalSinceNow:1);notice="Input disconnected or changed format. Waiting for the selected microphone.";log(notice)
         }
         if let replacement=physicalInputs().first(where:{$0["uid"] as? String == selectedInputUID})?["id"] as? UInt32{
             preferredInput=replacement
@@ -229,7 +229,7 @@ final class SoundEngine {
         var result:[String:Any] = ["playing":active.last as Any? ?? NSNull(),"activeClips":active,"polyphony":parallel,"maxVoices":8,
                 "volume":volume,"mic":mic && (capture?.running ?? false) && mimic_mix_is_emergency(dsp)==0,"micGain":gain,"running":engine.isRunning,
                 "output":output,"outputName":deviceName(output),"outputUID":deviceString(output,kAudioDevicePropertyDeviceUID),
-                "input":preferredInput ?? 0,"inputName":preferredInput.map{deviceName($0)} ?? "Выберите микрофон","inputUID":selectedInputUID,
+                "input":preferredInput ?? 0,"inputName":preferredInput.map{deviceName($0)} ?? "Select a microphone","inputUID":selectedInputUID,
                 "micPermission":AVCaptureDevice.authorizationStatus(for:.audio).rawValue,
                 "micLevel":mimic_mix_meter(dsp,0),"clipLevel":mimic_mix_meter(dsp,1),"outputLevel":mimic_mix_meter(dsp,2),"limiting":mimic_mix_meter(dsp,3)>0,
                 "micFrames":mimic_mix_input_frames(dsp),"captureHealthy":mic && mimic_mix_input_frames(dsp)>inputBaseline,"micUnderruns":mimic_mix_underruns(dsp),"monitor":monitor,"monitorDevice":monitorDevice,
@@ -256,25 +256,25 @@ final class SoundEngine {
         case "probe":
             if c["enabled"] as? Bool ?? false{
                 let permission=AVCaptureDevice.authorizationStatus(for:.audio)
-                if permission == .notDetermined{AVCaptureDevice.requestAccess(for:.audio){_ in};return ["notice":"Разрешите MIMIC доступ к аудиовходу в macOS, затем повторите проверку."]}
-                guard permission == .authorized else{throw AudioFailure.message("Для проверки виртуального входа разрешите микрофон MIMIC в настройках macOS")}
+                if permission == .notDetermined{AVCaptureDevice.requestAccess(for:.audio){_ in};return ["notice":"Allow VUPIO microphone access in macOS, then run the test again."]}
+                guard permission == .authorized else{throw AudioFailure.message("Allow VUPIO microphone access in macOS to test the virtual input")}
                 try probe.start()
             }else{probe.stop()}
         case "input":
             let id=AudioDeviceID(c["device"] as? Int ?? 0)
-            guard physicalInputs().contains(where:{$0["id"] as? UInt32 == id})else{throw AudioFailure.message("Выберите физический вход")}
+            guard physicalInputs().contains(where:{$0["id"] as? UInt32 == id})else{throw AudioFailure.message("Select a physical input")}
             stopCapture();preferredInput=id;selectedInputUID=deviceString(id,kAudioDevicePropertyDeviceUID);if micRequested{try activateRequestedMic()}
         case "output":
-            guard let value=c["device"] as? Int,value>0,value<=Int(UInt32.max),devices().contains(where:{$0["id"] as? UInt32==UInt32(value)})else{throw AudioFailure.message("Аудиовыход недоступен")}
+            guard let value=c["device"] as? Int,value>0,value<=Int(UInt32.max),devices().contains(where:{$0["id"] as? UInt32==UInt32(value)})else{throw AudioFailure.message("Audio output unavailable")}
             let next=UInt32(value),name=deviceName(UInt32(value)).lowercased()
-            if micRequested && deviceString(next,kAudioDevicePropertyDeviceUID) != "MIMICAudioDevice_UID" && !["blackhole","aggregate","multi-output"].contains(where:name.contains){try requestMic(false);notice="Голос выключен: выбран физический выход. Для голоса выберите MIMIC Microphone."}
+            if micRequested && deviceString(next,kAudioDevicePropertyDeviceUID) != "MIMICAudioDevice_UID" && !["blackhole","aggregate","multi-output"].contains(where:name.contains){try requestMic(false);notice="Microphone disabled for physical output. Select MIMIC Microphone to route your voice."}
             stopClips();probe.stop();output=next;selectedOutputUID=deviceString(output,kAudioDevicePropertyDeviceUID)
             if c["start"] as? Bool ?? true {try configure()}
             else{engine.stop();monitorEngine?.stop();ready=false}
         case "play":
             if diagnosticActive{diagnosticHadClips=true}
             if mimic_mix_is_emergency(dsp) != 0{stopCapture();mimic_mix_resume(dsp)}
-            guard let path=c["path"] as? String else{throw AudioFailure.message("Нет файла")}
+            guard let path=c["path"] as? String else{throw AudioFailure.message("No file")}
             if !ready || !engine.isRunning{try configure()}
             if !parallel{stopClips()}
             let slot=(Int32(0)..<Int32(8)).first(where:{mimic_voice_active(dsp,$0)==0}) ?? order.min(by:{$0.value<$1.value})!.key
@@ -291,7 +291,7 @@ final class SoundEngine {
         case "mic", "mic_test":
             let test=(c["op"] as? String)=="mic_test"
             if let id=c["device"] as? Int,id>0 {
-                guard physicalInputs().contains(where:{$0["id"] as? UInt32==UInt32(id)})else{throw AudioFailure.message("Выбранный вход не является доступным физическим микрофоном")}
+                guard physicalInputs().contains(where:{$0["id"] as? UInt32==UInt32(id)})else{throw AudioFailure.message("The selected input is not an available physical microphone")}
                 if UInt32(id) != preferredInput{stopCapture();preferredInput=UInt32(id);selectedInputUID=deviceString(UInt32(id),kAudioDevicePropertyDeviceUID)}
             }
             gain=min(1,max(0,Float(c["gain"] as? Double ?? Double(gain))));mimic_mix_gains(dsp,volume,gain)
@@ -305,7 +305,7 @@ final class SoundEngine {
                 try requestMic(c["enabled"] as? Bool ?? false)
             }
         case "mic_test_stop":if diagnosticActive{finishDiagnostic()}
-        default:throw AudioFailure.message("Неизвестная аудиокоманда")
+        default:throw AudioFailure.message("Unknown audio command")
         }
         return status()
     }

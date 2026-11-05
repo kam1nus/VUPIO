@@ -17,20 +17,20 @@ class FinderTests(unittest.TestCase):
  def test_license_allowlist(self):
   for url in ['https://creativecommons.org/licenses/by/4.0/','http://creativecommons.org/licenses/by-sa/3.0/','https://creativecommons.org/publicdomain/zero/1.0/']:self.assertTrue(permitted_license(url))
   for url in ['https://creativecommons.org/licenses/by-nc/4.0/','https://evil.org/licenses/by/4.0/','https://creativecommons.org.evil.org/licenses/by/4.0/','https://creativecommons.org/licenses/by-nd/4.0/','']:self.assertFalse(permitted_license(url))
- def test_russian_terms(self):self.assertEqual(fallback_terms('Найди мем с неожиданным криком'),'scream')
- def test_exact_name(self):self.assertEqual(fallback_terms('Найди Wide Putin'),'Wide Putin')
+ def test_russian_terms(self):self.assertEqual(fallback_terms('\u041d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c \u0441 \u043d\u0435\u043e\u0436\u0438\u0434\u0430\u043d\u043d\u044b\u043c \u043a\u0440\u0438\u043a\u043e\u043c'),'scream')
+ def test_exact_name(self):self.assertEqual(fallback_terms('\u041d\u0430\u0439\u0434\u0438 Wide Putin'),'Wide Putin')
  def test_relative_cut(self):
-  p=cut_plan('начни раньше на одну секунду',10,{},dict(start=3,end=6));self.assertEqual((p['start'],p['end']),(2,6))
- def test_duration(self):self.assertEqual(cut_plan('сделай на три секунды',20,{})['end'],3)
- def test_uncertain_recognizable(self):self.assertTrue(cut_plan('оставь узнаваемую часть',20,{})['warning'])
+  p=cut_plan('\u043d\u0430\u0447\u043d\u0438 \u0440\u0430\u043d\u044c\u0448\u0435 \u043d\u0430 \u043e\u0434\u043d\u0443 \u0441\u0435\u043a\u0443\u043d\u0434\u0443',10,{},dict(start=3,end=6));self.assertEqual((p['start'],p['end']),(2,6))
+ def test_duration(self):self.assertEqual(cut_plan('\u0441\u0434\u0435\u043b\u0430\u0439 \u043d\u0430 \u0442\u0440\u0438 \u0441\u0435\u043a\u0443\u043d\u0434\u044b',20,{})['end'],3)
+ def test_uncertain_recognizable(self):self.assertTrue(cut_plan('\u043e\u0441\u0442\u0430\u0432\u044c \u0443\u0437\u043d\u0430\u0432\u0430\u0435\u043c\u0443\u044e \u0447\u0430\u0441\u0442\u044c',20,{})['warning'])
  def test_no_false_scream(self):
-  with self.assertRaises(ValueError):cut_plan('начни до крика',5,{'features':{'onsets':[]}})
+  with self.assertRaises(ValueError):cut_plan('\u043d\u0430\u0447\u043d\u0438 \u0434\u043e \u043a\u0440\u0438\u043a\u0430',5,{'features':{'onsets':[]}})
  def test_timestamp_scream(self):
-  p=cut_plan('начни до крика',10,{'windows':[{'start':4,'end':6,'labels':[{'label':'scream','confidence':.8}]}]});self.assertEqual((p['start'],p['end']),(3,9))
+  p=cut_plan('\u043d\u0430\u0447\u043d\u0438 \u0434\u043e \u043a\u0440\u0438\u043a\u0430',10,{'windows':[{'start':4,'end':6,'labels':[{'label':'scream','confidence':.8}]}]});self.assertEqual((p['start'],p['end']),(3,9))
  def test_phrase(self):
-  p=cut_plan('оставь фразу «what»',5,{'segments':[dict(start=2,end=3,text='what')]});self.assertEqual((p['start'],p['end']),(1.9,3.15))
+  p=cut_plan('\u043e\u0441\u0442\u0430\u0432\u044c \u0444\u0440\u0430\u0437\u0443 «what»',5,{'segments':[dict(start=2,end=3,text='what')]});self.assertEqual((p['start'],p['end']),(1.9,3.15))
  def test_invalid_relative(self):
-  with self.assertRaises(ValueError):cut_plan('обрежь конец на десять секунд',5,{})
+  with self.assertRaises(ValueError):cut_plan('\u043e\u0431\u0440\u0435\u0436\u044c \u043a\u043e\u043d\u0435\u0446 \u043d\u0430 \u0434\u0435\u0441\u044f\u0442\u044c \u0441\u0435\u043a\u0443\u043d\u0434',5,{})
  def test_merge_history_missing_provider(self):
   with tempfile.TemporaryDirectory() as d:
    class Studio:pass
@@ -38,7 +38,7 @@ class FinderTests(unittest.TestCase):
    class Bad:
     def search(self,q):raise ValueError('offline')
    f.providers={'one':Provider(),'two':Provider(),'bad':Bad()}
-   r=f.search({'query':'крик'},Job());self.assertEqual(len(r['external']),1);self.assertEqual(r['providers']['bad'],0);self.assertEqual(f.history(),['крик']);self.assertEqual(f.saved('fake:1')['title'],'Scream')
+   r=f.search({'query':'\u043a\u0440\u0438\u043a'},Job());self.assertEqual(len(r['external']),1);self.assertEqual(r['providers']['bad'],0);self.assertEqual(f.history(),['\u043a\u0440\u0438\u043a']);self.assertEqual(f.saved('fake:1')['title'],'Scream')
  def test_brave_unconfigured(self):
   with patch.dict('os.environ',{},clear=True):
    with self.assertRaises(ValueError):Brave().search('test')
@@ -80,7 +80,7 @@ class DownloadVerificationTests(unittest.TestCase):
     with wave.open(str(path),'wb') as f:f.setparams((1,2,16000,0,'NONE','not compressed'));f.writeframes(b'\0\0'*32000)
    try:
     with patch.object(s.finder,'saved',return_value={'query':'scream','terms':'scream'}),patch.object(s.finder,'resolve',return_value=source),patch('mimic.autofetch.catalog_download',side_effect=silence):
-     with self.assertRaisesRegex(ValueError,'тишину'):s.autofetch.prepare({'source_id':'commons:1'},Job())
+     with self.assertRaisesRegex(ValueError,'silence'):s.autofetch.prepare({'source_id':'commons:1'},Job())
     self.assertEqual(s.library.items(),[]);self.assertEqual(list(s.cache.iterdir()),[])
    finally:s.close()
 
@@ -94,34 +94,34 @@ class QueryRegressionTests(unittest.TestCase):
    class CaptureProvider(Provider):
     def search(self,q):self.query=q;return super().search(q)
    s=Studio();s.library=Library(d);s.models=MisleadingModel();f=Finder(s);p=CaptureProvider();f.providers={'test':p}
-   f.search({'query':'Найди мем с неожиданным криком'},Job());self.assertEqual(p.query,'scream')
+   f.search({'query':'\u041d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c \u0441 \u043d\u0435\u043e\u0436\u0438\u0434\u0430\u043d\u043d\u044b\u043c \u043a\u0440\u0438\u043a\u043e\u043c'},Job());self.assertEqual(p.query,'scream')
 
 class FractionalDurationTests(unittest.TestCase):
  def test_rounding_does_not_overrun_short_file(self):
   d=1.619592
-  p=cut_plan('Сделай на три секунды',d,{})
+  p=cut_plan('\u0421\u0434\u0435\u043b\u0430\u0439 \u043d\u0430 \u0442\u0440\u0438 \u0441\u0435\u043a\u0443\u043d\u0434\u044b',d,{})
   self.assertLessEqual(p['end'],d)
 
 class ScreenshotSearchRegressionTests(unittest.TestCase):
- def search(self,providers,query='найди мем emotional damage',category='Meme',models=None):
+ def search(self,providers,query='\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage',category='Meme',models=None):
   temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
   class Studio:pass
   s=Studio();s.library=Library(temp.name);s.models=models or Models();f=Finder(s);f.providers=providers
   return f.search({'query':query,'category':category},Job())
  def test_english_meme_title_preserved(self):
   from mimic.finder import named_terms
-  self.assertEqual(named_terms('найди мем emotional damage'),'emotional damage')
-  self.assertEqual(fallback_terms('найди мем emotional damage'),'emotional damage')
-  self.assertEqual(fallback_terms('Найди emotional damage'),'emotional damage')
+  self.assertEqual(named_terms('\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage'),'emotional damage')
+  self.assertEqual(fallback_terms('\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage'),'emotional damage')
+  self.assertEqual(fallback_terms('\u041d\u0430\u0439\u0434\u0438 emotional damage'),'emotional damage')
  def test_meme_filter_keeps_emotional_damage_without_word_meme(self):
   class Emotional(Provider):
    def search(self,q):return [dict(source_id='fake:emotional',title='Emotional Damage',description='reaction',page_url='https://example.org/emotional',can_import=False)]
   r=self.search({'catalog':Emotional()})
-  self.assertEqual(len(r['external']),1);self.assertTrue(r['external'][0]['named_query']);self.assertIn('Найдено вариантов: 1',r['status_message'])
+  self.assertEqual(len(r['external']),1);self.assertTrue(r['external'][0]['named_query']);self.assertIn('Results: 1',r['status_message'])
  def test_empty_result_is_not_ready_with_results(self):
   class Empty:
    def search(self,q):return []
-  r=self.search({'catalog':Empty()});self.assertEqual(r['external'],[]);self.assertIn('совпадений нет',r['status_message'])
+  r=self.search({'catalog':Empty()});self.assertEqual(r['external'],[]);self.assertIn('No catalog matches',r['status_message'])
  def test_disabled_brave_is_not_an_outage(self):
   with patch.dict('os.environ',{},clear=True):
    r=self.search({'brave':Brave(),'catalog':Provider()})

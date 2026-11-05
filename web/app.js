@@ -40,7 +40,7 @@ function bind(target,fn,errorTarget){
 async function api(path,data){
  const res=await fetch('/api/'+path,data===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
  const body=await res.json();
- if(!res.ok){const err=Error(body.error||'Ошибка запроса');err.code=res.status;throw err;}return body;
+ if(!res.ok){const err=Error(body.error||'Request failed');err.code=res.status;throw err;}return body;
 }
 function fmt(t,precise=false){
  if(!Number.isFinite(t)||t<0)return '—';
@@ -51,14 +51,14 @@ function link(text,url){
  try{const u=new URL(url,location.href);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)return node('span',text,'muted');const a=node('a',text);a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';return a;}catch{return node('span',text,'muted');}
 }
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const jobLabels={radar:'Trend Radar',radar_clip:'Подгрузка звука',internet_search:'Интернет-поиск',quick_add:'Быстрое добавление',search:'Поиск в библиотеке',fetch:'Подготовка звука',fetch_recut:'Обработка фрагмента',fetch_commit:'Добавление звука',render:'Обработка фрагмента',plan:'Команда для AI',commit:'Сохранение копии',metadata:'Название и теги',index:'Анализ звука',index_all:'Индексирование библиотеки',model:'Загрузка модели',model_import:'Импорт модели',asset_speech:'Распознавание речи'};
-const jobStates={queued:'В очереди',running:'В работе',done:'Готово',failed:'Ошибка',cancelled:'Отменено'};
+const jobLabels={radar:'Trend Radar',radar_clip:'Preloading sound',internet_search:'Internet search',quick_add:'Quick add',search:'Library search',fetch:'Preparing sound',fetch_recut:'Processing selection',fetch_commit:'Adding sound',render:'Processing selection',plan:'AI command',commit:'Saving copy',metadata:'Title and tags',index:'Audio analysis',index_all:'Indexing library',model:'Downloading model',model_import:'Importing model',asset_speech:'Speech transcription'};
+const jobStates={queued:'Queued',running:'In progress',done:'Done',failed:'Error',cancelled:'Cancelled'};
 function jobCard(j){
  const box=node('article',undefined,'job'),head=node('div',undefined,'split');head.append(node('strong',jobLabels[j.kind]||j.kind),node('small',jobStates[j.status]||j.status));box.append(head);
  const active=['queued','running'].includes(j.status);
- if(active){const p=node('progress');p.max=1;p.value=j.progress||0;p.setAttribute('aria-label','Ход выполнения');box.append(p);}
+ if(active){const p=node('progress');p.max=1;p.value=j.progress||0;p.setAttribute('aria-label','Progress');box.append(p);}
  box.append(node('p',j.error||j.message||'',j.status==='failed'?'error':''));
- if(active){const cancel=button('Отменить',()=>api('ai/cancel',{job_id:j.id}),{cls:'quiet'});const row=node('div');row.append(cancel);box.append(row);}
+ if(active){const cancel=button('Cancel',()=>api('ai/cancel',{job_id:j.id}),{cls:'quiet'});const row=node('div');row.append(cancel);box.append(row);}
  return box;
 }
 async function runJob(kind,data={},onProgress,pollMs=850){
@@ -67,7 +67,7 @@ async function runJob(kind,data={},onProgress,pollMs=850){
   const job=await api('ai/job/'+id);
   onProgress?.(job);
   if(job.status==='done')return job.result;
-  if(job.status==='failed'||job.status==='cancelled')throw Error(job.error||'Задача отменена');
+  if(job.status==='failed'||job.status==='cancelled')throw Error(job.error||'Task cancelled');
   await pause(pollMs);
  }
 }
@@ -102,7 +102,7 @@ function applyAudio(state){
 }
 async function play(id){
  stopPreview();
- const request={title:items.find(i=>i.id===id)?.title||'Звук'};
+ const request={title:items.find(i=>i.id===id)?.title||'Sound'};
  launchingClip=request;
  renderPlaying();
  try{
@@ -124,9 +124,15 @@ function show(viewID){
  document.dispatchEvent(new CustomEvent('mimic:view',{detail:view}));
 }
 let activeCategory='',favoritesOnly=false,query='',page=0,editing;
+function categoryLabel(value){
+ const legacy={'\u041c\u0435\u043c\u044b':'Memes','\u0422\u0440\u0435\u043a\u0438':'Tracks','\u042d\u0444\u0444\u0435\u043a\u0442\u044b':'Effects',
+  '\u041c\u0443\u0437\u044b\u043a\u0430':'Music','\u0420\u0435\u0430\u043a\u0446\u0438\u0438':'Reactions'};
+ return legacy[value]||value;
+}
+
 function libraryOptions(){
  const categories=[...new Set(items.map(i=>i.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
- by('category').replaceChildren(new Option('Все категории',''),...categories.map(c=>new Option(c,c)));
+ by('category').replaceChildren(new Option('All categories',''),...categories.map(c=>new Option(categoryLabel(c),c)));
  if(!categories.includes(activeCategory))activeCategory='';
  by('category').value=activeCategory;
 }
@@ -134,10 +140,10 @@ function renderLibrary(){
  const q=query.trim().toLocaleLowerCase();
  const filtered=items.filter(i=>(!activeCategory||i.category===activeCategory)&&(!favoritesOnly||i.favorite)&&(!q||[i.title,i.tags,i.category,i.description].join(' ').toLocaleLowerCase().includes(q)));
  const perPage=role==='remote'?32:48,pages=Math.max(1,Math.ceil(filtered.length/perPage));page=Math.min(page,pages-1);
- by('librarySummary').textContent=items.length?(filtered.length===items.length?'Звуков в коллекции: '+items.length:'Найдено '+filtered.length+' из '+items.length):'Ваша коллекция звуков.';
+ by('librarySummary').textContent=items.length?(filtered.length===items.length?'Sounds in library: '+items.length:'Found '+filtered.length+' of '+items.length):'Your sound collection.';
  by('empty').hidden=Boolean(filtered.length);
- by('emptyTitle').textContent=items.length?'Ничего не найдено':'Здесь будут ваши звуки';
- by('emptyDescription').textContent=items.length?'Попробуйте другой запрос или сбросьте фильтры.':role==='admin'?'Добавьте аудиофайл или найдите мем в Discover.':'Добавьте первый звук в VUPIO на компьютере.';
+ by('emptyTitle').textContent=items.length?'No results':'Your sounds will appear here';
+ by('emptyDescription').textContent=items.length?'Try another query or reset the filters.':role==='admin'?'Add an audio file or find a meme in Discover.':'Add your first sound in VUPIO on your computer.';
  by('pages').hidden=pages<=1;by('pageText').textContent=(page+1)+' / '+pages;by('prevPage').disabled=page===0;by('nextPage').disabled=page+1>=pages;
  const frag=document.createDocumentFragment();
  for(const i of filtered.slice(page*perPage,(page+1)*perPage)){
@@ -149,13 +155,13 @@ function renderLibrary(){
   }
   const card=node('article',undefined,'card');
   card.dataset.id=i.id;
-  const trigger=button('',()=>play(i.id),{cls:'cardTrigger',label:'Запустить '+i.title});
+  const trigger=button('',()=>play(i.id),{cls:'cardTrigger',label:'Play '+i.title});
   const top=node('div',undefined,'split'),title=node('h3',i.title);
-  const fav=button('',async()=>{await api('favorite',{id:i.id,favorite:!i.favorite});await sync();},{glyph:'star',cls:'quiet fav',label:'Избранное: '+i.title});fav.setAttribute('aria-pressed',String(Boolean(i.favorite)));
+  const fav=button('',async()=>{await api('favorite',{id:i.id,favorite:!i.favorite});await sync();},{glyph:'star',cls:'quiet fav',label:'Favorites: '+i.title});fav.setAttribute('aria-pressed',String(Boolean(i.favorite)));
   top.append(title,fav);
   const tools=node('div',undefined,'tools');
-  tools.append(button('Послушать',()=>playPreview('/api/file/'+i.id,i.title,i.id)),button('Edit',()=>openStudio(i.id),{glyph:'edit',label:'Редактировать аудио: '+i.title}),button('⋯',()=>openEditor(i),{label:'Карточка: '+i.title}));
-  card.append(trigger,top,node('small',i.category+' · '+fmt(i.duration),'type'),tools);
+  tools.append(button('Preview',()=>playPreview('/api/file/'+i.id,i.title,i.id)),button('Edit',()=>openStudio(i.id),{glyph:'edit',label:'Edit audio: '+i.title}),button('⋯',()=>openEditor(i),{label:'Details: '+i.title}));
+  card.append(trigger,top,node('small',categoryLabel(i.category)+' · '+fmt(i.duration),'type'),tools);
   frag.append(card);
  }
  by('grid').replaceChildren(frag);renderPlaying();
@@ -167,10 +173,10 @@ function renderPlaying(){
  if(listening&&previewClip.id)active.add(previewClip.id);
  document.querySelectorAll('#grid .card').forEach(c=>c.classList.toggle('playing',active.has(c.dataset.id)));
  const current=items.find(i=>i.id===audio.playing)||items.find(i=>active.has(i.id));
- const mode=listening?'ПРЕДПРОСЛУШИВАНИЕ':launchingClip?'ЗАПУСК ЗВУКА':'СЕЙЧАС ИГРАЕТ';
+ const mode=listening?'PREVIEW':launchingClip?'STARTING PLAYBACK':'NOW PLAYING';
  const title=listening?previewClip.title:launchingClip?launchingClip.title:
   current?(current.title+(active.size>1?' +' +(active.size-1):'')):
-  audio.playing?'Проверочный сигнал':audio.error?'Аудиовыход недоступен':'Тишина';
+  audio.playing?'Test tone':audio.error?'Audio output unavailable':'Nothing playing';
  if(by('nowMode').textContent!==mode)by('nowMode').textContent=mode;
  const now=by('nowPlaying');
  if(now.textContent!==title)now.textContent=title;
@@ -180,8 +186,8 @@ function renderPlaying(){
  by('volume').value=volume;
  by('volumeValue').textContent=Math.round(100*volume)+'%';
  by('sideMic').classList.toggle('on',Boolean(audio.mic));
- by('sideAudio').textContent=audio.error?'Аудио недоступно':audio.mic?'Микрофон включён':'Микрофон выключен';
- by('sideRoute').textContent=audio.outputName||'Аудиовыход';
+ by('sideAudio').textContent=audio.error?'Audio unavailable':audio.mic?'Microphone on':'Microphone off';
+ by('sideRoute').textContent=audio.outputName||'Audio output';
 }
 function sync(){
  if(syncing)return syncing;
@@ -189,7 +195,7 @@ function sync(){
   const version=audioVersion;
   const data=await api('state'),newRole=role!==data.role;
   role=data.role;
-  if(data.build)by('currentBuild').textContent='Установлена сборка '+data.build;
+  if(data.build)by('currentBuild').textContent='Installed build '+data.build;
   if(version===audioVersion)audio=data.audio;
   if(previewEpoch!==null&&previewEpoch!==data.preview_stop_epoch)stopPreview();
   previewEpoch=data.preview_stop_epoch;
@@ -197,7 +203,7 @@ function sync(){
   items=data.items;revision=data.revision;
   document.body.classList.toggle('remoteMode',role!=='admin');
   by('login').hidden=true;by('starting').hidden=true;by('shell').hidden=false;
-  by('connection').classList.add('ready');by('connection').textContent=role==='remote'?'Компьютер подключён':'Локально';
+  by('connection').classList.add('ready');by('connection').textContent=role==='remote'?'Computer connected':'Local';
   if(changed){libraryOptions();renderLibrary();document.dispatchEvent(new Event('mimic:library'));}else renderPlaying();
   document.dispatchEvent(new CustomEvent('mimic:audio',{detail:audio}));
  })().finally(()=>syncing=null);
@@ -205,7 +211,7 @@ function sync(){
 }
 function showPair(error=''){role='';by('shell').hidden=true;by('starting').hidden=true;by('login').hidden=false;status('loginError',error,true);}
 async function poll(){
- if(role)try{await sync();}catch(e){if(e.code===403)showPair('Подключите пульт заново.');else{by('connection').classList.remove('ready');by('connection').textContent='Нет связи';}}
+ if(role)try{await sync();}catch(e){if(e.code===403)showPair('Pair the remote again.');else{by('connection').classList.remove('ready');by('connection').textContent='Disconnected';}}
  setTimeout(poll,900);
 }
 function openEditor(item){
@@ -218,14 +224,14 @@ for(const el of document.querySelectorAll('[data-icon]')){
 }
 by('nav').addEventListener('click',e=>{const target=e.target.closest('[data-view]');if(target)show(target.dataset.view);});
 bind('checkPublicUpdate',async()=>{
- status('publicUpdateStatus','Проверяем GitHub…');
+ status('publicUpdateStatus','Checking GitHub…');
  const download=by('publicUpdateDownload');
  download.replaceChildren();
  const data=await api('updates');
  if(data.latest>data.installed&&data.download){
-  status('publicUpdateStatus','Доступна сборка '+data.latest);
-  download.append(link('Скачать установщик ↗',data.download));
- }else status('publicUpdateStatus',data.latest?'Установлена актуальная сборка.':'Для вашей платформы пока нет опубликованных установщиков.');
+  status('publicUpdateStatus','Build available '+data.latest);
+  download.append(link('Download installer ↗',data.download));
+ }else status('publicUpdateStatus',data.latest?'Your build is up to date.':'No installers have been published for your platform yet.');
 },'publicUpdateStatus');
 bind('findSound',()=>{show('discover');by('discoverQuery').focus();});
 by('search').oninput=e=>{query=e.target.value;page=0;renderLibrary();};by('category').onchange=e=>{activeCategory=e.target.value;page=0;renderLibrary();};
@@ -235,7 +241,7 @@ async function stopAll(panic=false){
  launchingClip=null;
  stopPreview();
  applyAudio(await api(panic?'panic':'stop',{}));
- if(panic)notify('Клипы и микрофон отключены');
+ if(panic)notify('Clips and microphone stopped');
  await sync();
 }
 bind('stop',()=>stopAll());bind('panic',()=>stopAll(true));
@@ -265,21 +271,21 @@ by('volume').oninput=e=>{
 by('uploadButton').onclick=()=>by('upload').click();
 by('upload').onchange=async e=>{
  const file=e.target.files[0];if(!file)return;
- e.target.disabled=true;by('uploadButton').disabled=true;status('uploadStatus','Импортируем '+file.name+'…');
+ e.target.disabled=true;by('uploadButton').disabled=true;status('uploadStatus','Importing '+file.name+'…');
  try{
-  if(file.size>100*1024*1024)throw Error('Файл больше 100 МБ. Выберите более короткий фрагмент.');
+  if(file.size>100*1024*1024)throw Error('File exceeds 100 MB. Choose a shorter recording.');
   const r=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file}),item=await r.json();
   if(!r.ok)throw Error(item.error);
-  const title=file.name.replace(/\.[^.]+$/,'').slice(0,160)||'Новый звук';await api('edit',{id:item.id,title});await sync();status('uploadStatus');notify('Добавлено: '+title);
+  const title=file.name.replace(/\.[^.]+$/,'').slice(0,160)||'New sound';await api('edit',{id:item.id,title});await sync();status('uploadStatus');notify('Added: '+title);
  }catch(err){status('uploadStatus',err.message,true);}finally{e.target.value='';e.target.disabled=false;by('uploadButton').disabled=false;}
 };
 by('closeEditor').onclick=()=>by('editor').close();
 by('editForm').onsubmit=async e=>{e.preventDefault();const data={id:editing.id};for(const field of ['title','category','tags','description','license'])data[field]=by('edit'+field[0].toUpperCase()+field.slice(1)).value;
- try{await api('edit',data);by('editor').close();await sync();notify('Карточка сохранена');}catch(err){status('cardStatus',err.message,true);}
+ try{await api('edit',data);by('editor').close();await sync();notify('Sound details saved');}catch(err){status('cardStatus',err.message,true);}
 };
-bind('cardMetadata',async()=>{const id=editing.id;status('cardStatus','Предлагаем название и теги…');const r=await runJob('metadata',{id});await sync();if(editing.id===id&&by('editor').open)for(const field of ['Title','Category','Tags'])by('edit'+field).value=r.item[field.toLowerCase()];status('cardStatus');notify('Название и теги обновлены');},'cardStatus');
-bind('cardIndex',async()=>{status('cardStatus','Анализируем звук…');await runJob('index',{id:editing.id});status('cardStatus');notify('Индекс звука обновлён');},'cardStatus');
-bind('deleteClip',async()=>{if(!confirm('Удалить «'+editing.title+'» из библиотеки VUPIO?'))return;await api('delete',{id:editing.id});by('editor').close();await sync();},'cardStatus');
+bind('cardMetadata',async()=>{const id=editing.id;status('cardStatus','Suggesting a title and tags…');const r=await runJob('metadata',{id});await sync();if(editing.id===id&&by('editor').open)for(const field of ['Title','Category','Tags'])by('edit'+field).value=r.item[field.toLowerCase()];status('cardStatus');notify('Title and tags updated');},'cardStatus');
+bind('cardIndex',async()=>{status('cardStatus','Analyzing sound…');await runJob('index',{id:editing.id});status('cardStatus');notify('Audio index updated');},'cardStatus');
+bind('deleteClip',async()=>{if(!confirm('Delete “'+editing.title+'” from your VUPIO library?'))return;await api('delete',{id:editing.id});by('editor').close();await sync();},'cardStatus');
 by('pairForm').onsubmit=async e=>{e.preventDefault();try{await api('pair',{code:by('code').value,name:by('phoneName').value});by('code').value='';await sync();show('soundboard');}catch(err){status('loginError',err.message,true);}};
 window.addEventListener('DOMContentLoaded',async()=>{
  document.querySelectorAll('.nativeOnly').forEach(el=>el.hidden=!window.webkit?.messageHandlers?.mimicNative);

@@ -41,24 +41,24 @@ class Commons:
                 'attribution':value('Attribution') or value('Credit'),
                 'duration':duration,'bytes':size,'mime':mime,
                 'can_import':permitted and supported and 0<size<=100*1024*1024 and duration<=1200,
-                'reason':('Только страница: файл больше лимита 100 МБ / 20 минут' if size>100*1024*1024 or duration>1200 else
-                          'Только страница: этот формат пока не декодируется' if not supported else
-                          'Импорт с сохранением атрибуции и лицензии' if permitted else
-                          'Только страница источника: лицензия или ограничения требуют проверки')}
+                'reason':('Link only: file exceeds 100 MB or 20 minutes' if size>100*1024*1024 or duration>1200 else
+                          'Link only: unsupported audio format' if not supported else
+                          'Import with attribution and license metadata' if permitted else
+                          'Source link only: review the license and restrictions')}
     def search(self,query):
         query=re.sub(r'[^\w\s"\-]',' ',query)[:240]
         response=self.query(generator='search',gsrsearch='('+query+') filetype:audio',gsrnamespace=6,gsrlimit=15,
                             prop='imageinfo',iiprop='url|size|mime|mediatype|extmetadata|metadata')
-        if 'error' in response:raise ValueError('Wikimedia: '+response['error'].get('info','ошибка поиска'))
+        if 'error' in response:raise ValueError('Wikimedia: '+response['error'].get('info','search error'))
         results=[]
         for page in response.get('query',{}).get('pages',[]):
             item=self.parse(page)
             if item:results.append(item)
         return results
     def resolve(self,id):
-        if not re.fullmatch(r'commons:\d+',id):raise ValueError('Неизвестный источник')
+        if not re.fullmatch(r'commons:\d+',id):raise ValueError('Unknown source')
         response=self.query(pageids=id.split(':')[1],prop='imageinfo',iiprop='url|size|mime|mediatype|extmetadata|metadata')
         pages=response.get('query',{}).get('pages',[])
         item=self.parse(pages[0]) if pages else None
-        if not item or not item['can_import']:raise ValueError('Источник не разрешает автоматический импорт в этой версии')
+        if not item or not item['can_import']:raise ValueError('This source does not support automatic import in this version')
         return item

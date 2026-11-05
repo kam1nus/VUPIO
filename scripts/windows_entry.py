@@ -70,13 +70,13 @@ def main():
 
     panel = ttk.Frame(window, padding=22)
     panel.grid()
-    ttk.Label(panel, text='VUPIO работает. Окно Soundboard открывается в браузере.').grid(sticky='w')
-    ttk.Label(panel, text='Оставьте это окно открытым, пока пользуетесь VUPIO.').grid(sticky='w', pady=(4,14))
-    ttk.Button(panel, text='Открыть Soundboard', command=open_board).grid(sticky='ew')
+    ttk.Label(panel, text='VUPIO is running. Soundboard opens in your browser.').grid(sticky='w')
+    ttk.Label(panel, text='Keep this window open while using VUPIO.').grid(sticky='w', pady=(4,14))
+    ttk.Button(panel, text='Open Soundboard', command=open_board).grid(sticky='ew')
     if not audio.virtual_output:
-        ttk.Button(panel, text='Официальный драйвер VB-CABLE',
+        ttk.Button(panel, text='Official VB-CABLE driver',
                    command=lambda: webbrowser.open('https://vb-audio.com/Cable/')).grid(sticky='ew', pady=(8,0))
-    ttk.Button(panel, text='Выключить VUPIO', command=window.destroy).grid(sticky='ew', pady=(8,0))
+    ttk.Button(panel, text='Quit VUPIO', command=window.destroy).grid(sticky='ew', pady=(8,0))
     window.deiconify()
     window.after_idle(open_board)
     try:

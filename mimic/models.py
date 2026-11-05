@@ -48,7 +48,7 @@ def tool(name):
         for candidate in (Path(folder)/executable,Path(folder)/name/executable):
             if candidate.is_file():return str(candidate)
     found=shutil.which(name)
-    if not found:raise ValueError(f'В сборке отсутствует {name}. Установите полную сборку MIMIC v0.2.')
+    if not found:raise ValueError(f'The build is missing {name}. Install the full VUPIO build.')
     return found
 
 
@@ -74,15 +74,15 @@ class Models:
             return Path(bundle)/spec['filename']
         return path
     def path(self,kind):
-        if kind not in MODELS:raise ValueError('Неизвестная модель')
+        if kind not in MODELS:raise ValueError('Unknown model')
         spec=self.spec(kind)
         path=self.model_file(spec)
         if not path.is_file() or path.stat().st_size!=spec['size']:
-            raise ValueError('Сначала загрузите модель «'+spec['title']+'» в Settings → AI-модели.')
+            raise ValueError('First download the model “'+spec['title']+'” in Settings → AI models.')
         fingerprint=(spec['sha256'],path.stat().st_size,path.stat().st_mtime_ns)
         if self.verified.get(kind)!=fingerprint:
             with open(path,'rb') as file:digest=hashlib.file_digest(file,'sha256').hexdigest()
-            if digest!=spec['sha256']:raise ValueError('Контрольная сумма модели не совпала. Загрузите её заново.')
+            if digest!=spec['sha256']:raise ValueError('Model checksum mismatch. Download it again.')
             self.verified[kind]=fingerprint
         if kind=='embedding' and spec['filename']==MODELS['embedding']['filename']:
             if self.embedding_path is None:
@@ -110,17 +110,17 @@ class Models:
         return result
     def import_language(self,source,title,job):
         source=Path(source)
-        if not source.is_file() or not 1_000_000<source.stat().st_size<8_000_000_000:raise ValueError('Выберите GGUF-модель размером до 8 ГБ')
+        if not source.is_file() or not 1_000_000<source.stat().st_size<8_000_000_000:raise ValueError('Choose a GGUF model under 8 GB')
         with open(source,'rb') as file:
-            if file.read(4)!=b'GGUF':raise ValueError('Это не GGUF-модель')
-            file.seek(0);job.update(.1,'Проверяем локальную модель…');digest=hashlib.file_digest(file,'sha256').hexdigest()
+            if file.read(4)!=b'GGUF':raise ValueError('This is not a GGUF model')
+            file.seek(0);job.update(.1,'Verifying local model…');digest=hashlib.file_digest(file,'sha256').hexdigest()
         filename='imported-language-'+digest[:16]+'.gguf';target=self.root/filename
         job.check()
         if not target.exists():
             try:os.link(source,target)
             except OSError:shutil.copyfile(source,target)
         profile={'title':str(title or source.stem)[:120],'filename':filename,'size':target.stat().st_size,
-                 'sha256':digest,'license':'Лицензия выбранной вами модели','license_url':'https://huggingface.co/docs/hub/repositories-licenses','imported':True}
+                 'sha256':digest,'license':'License of your selected model','license_url':'https://huggingface.co/docs/hub/repositories-licenses','imported':True}
         temporary=self.language_profile.with_suffix('.tmp');temporary.write_text(json.dumps(profile));temporary.replace(self.language_profile)
         self.verified.pop('language',None);self.close()
         return {'imported':True,'model':profile['title']}
@@ -139,9 +139,9 @@ class Models:
         temporary=target.with_suffix('.part')
         try:
             parallel_download(spec.get('url') or 'https://huggingface.co/'+spec['repo']+'/resolve/main/'+spec['filename'],temporary,job,spec['size'])
-            job.update(.97,'Проверка SHA-256…')
+            job.update(.97,'Checking SHA-256…')
             with open(temporary,'rb') as file:digest=hashlib.file_digest(file,'sha256').hexdigest()
-            if digest!=spec['sha256']:raise ValueError('Ошибка целостности модели. Повторите загрузку.')
+            if digest!=spec['sha256']:raise ValueError('Model integrity check failed. Download it again.')
             job.check();temporary.replace(target)
             if kind=='language':self.language_profile.unlink(missing_ok=True);self.close()
             self.verified.pop(kind,None)
@@ -179,22 +179,22 @@ class Models:
             self.processes[kind]=runtime
             until=time.monotonic()+90
             while time.monotonic()<until:
-                if self.stopping.is_set():raise ValueError('AI-движок остановлен')
+                if self.stopping.is_set():raise ValueError('AI engine stopped')
                 if process.poll() is not None:
                     log.flush()
-                    raise ValueError('Не удалось загрузить AI-движок: '+(self.root/(kind+'-runtime.log')).read_text(errors='replace')[-1200:])
+                    raise ValueError('Could not load the AI engine: '+(self.root/(kind+'-runtime.log')).read_text(errors='replace')[-1200:])
                 try:
                     with urlopen(Request(runtime['url']+'/health',headers={'Authorization':'Bearer '+token}),timeout=1) as response:
                         if response.status==200:return runtime
                 except Exception:time.sleep(.2)
-            process.terminate();raise ValueError('Модель не успела запуститься. Освободите память и повторите.')
+            process.terminate();raise ValueError('Model startup timed out. Free some memory and try again.')
     def request(self,kind,endpoint,data):
         runtime=self._start(kind)
         req=Request(runtime['url']+endpoint,data=json.dumps(data).encode(),
                     headers={'Authorization':'Bearer '+runtime['token'],'Content-Type':'application/json'})
         try:
             with urlopen(req,timeout=120) as response:return json.load(response)
-        except Exception as error:raise ValueError('Локальная модель не ответила: '+str(error)) from error
+        except Exception as error:raise ValueError('The local model did not respond: '+str(error)) from error
     def embed(self,texts):
         result=self.request('embedding','/v1/embeddings',{'input':texts,'model':'local'})
         return [x['embedding'] for x in sorted(result['data'],key=lambda x:x['index'])]

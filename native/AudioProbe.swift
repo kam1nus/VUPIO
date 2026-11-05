@@ -10,10 +10,10 @@ final class VirtualProbe {
     func start()throws {
         stop();lock.lock();squares=0;count=0;level=0;maximum=0;last=Date.distantPast;lock.unlock()
         let list=devices(kAudioDevicePropertyScopeInput)
-        guard let device=list.first(where:{$0["uid"] as? String == "MIMICAudioDevice_UID"}) ?? list.first(where:{$0["name"] as? String == "BlackHole 2ch"}),let id=device["id"] as? UInt32 else{throw AudioFailure.message("Нет зарегистрированного виртуального входа. Установите драйвер или выберите запасной BlackHole.")}
+        guard let device=list.first(where:{$0["uid"] as? String == "MIMICAudioDevice_UID"}) ?? list.first(where:{$0["name"] as? String == "BlackHole 2ch"}),let id=device["id"] as? UInt32 else{throw AudioFailure.message("No virtual input registered. Install the driver or select BlackHole.")}
         deviceName=device["name"] as? String ?? "Virtual input";deviceUID=device["uid"] as? String ?? ""
         let capture=try CoreInput(device:id)
-        guard capture.format.commonFormat == .pcmFormatFloat32 else{throw AudioFailure.message("Диагностика ожидает Float32 виртуального входа")}
+        guard capture.format.commonFormat == .pcmFormatFloat32 else{throw AudioFailure.message("Diagnostics expects a Float32 virtual input")}
         try capture.start{[weak self] b in
             guard let self=self,let p=b.floatChannelData,self.lock.try()else{return};defer{self.lock.unlock()}
             let stride=b.format.isInterleaved ? Int(b.format.channelCount):1

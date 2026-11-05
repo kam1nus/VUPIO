@@ -45,7 +45,7 @@ def public_update():
         if not isinstance(releases, list):
             raise ValueError('Invalid release response')
     except (OSError, ValueError):
-        raise ValueError('Не удалось проверить GitHub. Откройте страницу релизов или повторите позже.') from None
+        raise ValueError('Could not check GitHub. Open the releases page or try again later.') from None
     available = {}
     for release in releases:
         tag = release.get('tag_name', '')
@@ -71,7 +71,7 @@ class Audio:
     def command(self, op, **kwargs):
         with self.lock:
             if self.process.poll() is not None:
-                raise ValueError('Аудиодвижок остановлен (код '+str(self.process.returncode)+'). Перезапустите звук в Settings → Аудиоустройства. '+' '.join(self.diagnostics)[-500:])
+                raise ValueError('Audio engine stopped (code '+str(self.process.returncode)+'). Restart audio in Settings → Audio devices. '+' '.join(self.diagnostics)[-500:])
             self.process.stdin.write((json.dumps(dict(op=op, **kwargs))+'\n').encode())
             self.process.stdin.flush()
             # Helper emits exactly one JSON response per command; mic authorization is async in helper.
@@ -79,7 +79,7 @@ class Audio:
             deadline=time.monotonic()+8
             while True:
                 if time.monotonic()>deadline:
-                    self.process.kill();raise ValueError('Аудиоустройство не отвечает. Перезапустите звук в Settings и проверьте выход.')
+                    self.process.kill();raise ValueError('Audio device is not responding. Restart audio in Settings and check the output.')
                 if b'\n' in self.output_buffer:
                     line,self.output_buffer=self.output_buffer.split(b'\n',1)
                     try:
@@ -90,12 +90,12 @@ class Audio:
                     continue
                 if not select.select([self.process.stdout], [], [], max(0,deadline-time.monotonic()))[0]:
                     self.process.kill()
-                    raise ValueError('Аудиоустройство не отвечает. Перезапустите звук в Settings и проверьте выход.')
+                    raise ValueError('Audio device is not responding. Restart audio in Settings and check the output.')
                 chunk=os.read(self.process.stdout.fileno(),65536)
-                if not chunk:raise ValueError('Аудиодвижок завершился: '+str(self.process.poll())+'; '+' '.join(self.diagnostics))
+                if not chunk:raise ValueError('Audio engine exited: '+str(self.process.poll())+'; '+' '.join(self.diagnostics))
                 self.output_buffer+=chunk
                 if len(self.output_buffer)>1024*1024:
-                    self.process.kill();raise ValueError('Некорректный ответ аудиодвижка')
+                    self.process.kill();raise ValueError('Invalid audio engine response')
             if 'error' in result:
                 raise ValueError(result['error'])
             return result
@@ -259,18 +259,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def body(self, maximum=64000):
         if self.headers.get('Transfer-Encoding'):
-            raise ValueError('Chunked upload не поддерживается')
+            raise ValueError('Chunked uploads are not supported')
         length = int(self.headers.get('Content-Length','0'))
         if not 0 < length <= maximum:
-            raise ValueError('Неверный размер запроса')
+            raise ValueError('Invalid request size')
         raw = self.rfile.read(length)
         if len(raw) != length:
-            raise ValueError('Загрузка прервана')
+            raise ValueError('Upload interrupted')
         return raw
 
     def json_body(self):
         if self.headers.get_content_type() != 'application/json':
-            raise ValueError('Ожидается JSON')
+            raise ValueError('Expected JSON')
         return json.loads(self.body())
 
     def guard(self):
@@ -278,17 +278,17 @@ class Handler(BaseHTTPRequestHandler):
         # Bind to one explicitly selected private interface. Also reject public peer addresses.
         ip = ipaddress.ip_address(self.client_address[0])
         if not (ip.is_private or ip.is_loopback) or ip.is_unspecified:
-            raise PermissionError('Только локальная сеть')
+            raise PermissionError('Local network only')
         host = self.headers.get('Host','')
         allowed = {f'{self.app.host}:{self.app.port}',f'127.0.0.1:{self.app.port}',f'localhost:{self.app.port}'}
         if host not in allowed:
-            raise PermissionError('Недопустимый Host')
+            raise PermissionError('Invalid Host')
         origin = self.headers.get('Origin')
         expected = ('https' if self.app.tls else 'http')+'://'+host
         if origin and origin != expected:
-            raise PermissionError('Запрос с другого сайта запрещён')
+            raise PermissionError('Cross-site requests are blocked')
         if self.headers.get('Sec-Fetch-Site') == 'cross-site':
-            raise PermissionError('Запрос с другого сайта запрещён')
+            raise PermissionError('Cross-site requests are blocked')
         cookie = SimpleCookie()
         cookie.load(self.headers.get('Cookie',''))
         self.session = self.app.session(cookie['mimic'].value) if 'mimic' in cookie else None
@@ -296,7 +296,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def auth(self, admin=False):
         if not self.session or (admin and (self.session['role']!='admin' or not self.local)):
-            raise PermissionError('Требуется вход на Mac' if admin else 'Сначала выполните спаривание')
+            raise PermissionError('Local administrator sign-in required' if admin else 'Pair your remote first')
 
     def do_GET(self):
         self.handle_request('GET')
@@ -340,7 +340,7 @@ class Handler(BaseHTTPRequestHandler):
                         elif kind=='original':file=studio.original(id)
                         elif kind=='draft':_,file=studio.draft(id)
                         elif kind=='asset':_,file=studio.asset(id)
-                        else:raise ValueError('Неизвестный источник волны')
+                        else:raise ValueError('Unknown waveform source')
                         return self.send(envelope(file))
                     if path.startswith('/api/ai/original/'):
                         return self.send_audio(studio.original(path.rsplit('/',1)[1]))
@@ -350,7 +350,7 @@ class Handler(BaseHTTPRequestHandler):
                     if path.startswith('/api/ai/draft/'):
                         _,file=studio.draft(path.rsplit('/',1)[1])
                         return self.send_audio(file)
-                    raise ValueError('Неизвестный адрес AI Studio')
+                    raise ValueError('Unknown AI Studio endpoint')
                 if path == '/api/updates':
                     self.auth(True)
                     return self.send(public_update())
@@ -383,7 +383,7 @@ class Handler(BaseHTTPRequestHandler):
                     import io
                     with a.lock:
                         if time.time()>a.pair_until:
-                            raise ValueError('Код истёк. Создайте новый.')
+                            raise ValueError('Code expired. Create a new one.')
                         # QR never contains secret. Enter the code displayed on Mac separately.
                         url = ('https' if a.tls else 'http')+'://'+os.environ.get('MIMIC_LAN_IP',a.host)+':'+str(a.port)
                     img = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage)
@@ -392,12 +392,12 @@ class Handler(BaseHTTPRequestHandler):
                 if path.startswith('/api/file/'):
                     self.auth(True)
                     return self.send_audio(a.library.path(path.rsplit('/',1)[1]))
-                raise ValueError('Неизвестный адрес')
+                raise ValueError('Unknown endpoint')
 
             if path == '/api/login':
                 body = self.json_body()
                 if not self.local or not hmac.compare_digest(str(body.get('key','')), a.admin_key):
-                    raise PermissionError('Вход доступен только на Mac с ключом запуска')
+                    raise PermissionError('Sign-in requires the launch key on the host computer')
                 return self.send({'ok':True},cookie=a.issue('admin','Mac'))
             if path == '/api/pair':
                 body = self.json_body()
@@ -406,11 +406,11 @@ class Handler(BaseHTTPRequestHandler):
                     for key in ['global',self.client_address[0]]:
                         a.attempts[key] = [t for t in a.attempts[key] if now-t < 60]
                         if len(a.attempts[key]) >= (20 if key=='global' else 5):
-                            return self.send({'error':'Слишком много попыток. Подождите минуту.'},429)
+                            return self.send({'error':'Too many attempts. Wait a minute.'},429)
                     for key in ['global',self.client_address[0]]:
                         a.attempts[key].append(now)
                     if now>a.pair_until or not a.pair_code or not hmac.compare_digest(str(body.get('code','')),a.pair_code):
-                        raise PermissionError('Неверный или просроченный код')
+                        raise PermissionError('Invalid or expired code')
                     a.pair_code = None
                     return self.send({'ok':True},cookie=a.issue('remote',str(body.get('name','iPhone'))))
             self.auth()
@@ -420,7 +420,7 @@ class Handler(BaseHTTPRequestHandler):
                 tmp = a.library.root/(secrets.token_hex(16)+'.upload')
                 try:
                     tmp.write_bytes(raw)
-                    item = a.library.import_file(tmp,'Новый файл')
+                    item = a.library.import_file(tmp,'New file')
                 finally:
                     tmp.unlink(missing_ok=True)
                 a.changed()
@@ -438,7 +438,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/volume':
                 value = float(body['value'])
                 if not 0 <= value <= 1:
-                    raise ValueError('Громкость: 0–1')
+                    raise ValueError('Volume must be between 0 and 1')
                 with a.lock:
                     try:
                         result = a.audio.command('volume', value=value)
@@ -465,7 +465,7 @@ class Handler(BaseHTTPRequestHandler):
                     a.audio.command('stop');return self.send(studio.undo(body['draft_id']))
                 if path=='/api/ai/unload':
                     studio.models.close();return self.send({'ok':True})
-                raise ValueError('Неизвестная команда AI Studio')
+                raise ValueError('Unknown AI Studio command')
             if path == '/api/pair/new':
                 with a.lock:
                     a.pair_code = f'{secrets.randbelow(100000000):08d}'
@@ -474,7 +474,7 @@ class Handler(BaseHTTPRequestHandler):
                                   'url':('https' if a.tls else 'http')+'://'+os.environ.get('MIMIC_LAN_IP',a.host)+':'+str(a.port)})
             if path == '/api/remotes/revoke':
                 id=str(body.get('id',''))
-                if not re.fullmatch(r'[a-f0-9]{24}',id):raise ValueError('Неизвестный пульт')
+                if not re.fullmatch(r'[a-f0-9]{24}',id):raise ValueError('Unknown remote')
                 with a.library.db() as db:
                     db.execute("DELETE FROM sessions WHERE role='remote' AND substr(hash,1,24)=?",(id,))
                 return self.send({'ok':True})
@@ -498,7 +498,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(select_fragment(body['query'], body.get('segments',[])))
             if path == '/api/sources':
                 return self.send({'items':LicensedCatalog(a.library.root/'sources.json').search(str(body.get('query',''))[:500]),
-                                  'mode':'Лицензированный пользовательский каталог; загрузка вручную'})
+                                  'mode':'Licensed user catalog. Manual import.'})
             if path == '/api/audio/restart':
                 return self.send(a.restart_audio())
             if path == '/api/audio/input':
@@ -514,11 +514,11 @@ class Handler(BaseHTTPRequestHandler):
                 for name in ['gain']:
                     if name in body:
                         value=float(body[name])
-                        if not 0<=value<=1:raise ValueError('Уровень: 0–1')
+                        if not 0<=value<=1:raise ValueError('Level must be between 0 and 1')
                         options[name]=value
                 for name in ['polyphony','monitor']:
                     if name in body:
-                        if not isinstance(body[name],bool):raise ValueError('Ожидается переключатель')
+                        if not isinstance(body[name],bool):raise ValueError('Expected a boolean')
                         options[name]=body[name]
                 if 'monitorDevice' in body:options['monitorDevice']=int(body['monitorDevice'])
                 result=a.audio.command('mixer',**options)
@@ -528,11 +528,11 @@ class Handler(BaseHTTPRequestHandler):
                 if preferences:a.save_preference(**preferences)
                 return self.send(result)
             if path == '/api/audio/probe':
-                if not isinstance(body.get('enabled'),bool):raise ValueError('Ожидается переключатель')
+                if not isinstance(body.get('enabled'),bool):raise ValueError('Expected a boolean')
                 return self.send(a.audio.command('probe',enabled=body['enabled']))
             if path == '/api/audio/mic-test':
                 options={'device':int(body.get('device',0)), 'gain':float(body.get('gain',.7))}
-                if not 0<=options['gain']<=1:raise ValueError('Уровень голоса: 0–1')
+                if not 0<=options['gain']<=1:raise ValueError('Voice level: 0–1')
                 result=a.audio.command('mic_test',**options)
                 if result.get('inputUID'):a.save_preference(inputUID=result['inputUID'],micGain=options['gain'])
                 return self.send(result)
@@ -546,14 +546,14 @@ class Handler(BaseHTTPRequestHandler):
                     wav.writeframes(b''.join(struct.pack('<hh',*[int(5000*math.sin(2*math.pi*523.25*n/48000)*min(1,n/480,(48000-n)/480))]*2) for n in range(48000)))
                 return self.send(a.audio.command('play',path=str(file),id='MIMIC diagnostic tone'))
             if path == '/api/mic':
-                if not isinstance(body.get('enabled'),bool):raise ValueError('Ожидается enabled: true/false')
+                if not isinstance(body.get('enabled'),bool):raise ValueError('Expected enabled: true or false')
                 options={'enabled':body['enabled'],'gain':float(body.get('gain',.7))}
-                if not 0<=options['gain']<=1:raise ValueError('Уровень голоса: 0–1')
+                if not 0<=options['gain']<=1:raise ValueError('Voice level: 0–1')
                 if body.get('device'):options['device']=int(body['device'])
                 result=a.audio.command('mic',**options)
                 if result.get('inputUID'):a.save_preference(inputUID=result['inputUID'],micGain=options['gain'])
                 return self.send(result)
-            raise ValueError('Неизвестная команда')
+            raise ValueError('Unknown command')
         except PermissionError as e:
             self.send({'error':str(e)},403)
         except (BrokenPipeError, ConnectionResetError):
@@ -589,13 +589,13 @@ def main():
     host=os.environ.get('MIMIC_BIND') or detect_lan()
     address=ipaddress.ip_address(host)
     if not address.is_private or address.is_unspecified or address.version!=4:
-        raise SystemExit('MIMIC_BIND должен быть конкретным приватным IPv4 адресом (не 0.0.0.0)')
+        raise SystemExit('MIMIC_BIND must be a specific private IPv4 address')
     port=int(os.environ.get('MIMIC_PORT','8765'))
     root=Path(os.environ.get('MIMIC_DATA',str(Path.home()/'Library/Application Support/MIMIC')))
     audio=Audio(args.audio)
     cert,key=os.environ.get('MIMIC_TLS_CERT'),os.environ.get('MIMIC_TLS_KEY')
     if bool(cert)!=bool(key):
-        raise SystemExit('Укажите MIMIC_TLS_CERT и MIMIC_TLS_KEY вместе')
+        raise SystemExit('Set MIMIC_TLS_CERT and MIMIC_TLS_KEY together')
     app=App(root,audio,host,port,bool(cert))
     servers=[]
     runtime_written=False

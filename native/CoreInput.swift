@@ -58,7 +58,7 @@ final class CoreInput {
         var a=AudioObjectPropertyAddress(mSelector:kAudioDevicePropertyStreams,mScope:kAudioDevicePropertyScopeInput,mElement:0)
         var size:UInt32=0
         let status=AudioObjectGetPropertyDataSize(device,&a,0,nil,&size)
-        guard status==noErr,size>=4 else{throw AudioFailure.message("CoreInput streams: \(audioStatus(status)); нет входного потока")}
+        guard status==noErr,size>=4 else{throw AudioFailure.message("CoreInput streams: \(audioStatus(status)); no input stream")}
         var streams=[AudioStreamID](repeating:0,count:Int(size)/4)
         let result=streams.withUnsafeMutableBytes{AudioObjectGetPropertyData(device,&a,0,nil,&size,$0.baseAddress!)}
         guard result==noErr else{throw AudioFailure.message("CoreInput stream list: \(audioStatus(result))")}

@@ -9,13 +9,13 @@ def envelope(path, bins=480):
         rate = source.getframerate()
         channels = source.getnchannels()
         if not frames or not rate or source.getsampwidth() != 2 or not 1 <= channels <= 8:
-            raise ValueError('Для волны нужен непустой PCM WAV')
+            raise ValueError('Waveform requires a non-empty PCM WAV')
         bins = min(max(1, int(bins)), 720, frames)
         pairs = []
         for i in range(bins):
             count = (i+1)*frames//bins-i*frames//bins
             samples = np.frombuffer(source.readframes(count), dtype='<i2')
             if len(samples) != count*channels:
-                raise ValueError('Аудиофайл повреждён')
+                raise ValueError('Audio file is damaged')
             pairs.append([round(int(samples.min())/32768, 4), round(int(samples.max())/32768, 4)])
     return {'duration': frames/rate, 'peaks': pairs}

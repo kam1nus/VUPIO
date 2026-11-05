@@ -39,5 +39,5 @@ ditto --norsrc --noextattr --noqtn --noacl "$MIMIC_SIGN_STAGE/MIMIC.app" build/M
 if [[ -n "${MIMIC_LOCAL_UPDATE_CHANNEL:-}" ]]; then
  build/vupio-local-update publish "$MIMIC_LOCAL_UPDATE_KEY" "$MIMIC_LOCAL_UPDATE_CHANNEL" "$MIMIC_SIGN_STAGE/MIMIC.app"
 fi
-echo "Подпись проверена в $MIMIC_SIGN_STAGE/MIMIC.app"
-echo "Готовая переносимая сборка: $MIMIC_PROJECT_DIR/build/MIMIC.app"
+echo "Signature verified at $MIMIC_SIGN_STAGE/MIMIC.app"
+echo "Portable app ready: $MIMIC_PROJECT_DIR/build/MIMIC.app"

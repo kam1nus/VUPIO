@@ -6,5 +6,5 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ./scripts/build.sh
 if ! command -v ffmpeg >/dev/null; then
-  echo "Для импорта установите FFmpeg: brew install ffmpeg"
+  echo "Install FFmpeg for importing: brew install ffmpeg"
 fi

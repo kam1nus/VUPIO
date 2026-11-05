@@ -123,7 +123,7 @@ class RadarTest(unittest.TestCase):
             try:
                 row = web_row('https://www.youtube.com/shorts/abcdefghijk', 'Video', 'Shorts')
                 studio.finder.web.save_results([row])
-                with self.assertRaisesRegex(ValueError, 'отдельный аудиофайл'):
+                with self.assertRaisesRegex(ValueError, 'individual audio file'):
                     studio.radar.prepare_clip(row['source_id'], Mock())
             finally:
                 studio.close()
