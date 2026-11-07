@@ -60,8 +60,9 @@ final class SoundEngine {
     var selectedInputUID:String=""
     var inputBaseline:UInt64=0;var lastInputFrames:UInt64=0;var lastInputTime=Date()
     var mic=false;var gain:Float=0.7;var volume:Float=0.65
-    var ready=false;var parallel=false;var monitor=false
+    var ready=false;var parallel=false;var monitor=true
     var monitorDevice:AudioDeviceID=defaultDevice(kAudioHardwarePropertyDefaultOutputDevice)
+    var selectedMonitorUID="";var monitorNotice="";var monitorRetryAfter=Date.distantPast
     var feeds:[Int32:ClipFeed]=[:];var names:[Int32:String]=[:];var order:[Int32:UInt64]=[:];var counter:UInt64=0
     let probe=VirtualProbe()
     var notice="";var watch:Timer?
@@ -107,16 +108,28 @@ final class SoundEngine {
         }
         source=s;engine.attach(s);engine.connect(s,to:engine.mainMixerNode,format:mixFormat)
         mimic_mix_gains(dsp,volume,gain);engine.prepare();try engine.start();ready=true
-        if monitor{try startMonitor()}
+        if monitor{do{try startMonitor()}catch{monitorNotice=error.localizedDescription;monitorRetryAfter=Date(timeIntervalSinceNow:3);log("Local listening: \(monitorNotice)")}}
+    }
+    func monitorTarget()->AudioDeviceID? {
+        let physical=devices().filter{d in
+            let name=(d["name"] as? String ?? "").lowercased(),transport=d["transport"] as? UInt32 ?? 0
+            return transport != kAudioDeviceTransportTypeVirtual && transport != kAudioDeviceTransportTypeAggregate && !["blackhole","mimic microphone","aggregate","multi-output"].contains(where:name.contains)
+        }
+        if !selectedMonitorUID.isEmpty{return physical.first(where:{$0["uid"] as? String==selectedMonitorUID})?["id"] as? UInt32}
+        let current=defaultDevice(kAudioHardwarePropertyDefaultOutputDevice)
+        return physical.first(where:{$0["id"] as? UInt32==current})?["id"] as? UInt32 ?? physical.first?["id"] as? UInt32
     }
     func startMonitor()throws {
         monitorEngine?.stop();monitorEngine=nil;mimic_mix_monitor(dsp,0)
+        monitorNotice=""
         guard monitor else{return}
-        let forbidden=devices().first(where:{$0["id"] as? UInt32 == monitorDevice})?["name"] as? String ?? ""
-        guard monitorDevice != output,!forbidden.lowercased().contains("blackhole"),!forbidden.lowercased().contains("mimic microphone"),!forbidden.lowercased().contains("multi-output"),!forbidden.lowercased().contains("aggregate")else{monitor=false;throw AudioFailure.message("Choose physical headphones or speakers for monitoring.")}
+        guard let target=monitorTarget()else{throw AudioFailure.message("Local listening is waiting for your selected headphones or speakers. Reconnect them or choose System output.")}
+        monitorDevice=target
+        // A physical main output already plays the clips. Never duplicate it.
+        guard monitorDevice != output else{return}
         let e=AVAudioEngine();try setDevice(e,monitorDevice);let p=dsp
         let s=AVAudioSourceNode(format:mixFormat){_,_,n,list in let b=UnsafeMutableAudioBufferListPointer(list);if b.count>=2,let l=b[0].mData?.assumingMemoryBound(to:Float.self),let r=b[1].mData?.assumingMemoryBound(to:Float.self){mimic_monitor_render(p,l,r,n)};return noErr}
-        e.attach(s);e.connect(s,to:e.mainMixerNode,format:mixFormat);mimic_mix_monitor(dsp,1);try e.start();monitorEngine=e
+        e.attach(s);e.connect(s,to:e.mainMixerNode,format:mixFormat);try e.start();monitorEngine=e;mimic_mix_monitor(dsp,1)
     }
     func stopCapture(){
         mic=false;mimic_voice_stop(dsp,8);capture?.stop();if let c=capture{retainedTelemetry=c.telemetry;retainedFormat=c.formatDescription};capture=nil
@@ -209,7 +222,13 @@ final class SoundEngine {
             else if Date().timeIntervalSince(lastInputTime)>3{stopCapture();retryAfter=Date(timeIntervalSinceNow:2);notice="No capture frames received. Check captureError. Retrying the selected input.";log(notice)}
         }
         if ready && (!engine.isRunning || !devices().contains(where:{$0["id"] as? UInt32 == output})){
-            engine.stop();ready=false;stopClips();stopCapture();probe.stop();notice="Output disconnected. Waiting for the selected device.";log(notice)
+            engine.stop();monitorEngine?.stop();mimic_mix_monitor(dsp,0);ready=false;stopClips();stopCapture();probe.stop();notice="Output disconnected. Waiting for the selected device.";log(notice)
+        }
+        if ready && monitor && Date()>monitorRetryAfter {
+            let target=monitorTarget()
+            if target != monitorDevice || (target != output && monitorEngine?.isRunning != true) {
+                do{try startMonitor()}catch{monitorNotice=error.localizedDescription;monitorRetryAfter=Date(timeIntervalSinceNow:3)}
+            }
         }
         if mic && (capture?.running != true || capture?.formatStillMatches() != true || !physicalInputs().contains(where:{$0["uid"] as? String == selectedInputUID})){
             stopCapture();retryAfter=Date(timeIntervalSinceNow:1);notice="Input disconnected or changed format. Waiting for the selected microphone.";log(notice)
@@ -235,6 +254,7 @@ final class SoundEngine {
                 "micFrames":mimic_mix_input_frames(dsp),"captureHealthy":mic && mimic_mix_input_frames(dsp)>inputBaseline,"micUnderruns":mimic_mix_underruns(dsp),"monitor":monitor,"monitorDevice":monitorDevice,
                 "driverInstalled":FileManager.default.fileExists(atPath:"/Library/Audio/Plug-Ins/HAL/MIMICMicrophone.driver"),
                 "driverRegistered":virtual != nil,"virtualConnected":virtual?["id"] as? UInt32 == output && engine.isRunning,
+                "monitorUID":selectedMonitorUID,"monitorRunning":monitorEngine?.isRunning ?? false,"monitorNotice":monitorNotice,
                 "notice":notice,"sampleRate":48000]
         let telemetry=retainedTelemetry?.snapshot() ?? [:]
         result.merge(telemetry){_,new in new}
@@ -286,8 +306,22 @@ final class SoundEngine {
         case "mixer":
             if let v=c["polyphony"] as? Bool{parallel=v}
             if let v=c["gain"] as? Double{gain=min(1,max(0,Float(v)));mimic_mix_gains(dsp,volume,gain)}
-            if let v=c["monitorDevice"] as? Int{monitorDevice=AudioDeviceID(v)}
-            if let v=c["monitor"] as? Bool{monitor=v;do{if !ready{try configure()}else{try startMonitor()}}catch{monitor=false;throw error}}
+            if let v=c["monitorUID"] as? String{selectedMonitorUID=v}
+            if let v=c["monitorDevice"] as? Int{
+                if v==0{selectedMonitorUID=""}
+                else{
+                    guard v>0,v<=Int(UInt32.max),let row=devices().first(where:{$0["id"] as? UInt32==UInt32(v)}) else{throw AudioFailure.message("Local listening device unavailable")}
+                    let name=(row["name"] as? String ?? "").lowercased(),transport=row["transport"] as? UInt32 ?? 0
+                    guard transport != kAudioDeviceTransportTypeVirtual,transport != kAudioDeviceTransportTypeAggregate,!["blackhole","mimic microphone","aggregate","multi-output"].contains(where:name.contains)else{throw AudioFailure.message("Choose physical headphones or speakers for local listening.")}
+                    selectedMonitorUID=row["uid"] as? String ?? ""
+                }
+            }
+            if c["monitorUID"] != nil || c["monitorDevice"] != nil{monitorDevice=monitorTarget() ?? 0}
+            if let v=c["monitor"] as? Bool{
+                monitor=v;monitorRetryAfter = .distantPast;monitorNotice=""
+                if c["start"] as? Bool == false || !monitor{monitorEngine?.stop();monitorEngine=nil;mimic_mix_monitor(dsp,0)}
+                else{do{if !ready{try configure()}else{try startMonitor()}}catch{monitorNotice=error.localizedDescription;throw error}}
+            }
         case "mic", "mic_test":
             let test=(c["op"] as? String)=="mic_test"
             if let id=c["device"] as? Int,id>0 {

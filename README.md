@@ -22,6 +22,7 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 - Trend Radar provides regional meme charts and music charts. Meme sounds are checked and preloaded before appearing, unavailable files are skipped, and Add saves the same audio you previewed.
 - Remote pairs an iPhone or another browser with a QR code and one-time code on your local network.
 - Settings includes audio routing, microphone diagnostics, models, tasks and optional search API configuration.
+- Local clip listening is on by default. It follows the system output or remembers your headphones/speakers, without playing your microphone back to you.
 
 Full installers include FFmpeg, llama.cpp, whisper.cpp, Qwen2.5 Instruct, Qwen3 Embedding and multilingual Whisper Base. Local AI features work without Python, Ollama or API keys. Web search uses Tavily with service limits. Add an optional Tavily key in **Settings → Advanced** if needed.
 
@@ -32,7 +33,7 @@ These are Alpha preview installers. The Mac app is ad-hoc signed without Apple n
 1. Close VUPIO, open the PKG and follow the installer.
 2. Restart your Mac after the first driver installation, then open VUPIO in Applications.
 3. In Discord **Voice & Video**, select **MIMIC Microphone** as input and your headphones as output.
-4. In VUPIO, select your physical microphone and enable it to mix your voice with clips. Grant microphone access when macOS asks.
+4. In VUPIO, select your physical microphone and enable it to mix your voice with clips. Grant microphone access when macOS asks. Local clip listening is enabled by default; select your headphones or **System output (automatic)** in Settings. Your microphone is not sent to local listening.
 5. Start Discord Mic Test and trigger a sound in Soundboard. Stop Mic Test afterward to end voice playback.
 
 MIMIC Microphone keeps its existing device name for compatibility with saved Discord settings. Your library and preferences are stored in `~/Library/Application Support/MIMIC`.
@@ -43,7 +44,7 @@ MIMIC Microphone keeps its existing device name for compatibility with saved Dis
 2. For Discord routing, select **Download VB-CABLE** during setup. The installer downloads it from VB-Audio, checks the archive hash and vendor signature, then opens the vendor installer. Confirm installation there and restart Windows.
 3. In VUPIO **Settings → Audio devices**, select **CABLE Input** as output and your physical microphone as input.
 4. In Discord, select **CABLE Output** as input and your headphones as output.
-5. Enable clip monitoring in VUPIO if you want to hear the soundboard. Keep Windows **Listen to this device** disabled to avoid doubled audio.
+5. Clip listening is enabled by default. In **Settings → Audio devices**, use **System output (automatic)** or choose headphones/speakers. Keep Windows **Listen to this device** disabled to avoid doubled audio.
 
 Windows uses WASAPI. Speech transcription, waveform editing, energy-based highlights and semantic search are available on both platforms. Core Audio and Apple SoundAnalysis diagnostics run on Mac. Windows data is stored in `%LOCALAPPDATA%\MIMIC`.
 

@@ -161,6 +161,10 @@ class App:
         if virtual and not self.preferences.get('manualAudioRouteV03'):
             try:audio.command('output',device=virtual['id'],start=False)
             except ValueError:pass
+        # Restore the desired route lazily: launching the app must not open audio
+        # hardware or microphone capture. Only a user's play/enable action does.
+        audio.command('mixer',monitor=self.preferences.get('monitor',True),
+                      monitorUID=self.preferences.get('monitorUID',''),start=False)
 
     def restart_audio(self):
         with self.lock:
@@ -525,6 +529,8 @@ class Handler(BaseHTTPRequestHandler):
                 preferences={}
                 if 'gain' in options:preferences['micGain']=options['gain']
                 if 'polyphony' in options:preferences['polyphony']=options['polyphony']
+                if 'monitor' in options:preferences['monitor']=options['monitor']
+                if 'monitorDevice' in options:preferences['monitorUID']=result.get('monitorUID','')
                 if preferences:a.save_preference(**preferences)
                 return self.send(result)
             if path == '/api/audio/probe':

@@ -93,6 +93,28 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.req('/api/audio/test',{},self.admin)[0],200)
         with wave.open(str(self.app.library.root/'mimic-diagnostic.wav')) as wav:
             self.assertEqual(wav.getnchannels(),2);self.assertEqual(wav.getframerate(),48000);self.assertEqual(wav.getnframes(),48000)
+    def test_local_listening_choice_persists_by_uid(self):
+        with patch.object(self.audio,'command',return_value={'monitorUID':'headphones-stable-uid'}):
+            self.assertEqual(self.req('/api/mixer',{'monitor':True,'monitorDevice':117},self.admin)[0],200)
+        preferences=json.loads(self.app.preferences_path.read_text())
+        self.assertTrue(preferences['monitor'])
+        self.assertEqual(preferences['monitorUID'],'headphones-stable-uid')
+        self.assertNotIn('monitorDevice',preferences)
+        replacement=FakeAudio()
+        App(self.tmp.name,replacement,'127.0.0.1',self.port)
+        self.assertIn(('mixer',{'monitor':True,'monitorUID':'headphones-stable-uid','start':False}),replacement.calls)
+        self.assertNotIn('mic',[op for op,_ in replacement.calls])
+
+    def test_local_listening_defaults_on_without_opening_hardware(self):
+        self.assertIn(('mixer',{'monitor':True,'monitorUID':'','start':False}),self.audio.calls)
+        self.assertNotIn('play',[op for op,_ in self.audio.calls])
+
+    def test_local_listening_explicit_off_survives_restart(self):
+        self.assertEqual(self.req('/api/mixer',{'monitor':False},self.admin)[0],200)
+        replacement=FakeAudio()
+        App(self.tmp.name,replacement,'127.0.0.1',self.port)
+        self.assertIn(('mixer',{'monitor':False,'monitorUID':'','start':False}),replacement.calls)
+
     def test_physical_diagnostic_never_generates_tone(self):
         self.audio.calls.clear()
         self.assertEqual(self.req('/api/audio/mic-test',{'device':112,'gain':.5},self.admin)[0],200)

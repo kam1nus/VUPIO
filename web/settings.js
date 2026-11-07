@@ -6,7 +6,7 @@ let openSettings;
  async function refreshDevices(){
   const s=await api('settings');latestSettings=s;devices=s.devices||[];
   selectOptions('inputDevice',s.physicalInputs||[],audio.input);selectOptions('output',devices,audio.output);
-  selectOptions('monitorDevice',devices.filter(d=>!d.virtual&&!/(blackhole|mimic microphone|aggregate|multi-output)/i.test(d.name)&&![1986622068,1735554416].includes(d.transport)),audio.monitorDevice);
+  selectOptions('monitorDevice',[{id:0,name:'System output (automatic)'},...devices.filter(d=>!d.virtual&&!/(blackhole|mimic microphone|aggregate|multi-output)/i.test(d.name)&&![1986622068,1735554416].includes(d.transport))],audio.monitorUID?audio.monitorDevice:0);
   by('networkStatus').textContent=s.bind==='127.0.0.1'?'Available on this computer only. Connect to a local network to use the remote.':(s.tls?'HTTPS':'HTTP')+' · '+s.bind+':'+s.port;
   by('dataPath').textContent=s.data_dir;
  }
@@ -35,6 +35,7 @@ let openSettings;
   if(document.activeElement!==by('micGain'))by('micGain').value=s.micGain??.7;
   by('micPercent').textContent=Math.round((s.micGain??.7)*100)+'%';
   for(const id of ['monitor','polyphony'])by(id).checked=Boolean(s[id]);
+  by('monitorStatus').textContent=s.monitorNotice||(s.monitor?(s.monitorRunning?'Playing clips through your headphones or speakers.':s.running?'Clips use the selected output.':'Ready. Local listening starts when you play a clip.'):'Local listening is off. Other people can still hear clips through the virtual microphone.');
   by('probe').textContent=s.probeRunning?'Stop input test':'Test virtual input';
   for(const [name,key,active] of [['physical','physicalMicLevel',s.mic],['mixer','mixerOutputLevel',s.running],['virtual','virtualMicLevel',s.virtualMeterAvailable]]){
    const level=s[key]||0,db=20*Math.log10(Math.max(1e-6,level));

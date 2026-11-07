@@ -29,6 +29,7 @@ class WindowsAudio:
         self.monitor_frames = deque(maxlen=12)
         self.player = self.capture = self.monitor = None
         self.output = self.input = self.monitor_device = 0
+        self.monitor_enabled, self.monitor_uid, self.monitor_notice = True, '', ''
         self.volume, self.gain, self.parallel = .65, .7, False
         self.clip_peak = self.mic_peak = self.output_peak = 0.
         self.refresh()
@@ -93,6 +94,32 @@ class WindowsAudio:
             if not self.output:
                 raise ValueError('Select an available Windows audio output.')
             self.player = self.start_output(self.output, self.render)
+        self.ensure_monitor()
+
+    def ensure_monitor(self):
+        target = next((id for id,(row,_) in self.outputs.items()
+                       if row['uid'] == self.monitor_uid and not row['virtual']),0) if self.monitor_uid else self.default_output
+        # Main playback already reaches this physical device; a second stream
+        # would double the audio. The monitor always contains clips only.
+        enabled = self.monitor_enabled and target and target != self.output
+        if self.monitor is not None and (not enabled or target != self.monitor_device or not self.monitor.active):
+            stream, self.monitor = self.monitor, None
+            self.close_stream(stream)
+            with self.mix_lock:
+                self.monitor_frames.clear()
+        self.monitor_notice = ''
+        if not self.monitor_enabled:
+            return
+        if not target:
+            self.monitor_notice = 'Local listening is waiting for your selected headphones or speakers. Reconnect them or choose System output.'
+            return
+        self.monitor_device = target
+        if enabled and self.monitor is None:
+            try:
+                self.monitor = self.start_output(target, self.render_monitor)
+            except self.sd.PortAudioError as error:
+                # Losing local headphones must not interrupt the Discord route.
+                self.monitor_notice = 'Local listening unavailable: '+str(error)+'. Check your headphones or speakers.'
 
     @staticmethod
     def map_clip(path):
@@ -190,7 +217,9 @@ class WindowsAudio:
                         micGain=self.gain, polyphony=self.parallel, output=self.output,
                         outputName=output.get('name','Select a Windows output'), outputUID=output.get('uid',''),
                         input=self.input, inputUID=self.inputs.get(self.input, {}).get('uid',''),
-                        monitor=self.monitor is not None, monitorDevice=self.monitor_device,
+                        monitor=self.monitor_enabled, monitorDevice=self.monitor_device,
+                        monitorUID=self.monitor_uid, monitorRunning=self.monitor is not None and self.monitor.active,
+                        monitorNotice=self.monitor_notice,
                         driverRegistered=bool(self.virtual_output), virtualConnected=bool(running and output.get('virtual')),
                         physicalMicLevel=self.mic_peak if mic else 0, mixerOutputLevel=self.output_peak if running else 0,
                         clipLevel=self.clip_peak, captureProcess='WASAPI')
@@ -207,6 +236,7 @@ class WindowsAudio:
             self.refresh()
             return {'devices':[row for row,_ in self.outputs.values()], 'physicalInputs':list(self.inputs.values())}
         if op == 'play':
+            self.refresh()
             self.ensure_output()
             audio = self.map_clip(data['path'])
             with self.mix_lock:
@@ -248,18 +278,26 @@ class WindowsAudio:
         elif op == 'mixer':
             self.parallel = data.get('polyphony', self.parallel)
             self.gain = min(1., max(0., float(data.get('gain',self.gain))))
+            if 'monitorUID' in data:
+                self.monitor_uid = data['monitorUID']
+            if 'monitorDevice' in data:
+                id = data['monitorDevice']
+                if id and (id not in self.outputs or self.outputs[id][0]['virtual']):
+                    raise ValueError('Select physical headphones or speakers for local listening.')
+                self.monitor_uid = self.outputs[id][0]['uid'] if id else ''
             if 'monitor' in data:
-                stream, self.monitor = self.monitor, None
-                self.close_stream(stream)
-                with self.mix_lock:
-                    self.monitor_frames.clear()
-                if data['monitor']:
-                    id = data.get('monitorDevice') or self.default_output
-                    if id == self.output or id not in self.outputs or self.outputs[id][0]['virtual']:
-                        raise ValueError('Select separate headphones or speakers for monitoring.')
+                self.monitor_enabled = data['monitor']
+                if not data.get('start',True) or not self.monitor_enabled:
+                    stream, self.monitor = self.monitor, None
+                    self.close_stream(stream)
+                    with self.mix_lock:
+                        self.monitor_frames.clear()
+                    if not self.monitor_uid:
+                        self.monitor_device = self.default_output
+                    else:
+                        self.monitor_device = next((id for id,(row,_) in self.outputs.items() if row['uid']==self.monitor_uid),0)
+                else:
                     self.ensure_output()
-                    self.monitor = self.start_output(id,self.render_monitor)
-                    self.monitor_device = id
         elif op != 'status':
             raise ValueError('This test is available on Mac. On Windows, check microphone levels and use Discord Mic Test.')
         return self.status()

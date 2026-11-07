@@ -1,5 +1,8 @@
 name: VUPIO preview installers
 on:
+  push:
+    branches: [main]
+    paths: ['mimic/__init__.py']
   workflow_dispatch:
     inputs:
       publish:
@@ -64,7 +67,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: inputs.publish && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
     needs: [windows, macos]
     runs-on: ubuntu-24.04
     permissions:
@@ -86,10 +89,11 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - English UI, diagnostics, native Mac dialogs and Windows installer.
-          - Multilingual meme search preserves names and queries in their original language.
-          - Trend Radar preloads playable sounds, skips unavailable files and supports one-click Add.
-          - A visible Updates page checks GitHub releases for your platform.
+          - Hear clips locally by default while friends hear them through the virtual microphone.
+          - Local listening follows the system output or remembers your selected headphones/speakers across restarts.
+          - Your microphone is never included in local listening. STOP and PANIC remain available.
+          - Physical output is not duplicated. Missing headphones do not interrupt the Discord audio route.
+          - Local listening starts with playback; launching the app does not open microphone capture.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF
