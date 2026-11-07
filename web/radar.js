@@ -17,22 +17,37 @@
      status('radarStatus',[
       batch.notice,
       batch.shown<batch.limit?'Playable sounds: '+batch.shown+'.':'',
-     ].filter(Boolean).join(' '));
+      batch.failed?'Unavailable sounds skipped: '+batch.failed+'.':'',
+      !batch.shown&&batch.lastError?batch.lastError:'',
+     ].filter(Boolean).join(' '),!batch.shown&&Boolean(batch.failed));
      selection=null;
      break;
     }
     status('radarStatus','Checking and preloading sounds · '+batch.shown+'/'+batch.limit);
     const row=batch.rows[batch.index++];
+    let result;
     try{
      const ready=await runJob('radar_clip',{source_id:row.source_id},undefined,250);
      if(selection!==batch)continue;
-     const result=card(row,true,batch.shown,batch.category,ready);
-     cards.push(result);
+     result=card(row,true,batch.shown,batch.category,ready);
      await result.warm();
-     if(selection!==batch)continue;
+     if(selection!==batch){result.dispose?.();continue;}
+     cards.push(result);
      results.append(result.el);
      batch.shown++;
-    }catch{/* Try the next chart entry before showing anything for this one. */}
+     batch.denied=0;
+    }catch(error){
+     result?.dispose?.();
+     if(selection!==batch)continue;
+     batch.failed++;batch.lastError=error.message;
+     batch.denied=error.code==='source_forbidden'?batch.denied+1:0;
+     // A dead sound is replaced. A shared DNS/network/rate limit is reported
+     // immediately instead of repeating the same failure for thirty cards.
+     if(['network_dns','network_connect','network_timeout','source_rate_limit'].includes(error.code)||batch.denied>=3){
+      status('radarStatus',[batch.notice,'Playable sounds: '+batch.shown+'.',error.message,'Refresh after the connection is restored.'].filter(Boolean).join(' '),true);
+      selection=null;break;
+     }
+    }
    }
   }finally{checking=false;}
  }
@@ -161,7 +176,7 @@
   ].filter(Boolean).join(' '),Boolean(data.warning&&!count));
   clearCards();
   if(data.playable_chart&&count){
-   selection={rows:data.rows.filter(row=>row.source_id),category,index:0,shown:0,limit:data.limit,
+   selection={rows:data.rows.filter(row=>row.source_id),category,index:0,shown:0,failed:0,denied:0,lastError:'',limit:data.limit,
               notice:[data.warning,data.stale?'Showing cached results.':''].filter(Boolean).join(' ')};
    validateClips();
   }else{

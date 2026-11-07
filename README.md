@@ -22,6 +22,7 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 - Trend Radar provides regional meme charts and music charts. Meme sounds are checked and preloaded before appearing, unavailable files are skipped, and Add saves the same audio you previewed.
 - Remote pairs an iPhone or another browser with a QR code and one-time code on your local network.
 - Settings includes audio routing, microphone diagnostics, models, tasks and optional search API configuration.
+- Public audio and Trend Radar recover from VPN Fake-IP DNS using verified public DNS addresses. Source errors are shown instead of silently leaving Radar empty.
 - Local clip listening is on by default. It follows the system output or remembers your headphones/speakers, without playing your microphone back to you.
 
 Full installers include FFmpeg, llama.cpp, whisper.cpp, Qwen2.5 Instruct, Qwen3 Embedding and multilingual Whisper Base. Local AI features work without Python, Ollama or API keys. Web search uses Tavily with service limits. Add an optional Tavily key in **Settings → Advanced** if needed.
@@ -53,6 +54,12 @@ Windows uses WASAPI. Speech transcription, waveform editing, energy-based highli
 Connect your computer and phone to the same trusted local network. Open **Remote**, create a pairing code and scan the QR with the phone camera. Open the link in Safari and enter the code. Use **Share → Add to Home Screen** for quick access.
 
 On Windows, allow VUPIO through the firewall on private networks. Keep router port forwarding disabled.
+
+## Network troubleshooting
+
+If a VPN resolves public websites to private or reserved Fake-IP addresses, VUPIO checks the hostname using encrypted DNS (Cloudflare, then Google if needed) and connects only to a validated public IP with TLS hostname verification. Only the hostname is sent to the resolver, not audio, URL paths, tokens or cookies. Direct local-network URLs and redirects to private IPs remain blocked.
+
+A source can still deny a download (403), rate-limit requests (429), remove a sound (404) or require login. VUPIO does not bypass these restrictions. Choose another public sound or import a file you have locally. After a connection failure, restore the network/VPN and press Refresh in Trend Radar.
 
 ## Build from source
 

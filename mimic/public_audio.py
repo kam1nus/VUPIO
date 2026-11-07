@@ -1,16 +1,77 @@
 """Personal-test import of public audio. No license gate, cookies or executable page code.
 HTTPS is connected to a validated pinned public IP; redirects are revalidated.
 """
-import http.client,ipaddress,socket,ssl,time,re
+import http.client,ipaddress,socket,ssl,time,re,json,threading
 from html.parser import HTMLParser
 from urllib.parse import urlsplit,urljoin,quote
 import certifi
+from . import BUILD
 
 EXTENSIONS=('.mp3','.wav','.ogg','.oga','.flac','.m4a','.aac','.opus','.aiff','.webm')
 
 # These page URLs lead to players. The public-file loader has no adapter for them.
 PLAYER_DOMAINS = ('youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com',
                   'spotify.com', 'linkedin.com', 'soundcloud.com', 'music.apple.com')
+
+class PublicAudioError(ValueError):
+    def __init__(self,message,code):super().__init__(message);self.code=code
+
+_dns_cache={}
+_dns_lock=threading.Lock()
+
+def public_ip(value):
+    address=ipaddress.ip_address(value)
+    return address.is_global and not address.is_multicast and '%' not in str(address)
+
+def vpn_fake_ip(value):
+    address=ipaddress.ip_address(value)
+    if address.version==6:address=address.ipv4_mapped
+    return address is not None and address.version==4 and address in ipaddress.ip_network('198.18.0.0/15')
+
+def public_dns(host):
+    """Fallback for VPN Fake-IP DNS, never permission to connect to a private IP.
+
+    Bootstrap fixed public resolver IPs with verified TLS/SNI. Only the domain
+    name is sent, never a media URL, query string, cookies or audio.
+    """
+    with _dns_lock:
+        cached=_dns_cache.get(host)
+        if cached and cached[0]>time.monotonic():return list(cached[1])
+    for name,ip,path in [('cloudflare-dns.com','1.1.1.1','/dns-query'),
+                         ('dns.google','8.8.8.8','/resolve')]:
+        connection=PinnedHTTPS(name,ip,timeout=4)
+        response=None
+        try:
+            connection.request('GET',path+'?name='+quote(host,safe='')+'&type=A',
+                               headers={'Accept':'application/dns-json','User-Agent':f'VUPIO/{BUILD}'})
+            response=connection.getresponse()
+            if response.status!=200:continue
+            raw=response.read(65537)
+            if len(raw)>65536:continue
+            payload=json.loads(raw)
+            if not isinstance(payload,dict) or payload.get('Status')!=0:continue
+            answers=payload.get('Answer',[])
+            if not isinstance(answers,list):continue
+            addresses=[];ttl=60
+            for answer in answers[:32]:
+                if not isinstance(answer,dict) or answer.get('type') not in (1,28):continue
+                value=ipaddress.ip_address(answer['data'])
+                if not public_ip(value):
+                    raise PublicAudioError('The source resolves to a private or reserved address. Local network downloads remain blocked.','private_address')
+                addresses.append(str(value))
+                ttl=min(ttl,max(0,int(answer.get('TTL',0))))
+            if addresses:
+                addresses=list(dict.fromkeys(addresses))
+                with _dns_lock:
+                    if len(_dns_cache)>=128:_dns_cache.pop(next(iter(_dns_cache)))
+                    _dns_cache[host]=(time.monotonic()+ttl,tuple(addresses))
+                return addresses
+        except PublicAudioError:raise
+        except (OSError,ValueError,KeyError,TypeError,http.client.HTTPException):pass
+        finally:
+            if response:response.close()
+            connection.close()
+    raise PublicAudioError('Network DNS could not confirm a public address. Your VPN or DNS filter may be returning private Fake-IP addresses. Check the connection or use a VPN mode with real DNS addresses.','network_dns')
 
 
 def view_only(url):
@@ -22,16 +83,37 @@ def public_target(url):
     u=urlsplit(str(url))
     if len(url)>16384 or u.scheme!='https' or not u.hostname or u.username or u.password or u.port not in (None,443):raise ValueError('Use a public HTTPS URL without credentials or a custom port')
     host=u.hostname.encode('idna').decode('ascii')
-    records=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
-    ips=list(dict.fromkeys(r[4][0] for r in records))
-    if not ips or any(not ipaddress.ip_address(ip).is_global for ip in ips):raise ValueError('Downloads from private or reserved networks are blocked')
+    host=host.lower().rstrip('.')
+    try:literal=ipaddress.ip_address(host)
+    except ValueError:literal=None
+    if literal is not None:
+        if not public_ip(literal):raise PublicAudioError('Downloads from private or reserved networks are blocked. Choose a public website.','private_address')
+        ips=[str(literal)]
+    else:
+        if '.' not in host or host.endswith(('.localhost','.local','.internal','.lan','.home','.test','.invalid')):
+            raise PublicAudioError('Downloads from local network names are blocked. Choose a public website.','private_address')
+        try:ips=list(dict.fromkeys(r[4][0] for r in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)))
+        except socket.gaierror as error:
+            if error.errno not in (socket.EAI_AGAIN,socket.EAI_FAIL):
+                raise PublicAudioError('The source hostname could not be found. Check the URL and your network DNS.','network_dns') from error
+            ips=[]
+        if not ips:ips=public_dns(host)
+        elif any(not public_ip(ip) for ip in ips):
+            # Only the standard VPN benchmark Fake-IP range gets a second
+            # resolution. Do not override loopback/ad-block sinkholes, private
+            # services, mixed private answers or multicast with public DNS.
+            if all(public_ip(ip) or vpn_fake_ip(ip) for ip in ips):ips=public_dns(host)
+            else:raise PublicAudioError('The source resolves to a private or reserved address. Check VPN/DNS settings; local-network downloads remain blocked.','private_address')
+        # Recheck even cached/resolver-supplied results before pinning a socket.
+        if not ips or any(not public_ip(ip) for ip in ips):
+            raise PublicAudioError('The source has no verified public address. Local network downloads remain blocked.','private_address')
     path=quote(u.path or '/',safe="/%:@!$&'()*+,;=-._~")
     if u.query:path+='?'+quote(u.query,safe="%=&/:?@!$'()*+,;~-._")
     return host,ips,path
 
 class PinnedHTTPS(http.client.HTTPSConnection):
-    def __init__(self,host,ip):
-        super().__init__(host,443,timeout=20,context=ssl.create_default_context(cafile=certifi.where()));self.ip=ip
+    def __init__(self,host,ip,timeout=20):
+        super().__init__(host,443,timeout=timeout,context=ssl.create_default_context(cafile=certifi.where()));self.ip=ip
     def connect(self):
         raw=socket.create_connection((self.ip,443),timeout=self.timeout)
         try:self.sock=self._context.wrap_socket(raw,server_hostname=self.host)
@@ -39,28 +121,40 @@ class PinnedHTTPS(http.client.HTTPSConnection):
 
 class PublicResponse:
     def __init__(self,response,connection,url):self.response=response;self.connection=connection;self.url=url;self.headers=response.headers
-    def read(self,n):return self.response.read(n)
+    def read(self,n):
+        try:return self.response.read(n)
+        except TimeoutError as error:raise PublicAudioError('Audio download timed out. Check your connection or VPN and try again.','network_timeout') from error
+        except OSError as error:raise PublicAudioError('The audio connection was interrupted. Check your connection or VPN.','network_connect') from error
+    def geturl(self):return self.url
     def __enter__(self):return self
     def __exit__(self,*args):self.response.close();self.connection.close()
 
-def open_public(url,job=None):
+def open_public(url,job=None,*,timeout=20,hosts=None):
+    budget=getattr(job,'network_timeout',None)
+    if isinstance(budget,(int,float)) and 0<budget<=20:timeout=min(timeout,budget)
     for _ in range(6):
         if job:job.check()
+        if hosts:
+            host=(urlsplit(url).hostname or '').lower().rstrip('.')
+            if not (hosts(host) if callable(hosts) else host in hosts):raise ValueError('The server is outside the supported source')
         host,ips,path=public_target(url);error=None
         for ip in ips[:3]:
-            connection=PinnedHTTPS(host,ip)
+            connection=PinnedHTTPS(host,ip,timeout=timeout)
             try:
-                connection.request('GET',path,headers={'User-Agent':'MIMIC/0.4.3 (desktop personal soundboard)','Accept':'audio/*,text/html;q=0.9,*/*;q=0.5'})
+                connection.request('GET',path,headers={'User-Agent':f'VUPIO/{BUILD} (desktop soundboard)','Accept':'audio/*,text/html;q=0.9,*/*;q=0.5'})
                 response=connection.getresponse();break
-            except OSError as e:connection.close();error=e
-        else:raise ValueError('Could not connect to the audio server: '+str(error))
+            except (OSError,http.client.HTTPException) as e:connection.close();error=e
+        else:raise PublicAudioError('Could not connect to the audio server. Check your internet connection or VPN. '+str(error),'network_connect')
         if response.status in {301,302,303,307,308}:
             location=response.getheader('Location');response.close();connection.close()
             if not location:raise ValueError('Empty source redirect')
             url=urljoin(url,location);continue
         if response.status<200 or response.status>=300:
             status=response.status;response.close();connection.close()
-            raise ValueError('Source returned HTTP '+str(status)+'. The file may be unavailable or require sign-in.')
+            message={403:'The source denied this download (HTTP 403). Open the source in your browser or choose another public sound.',
+                     429:'The source is limiting requests (HTTP 429). Wait before trying again.',
+                     404:'The sound is no longer available (HTTP 404). Choose another result.'}.get(status,'Source returned HTTP '+str(status)+'. Try another source.')
+            raise PublicAudioError(message,{403:'source_forbidden',429:'source_rate_limit',404:'source_missing'}.get(status,'source_http'))
         return PublicResponse(response,connection,url)
     raise ValueError('Too many source redirects')
 
@@ -102,10 +196,11 @@ def resolve_public_audio(source,job=None):
                   license=result.get('license') or 'Unverified · personal test',reason='Personal test import. Source metadata retained.')
     return result
 
-def download_public(url,path,job=None,maximum=100*1024*1024):
+def download_public(url,path,job=None,maximum=100*1024*1024,*,hosts=None):
     size=0;deadline=time.monotonic()+180
     try:
-        with open_public(url,job) as response,open(path,'wb') as target:
+        options={'hosts':hosts} if hosts is not None else {}
+        with open_public(url,job,**options) as response,open(path,'wb') as target:
             length=int(response.headers.get('Content-Length',0) or 0)
             if length>maximum:raise ValueError(f'Audio file exceeds {maximum//1048576} MB')
             while True:

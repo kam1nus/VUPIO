@@ -7,7 +7,7 @@
 [Setup]
 AppId=VUPIO
 AppName=VUPIO
-AppVersion=0.4.3.4046
+AppVersion=0.4.3.4047
 AppPublisher=VUPIO
 DefaultDirName={autopf}\VUPIO
 DefaultGroupName=VUPIO

@@ -9,7 +9,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from .autofetch import radar_asset
-from .net import open_url
+from .public_audio import open_public, PublicAudioError
 from .web_agent import web_row
 
 LIMIT = 10
@@ -48,7 +48,7 @@ def https_on(url, host):
 
 
 def read_feed(url, timeout=8):
-    with open_url(url, timeout=timeout) as response:
+    with open_public(url, timeout=timeout, hosts={urlsplit(url).hostname}) as response:
         if not https_on(response.geturl(), urlsplit(url).hostname):
             raise ValueError('Source redirected to a different website.')
         raw = response.read(2_000_001)
@@ -200,6 +200,7 @@ class Radar:
             db.execute('CREATE TABLE IF NOT EXISTS radar_clips (source_id TEXT PRIMARY KEY, asset_id TEXT)')
 
     def prepare_clip(self, source_id, job):
+        job.network_timeout=6
         studio = self.studio
         source = studio.finder.saved(source_id)
         url = source['page_url']
@@ -263,10 +264,10 @@ class Radar:
                 if chart and not rows:
                     raise ValueError('Source returned an empty list.')
             except (OSError, ValueError, KeyError, TypeError) as error:
-                if isinstance(error, HTTPError) and error.code == 404:
+                if (isinstance(error, HTTPError) and error.code == 404) or (isinstance(error, PublicAudioError) and error.code=='source_missing'):
                     warning = f'{title} has no chart available for this country.'
                 elif chart:
-                    warning = f'Could not refresh {title}. Try again later.'
+                    warning = f'Could not refresh {title}. '+str(error)[:260]
                 else:
                     warning = str(error) if isinstance(error, ValueError) else f'Search on {title} unavailable. Try again later.'
             else:

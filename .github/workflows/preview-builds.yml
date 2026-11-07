@@ -30,6 +30,10 @@ jobs:
           choco install innosetup --yes --no-progress
       - name: Verify audio mixer logic
         run: python -m unittest discover -s tests -p test_windows_audio.py
+      - name: Verify network safety and VPN DNS fallback
+        run: python -m unittest discover -s tests -p test_public_audio.py
+      - name: Verify Radar failure states
+        run: python -m unittest discover -s tests -p test_radar_client.py
       - name: Build Windows installer
         run: ./scripts/package_windows.ps1
       - uses: actions/upload-artifact@v4
@@ -89,11 +93,12 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Hear clips locally by default while friends hear them through the virtual microphone.
-          - Local listening follows the system output or remembers your selected headphones/speakers across restarts.
-          - Your microphone is never included in local listening. STOP and PANIC remain available.
-          - Physical output is not duplicated. Missing headphones do not interrupt the Discord audio route.
-          - Local listening starts with playback; launching the app does not open microphone capture.
+          - Fix public-audio downloads when a VPN returns private Fake-IP DNS addresses.
+          - Verify public DNS over TLS and pin the validated public server IP; private networks remain blocked.
+          - Apply the same network path to meme downloads, catalog audio and Trend Radar feeds.
+          - Show actionable Radar errors instead of silently checking thirty failed downloads.
+          - Replace unavailable sounds; stop repeated requests when a source rate-limits or denies downloads.
+          - Retain local clip listening and its saved output from build 4046.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

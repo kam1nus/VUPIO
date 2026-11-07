@@ -61,9 +61,10 @@ class Jobs:
                                (json.dumps(result,ensure_ascii=False),time.time(),job.id))
             except Exception as e:
                 status='cancelled' if isinstance(e,Cancelled) else 'failed'
+                detail={'error_code':e.code} if isinstance(getattr(e,'code',None),str) else {}
                 with self.library.db() as db:
-                    db.execute('UPDATE ai_jobs SET status=?,error=?,message=?,updated=? WHERE id=?',
-                               (status,str(e)[:1800],str(e)[:1800],time.time(),job.id))
+                    db.execute('UPDATE ai_jobs SET status=?,error=?,message=?,result=?,updated=? WHERE id=?',
+                               (status,str(e)[:1800],str(e)[:1800],json.dumps(detail),time.time(),job.id))
             finally:
                 self.active.pop(job.id,None)
                 self.queue.task_done()

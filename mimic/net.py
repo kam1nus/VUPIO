@@ -97,36 +97,8 @@ def parallel_download(url,path,job,size,workers=6):
 
 
 def catalog_download(url,path,job=None,maximum=100*1024*1024):
-    """Restrict every redirect BEFORE requesting it; no arbitrary hosts or playlists."""
-    import ipaddress,socket,time
-    from urllib.request import build_opener,HTTPSHandler,HTTPRedirectHandler
-    def validate(value):
-        p=urlsplit(value);host=p.hostname or ''
-        if p.scheme!='https' or p.username or p.password or p.port not in (None,443):raise ValueError('Invalid audio URL')
-        if not (host=='upload.wikimedia.org' or host=='archive.org' or host.endswith('.archive.org')):raise ValueError('The server is outside the supported catalog')
-        addresses=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
-        if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):raise ValueError('Private network addresses are blocked')
-    class Redirect(HTTPRedirectHandler):
-        def redirect_request(self,req,fp,code,msg,headers,newurl):
-            validate(newurl)
-            return super().redirect_request(req,fp,code,msg,headers,newurl)
-    validate(url)
-    opener=build_opener(HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),Redirect())
-    total=0;deadline=time.monotonic()+180
-    try:
-        with opener.open(Request(url,headers={'User-Agent':AGENT}),timeout=25) as response,open(path,'wb') as target:
-            length=int(response.headers.get('Content-Length',0))
-            if length>maximum:raise ValueError('File exceeds 100 MB')
-            while True:
-                if job:job.check()
-                if time.monotonic()>deadline:raise ValueError('Download timed out')
-                chunk=response.read(128*1024)
-                if not chunk:break
-                total+=len(chunk)
-                if total>maximum:raise ValueError('File exceeds 100 MB')
-                target.write(chunk)
-                if job:job.update(.2+min(.25,total/max(1,length)*.25),'Downloading · '+str(round(total/1048576,1))+' MB')
-        if not total:raise ValueError('Empty file')
-        return total
-    except Exception:
-        path.unlink(missing_ok=True);raise
+    """Validate and pin every redirect, including when VPN DNS returns Fake-IP."""
+    from .public_audio import download_public
+    def allowed(host):
+        return host=='upload.wikimedia.org' or host=='archive.org' or host.endswith('.archive.org')
+    return download_public(url,path,job,maximum=maximum,hosts=allowed)

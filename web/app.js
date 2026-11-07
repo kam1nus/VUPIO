@@ -67,7 +67,7 @@ async function runJob(kind,data={},onProgress,pollMs=850){
   const job=await api('ai/job/'+id);
   onProgress?.(job);
   if(job.status==='done')return job.result;
-  if(job.status==='failed'||job.status==='cancelled')throw Error(job.error||'Task cancelled');
+  if(job.status==='failed'||job.status==='cancelled'){const error=Error(job.error||'Task cancelled');error.code=job.result?.error_code||'';throw error;}
   await pause(pollMs);
  }
 }
