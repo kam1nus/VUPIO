@@ -2,11 +2,11 @@
 
 A local soundboard, audio editor and wireless phone remote for macOS and Windows.
 
-## Download VUPIO Alpha 4050
+## Download VUPIO Alpha 4051
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4050/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4050/VUPIO-macOS-AppleSilicon.pkg)**
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4051/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4051/VUPIO-macOS-AppleSilicon.pkg)**
 
-Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4050) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4050/SHA256SUMS.txt)
+Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4051) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4051/SHA256SUMS.txt)
 
 ## Updates
 
