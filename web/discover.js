@@ -98,7 +98,13 @@
     notify(r.duplicate?'This sound is already in your library':'Added: '+r.item.title);
    },{...opts,cls:'primary',glyph:'plus'});
    addBtn.hidden=true;
-   const editBtn=button('Edit',async()=>{const r=await prepare();if(!card.isConnected||view!=='discover')return;if(r.item)await openStudio(r.item.id);else await openExternal(r);},{...opts,glyph:'edit'});
+   const editBtn=button('Edit full audio',async()=>{
+    status(error);
+    let r=pending?await pending:null;
+    if(!r?.asset_id)r=await task(Symbol(),'fetch',{...body(),add:false,full_audio:true});
+    if(!card.isConnected||view!=='discover')return;
+    await openExternal(r,undefined,true);
+   },{...opts,glyph:'edit'});
    actions.append(previewBtn,addBtn,editBtn);
   }
   card.append(badge,detail,actions);error.classList.add('resultError');card.append(error);

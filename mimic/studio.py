@@ -15,7 +15,7 @@ from .finder import Finder
 from .autofetch import AutoFetch
 from .radar import Radar
 from .editor import make_plan,parse_rule,render_filters
-from .features import analyze
+from .features import analyze,audible_edges
 from .jobs import Jobs,Cancelled
 from .models import Models,tool
 from .net import download
@@ -288,6 +288,11 @@ class Studio:
             job.update(.3,'Scanning energy changes across the recording…')
             original=self.original(asset_id) if asset_id else self.library.path(id)
             data=dict(data,features=analyze(original))
+        if spec.get('operation')=='trim_edges':
+            job.update(.3,'Checking the start and end for silence…')
+            original=self.original(asset_id) if asset_id else self.library.path(id)
+            data=dict(data,features={**data.get('features',{}),'audible_edges':audible_edges(original)})
+            job.check()
         plan=make_plan(spec,duration,data.get('segments'),data.get('features'))
         return {'id':id,'plan':plan,'segments':data.get('segments',[]),'features':data.get('features',{}),'title':title}
     def render(self,body,job):

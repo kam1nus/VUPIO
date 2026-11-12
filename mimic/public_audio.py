@@ -25,7 +25,9 @@ def public_ip(value):
 
 def vpn_fake_ip(value):
     address=ipaddress.ip_address(value)
-    if address.version==6:address=address.ipv4_mapped
+    if address.version==6:
+        if address in ipaddress.ip_network('2001:2::/48'):return True
+        address=address.ipv4_mapped
     return address is not None and address.version==4 and address in ipaddress.ip_network('198.18.0.0/15')
 
 def public_dns(host):
@@ -99,10 +101,11 @@ def public_target(url):
             ips=[]
         if not ips:ips=public_dns(host)
         elif any(not public_ip(ip) for ip in ips):
-            # Only the standard VPN benchmark Fake-IP range gets a second
-            # resolution. Do not override loopback/ad-block sinkholes, private
-            # services, mixed private answers or multicast with public DNS.
-            if all(public_ip(ip) or vpn_fake_ip(ip) for ip in ips):ips=public_dns(host)
+            # A known benchmark address identifies Fake-IP DNS, including a
+            # dual-stack response with a VPN-private IPv6 entry. Re-resolve the
+            # hostname; never connect to any address from that private answer.
+            # Ordinary private/sinkhole answers without Fake-IP remain blocked.
+            if any(vpn_fake_ip(ip) for ip in ips):ips=public_dns(host)
             else:raise PublicAudioError('The source resolves to a private or reserved address. Check VPN/DNS settings; local-network downloads remain blocked.','private_address')
         # Recheck even cached/resolver-supplied results before pinning a socket.
         if not ips or any(not public_ip(ip) for ip in ips):

@@ -88,7 +88,8 @@ let openStudio,openExternal;
   removeDraft().catch(e=>notify(e.message,true));
   source=next;peaks=[];duration=next.duration;initial=plan;
   by('studioEmpty').hidden=true;by('studioWorkspace').hidden=false;by('studioCard').hidden=!next.itemId;
-  by('editorTitle').textContent=next.title;by('editorSource').textContent=next.kind==='clip'?'Library original':'Internet original';
+  by('editorTitle').textContent=next.title;
+  by('editorSource').textContent=next.kind==='clip'?'Library original':'Audio available from source · '+fmt(next.duration,true);
   by('copyTitle').value=(next.title+(next.itemId?' · edit':'')).slice(0,160);by('copyTags').value='';
   by('editCommand').value='';by('playhead').textContent='0:00';by('speechDetails').open=false;displaySpeech(segments);
   options();show('studio');applyPlan(plan);ruler();status('editorStatus');status('waveMessage','Loading waveform…');
@@ -110,13 +111,14 @@ let openStudio,openExternal;
   if(source!==next)return;
   try{const cached=await api('ai/analysis/'+id);if(source===next)displaySpeech(cached.segments);}catch{}
  };
- openExternal=async(r,itemId)=>{
+ const fullSelection=duration=>({start:0,end:duration});
+ openExternal=async(r,itemId,full=false)=>{
   const next={id:r.asset_id,itemId,title:r.metadata.title,duration:r.report.duration,kind:'original',url:'/api/ai/original/'+r.asset_id};
-  await load(next,r.plan,r.report.analysis?.segments);
+  await load(next,full?fullSelection(next.duration):r.plan,r.report.analysis?.segments);
  };
  by('studioClip').onchange=e=>{if(e.target.value)openStudio(e.target.value).catch(e=>notify(e.message,true));};
  bind('studioCard',()=>{const item=items.find(i=>i.id===source?.itemId);if(item)openEditor(item);});
- bind('resetSelection',()=>{setBounds(0,duration);invalidate();status('editorStatus');});
+ bind('resetSelection',()=>{applyPlan(fullSelection(duration));status('editorStatus');});
  function animate(){
   cancelAnimationFrame(raf);
   const tick=()=>{
@@ -154,6 +156,7 @@ let openStudio,openExternal;
  }
  bind('applyCommand',()=>applyCommand(by('editCommand').value.trim()),'editorStatus');
  bind('suggestMoment',()=>applyCommand('Suggest a highlight'),'editorStatus');
+ bind('trimEdges',()=>applyCommand('Trim edge silence'),'editorStatus');
  bind('transcribe',async()=>{
   const current=source;
   const r=await work(current.kind==='clip'?'index':'asset_speech',current.kind==='clip'?{id:current.id,require_speech:true}:{asset_id:current.id});

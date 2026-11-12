@@ -36,6 +36,8 @@ def parse_rule(command,phrase=''):
     text=command.lower().strip()
     quotes=re.search(r'[«“"]([^»”"]+)[»”"]',command)
     selected=phrase or (quotes.group(1) if quotes else '')
+    if re.fullmatch(r'(?:trim edge silence|remove leading and trailing silence|\u0443\u0431\u0435\u0440\u0438 \u0442\u0438\u0448\u0438\u043d\u0443 \u0432 \u043d\u0430\u0447\u0430\u043b\u0435 \u0438 (?:\u0432 )?\u043a\u043e\u043d\u0446\u0435)[.!]?',text):
+        return {'operation':'trim_edges','mode':'Edge silence detection'}
     if re.fullmatch(r'(?:\u043e\u0441\u0442\u0430\u0432\u044c\s+|\u0432\u044b\u0431\u0435\u0440\u0438\s+|\u0441\u043e\u0445\u0440\u0430\u043d\u0438\s+)?(?:\u0432\u0435\u0441\u044c (?:\u0442\u0440\u0435\u043a|\u0437\u0432\u0443\u043a|\u0444\u0430\u0439\u043b)|\u0446\u0435\u043b\u0438\u043a\u043e\u043c|\u043f\u043e\u043b\u043d\u0443\u044e \u0432\u0435\u0440\u0441\u0438\u044e|(?:keep\s+)?(?:full|whole) (?:track|recording|audio))[.!]?',text):
         return {'operation':'process','mode':'Full recording'}
     interval=re.fullmatch(r'(?:(?:\u043e\u0441\u0442\u0430\u0432\u044c|\u0432\u044b\u0431\u0435\u0440\u0438|\u0432\u044b\u0440\u0435\u0436\u0438|trim|keep)\s+)?(?:\u0441\s+|from\s+)?'
@@ -96,6 +98,14 @@ def make_plan(spec,duration,segments=None,features=None):
         start=max(0,min(onset-length*.2,duration-length))
         end=start+length
         result['warning']='Selection based on energy changes. Preview to confirm the highlight.'
+    elif operation=='trim_edges':
+        edges=(features or {}).get('audible_edges')
+        if edges:
+            first,last=edges
+            if first>=.15:start=first-.08
+            if duration-last>=.15:end=min(duration,last+.08)
+        if start==0. and end==duration:
+            result['warning']='No quiet edges to trim. The full recording is selected.'
     elif operation=='trim':
         start,end=float(spec.get('start',0)),float(spec.get('end',duration))
     elif operation!='process':raise ValueError('Unknown operation. Refine the command or enter timestamps manually.')

@@ -19,6 +19,7 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 - Soundboard library with search, categories, favorites, card-triggered playback, volume, STOP and PANIC.
 - Discover searches the web and your local library with natural-language queries. Original queries and names are preserved, with optional English keyword expansion from the local AI model.
 - Studio shows the actual audio waveform and supports trim, silence removal, normalization, fades, speech transcription, AI commands and preview before saving.
+- Use **Edit full audio** in Discover to open the entire file available from a source. In Studio, keep the recording, trim quiet edges, or preview a suggested highlight before saving a copy.
 - Trend Radar provides regional meme charts and music charts. Meme sounds are checked and preloaded before appearing, unavailable files are skipped, and Add saves the same audio you previewed.
 - Remote pairs an iPhone or another browser with a QR code and one-time code on your local network.
 - Settings includes audio routing, microphone diagnostics, models, tasks and optional search API configuration.
@@ -57,7 +58,7 @@ On Windows, allow VUPIO through the firewall on private networks. Keep router po
 
 ## Network troubleshooting
 
-If a VPN resolves public websites to private or reserved Fake-IP addresses, VUPIO checks the hostname using encrypted DNS (Cloudflare, then Google if needed) and connects only to a validated public IP with TLS hostname verification. Only the hostname is sent to the resolver, not audio, URL paths, tokens or cookies. Direct local-network URLs and redirects to private IPs remain blocked.
+If a VPN returns standard Fake-IP benchmark addresses (198.18.0.0/15 or 2001:2::/48), including mixed IPv4/IPv6 answers, VUPIO checks the hostname using encrypted DNS (Cloudflare, then Google if needed) and connects only to a validated public IP with TLS hostname verification. Only the hostname is sent to the resolver, not audio, URL paths, tokens or cookies. Direct local-network URLs, sinkholes and redirects to private IPs remain blocked. Custom Fake-IP ranges are not treated as public addresses; use real-DNS mode if the VPN uses another range.
 
 A source can still deny a download (403), rate-limit requests (429), remove a sound (404) or require login. VUPIO does not bypass these restrictions. Choose another public sound or import a file you have locally. After a connection failure, restore the network/VPN and press Refresh in Trend Radar.
 

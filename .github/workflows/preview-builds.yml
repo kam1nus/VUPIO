@@ -93,7 +93,9 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Fix public-audio downloads when a VPN returns private Fake-IP DNS addresses.
+          - Recover audio downloads and Trend Radar feeds from VPN Fake-IP DNS, including standard IPv6 and mixed IPv4/IPv6 answers.
+          - Open the entire audio file available from a source using Edit full audio in Discover.
+          - Trim quiet edges in Studio while preserving pauses inside the recording.
           - Verify public DNS over TLS and pin the validated public server IP; private networks remain blocked.
           - Apply the same network path to meme downloads, catalog audio and Trend Radar feeds.
           - Show actionable Radar errors instead of silently checking thirty failed downloads.

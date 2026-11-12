@@ -41,7 +41,14 @@ class StudioWaveTests(unittest.TestCase):
                 self.assertEqual(track['plan']['basis'],'full_track')
                 self.assertAlmostEqual(track['report']['output']['duration'],40,delta=.03)
                 short=studio.autofetch.prepare({'source_id':'test:track','category':'Meme'},Job())['item']
+                full=studio.autofetch.prepare({
+                    'source_id':'test:track','category':'Meme','add':False,'full_audio':True,
+                },Job())
             self.assertAlmostEqual(short['duration'],8,delta=.1)
+            self.assertEqual(full['plan']['basis'],'full_track')
+            self.assertFalse(full['plan']['normalize'])
+            self.assertEqual(full['report']['output']['duration'],40)
+            self.assertNotIn('item',full)
 
             # Simulate a card saved by a version that only recorded finder_imports.
             with lib.db() as db:
@@ -64,6 +71,31 @@ class StudioWaveTests(unittest.TestCase):
                 self.assertEqual(studio.autofetch.editable_source(saved['id'])['plan']['end'],plan['end'])
                 self.assertTrue(studio.autofetch.commit(cut['asset_id'],Job(),{'variant':True})['duplicate'])
             self.assertEqual(len(lib.items()),3)
+
+    def test_trim_edge_silence_preserves_inner_pause_and_saves_selected_audio(self):
+        with tempfile.TemporaryDirectory() as data:
+            lib=Library(data)
+            studio=Studio(lib,'unused')
+            self.addCleanup(studio.close)
+            path=Path(data)/'padded.wav'
+            rate=16000
+            t=np.arange(rate*5)/rate
+            active=((t>=1)&(t<2))|((t>=3)&(t<4))
+            signal=(np.sin(t*2*np.pi*440)*active*8000).astype('<i2')
+            # A phase-inverted stereo recording must still register as audible.
+            with wave.open(str(path),'wb') as audio:
+                audio.setparams((2,2,rate,0,'NONE','not compressed'))
+                audio.writeframes(np.column_stack([signal,-signal]).astype('<i2').tobytes())
+            item=lib.import_file(path,'Padded recording','Music')
+            plan=studio.plan({'id':item['id'],'command':'Trim edge silence'},Job())['plan']
+            self.assertAlmostEqual(plan['start'],.92,delta=.01)
+            self.assertAlmostEqual(plan['end'],4.08,delta=.01)
+            self.assertFalse(plan['silence'])
+            draft=studio.render({'id':item['id'],**plan},Job())
+            self.assertAlmostEqual(draft['plan']['end']-draft['plan']['start'],3.16,delta=.02)
+            with wave.open(str(studio.cache/(draft['draft_id']+'.wav')),'rb') as audio:
+                audio.setpos(audio.getframerate()*3//2)
+                self.assertEqual(audio.readframes(100),bytes(400))
 
     def test_real_fades_apply_at_both_ends_of_trim_and_original_stays_intact(self):
         with tempfile.TemporaryDirectory() as data:

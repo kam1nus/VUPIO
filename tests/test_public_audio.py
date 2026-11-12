@@ -29,10 +29,11 @@ class PublicAudioTests(unittest.TestCase):
    host,ips,path=public_target('https://example.org/a%20b.mp3?x=1&y=2')
   self.assertEqual((host,ips,path),('example.org',['8.8.8.8'],'/a%20b.mp3?x=1&y=2'))
  def test_vpn_fake_ip_is_replaced_with_verified_public_dns(self):
-  records=[(socket.AF_INET,socket.SOCK_STREAM,6,'',('198.18.0.4',443))]
-  with patch('mimic.public_audio.socket.getaddrinfo',return_value=records),patch('mimic.public_audio.public_dns',return_value=['93.184.216.34']) as dns:
-   self.assertEqual(public_target('https://example.org/audio.mp3?private-token=abc'),('example.org',['93.184.216.34'],'/audio.mp3?private-token=abc'))
-  dns.assert_called_once_with('example.org')
+  for addresses in [['198.18.0.4'],['2001:2::1234'],['198.18.0.4','fc00::abcd']]:
+   records=[(socket.AF_INET if ':' not in ip else socket.AF_INET6,socket.SOCK_STREAM,6,'',(ip,443)) for ip in addresses]
+   with self.subTest(addresses=addresses),patch('mimic.public_audio.socket.getaddrinfo',return_value=records),patch('mimic.public_audio.public_dns',return_value=['93.184.216.34']) as dns:
+    self.assertEqual(public_target('https://example.org/audio.mp3?private-token=abc'),('example.org',['93.184.216.34'],'/audio.mp3?private-token=abc'))
+    dns.assert_called_once_with('example.org')
  def test_local_urls_never_use_public_dns(self):
   with patch('mimic.public_audio.public_dns') as dns,patch('mimic.public_audio.socket.getaddrinfo') as local:
    for url in ['https://127.0.0.1/x','https://169.254.169.254/latest','https://[::1]/x','https://printer.local/x','https://localhost/x','https://224.0.0.1/x','https://[ff02::1]/x']:

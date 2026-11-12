@@ -46,6 +46,7 @@ class AutoFetch:
     def prepare(self,body,job,*,radar=False):
         started=time.monotonic()
         s=self.s;id=str(body['source_id']);saved=s.finder.saved(id);job.update(.05,'Checking · source availability')
+        full_audio=not radar and body.get('full_audio') is True
         source=s.finder.resolve(id,job)
         key=uuid.uuid4().hex;raw=s.cache/(key+'.original');pcm=s.cache/(key+'.wav');preview=s.cache/(key+'.clip.wav')
         keep=False
@@ -72,7 +73,7 @@ class AutoFetch:
             # Hash decoded audio frames: detect same recording in different containers.
             sha=pcm_hash(pcm)
             with s.library.db() as db:duplicate=db.execute('SELECT * FROM finder_imports WHERE hash=?',(sha,)).fetchone()
-            if duplicate:
+            if duplicate and not full_audio:
                 try:
                     item=s.library.get(duplicate['item']);return {'item':item,'duplicate':True,'warning':'This audio file is already in your library.'}
                 except ValueError:pass
@@ -127,17 +128,21 @@ class AutoFetch:
                 category='Music'
             if category in {'Meme','Music','Reaction','Effect'}:metadata['category']=category
             command=str(body.get('command') or ('' if saved.get('topic_search') else saved.get('query','')))[:1000]
-            full_track=metadata['category']=='Music' and not body.get('command')
+            full_track=full_audio or (metadata['category']=='Music' and not body.get('command'))
             if full_track:
-                plan=dict(start=0.,end=duration,basis='full_track',warning='',normalize=True)
+                plan=dict(start=0.,end=duration,basis='full_track',warning='',normalize=not full_audio)
             else:
                 plan=cut_plan(command,duration,analysis)
-            job.update(.8,'Processing · trimming and normalization')
+            job.update(.8,'Processing · preparing full audio' if full_audio else 'Processing · trimming and normalization')
             audio_filter='loudnorm=I=-16:TP=-1.5:LRA=11'
             if not full_track:
                 audio_filter='silenceremove=start_periods=1:start_duration=0.05:start_threshold=-45dB,'+audio_filter
-            s.execute([tool('ffmpeg'),'-v','error','-nostdin','-ss',str(plan['start']),'-i',str(pcm),'-t',str(plan['end']-plan['start']),'-af',audio_filter,'-ar','48000','-ac','2','-c:a','pcm_s16le',str(preview)],job)
-            output=analyze(preview)
+            if full_audio:
+                preview=pcm
+                output=features
+            else:
+                s.execute([tool('ffmpeg'),'-v','error','-nostdin','-ss',str(plan['start']),'-i',str(pcm),'-t',str(plan['end']-plan['start']),'-af',audio_filter,'-ar','48000','-ac','2','-c:a','pcm_s16le',str(preview)],job)
+                output=analyze(preview)
             if output.get('duration',0)<.05 or output.get('peak',0)<.0001:raise ValueError('No audible audio remains after processing')
             report['output']=output;report['plan']=plan
             report['processing_seconds']=round(time.monotonic()-started,3)
@@ -157,7 +162,7 @@ class AutoFetch:
             with s.library.db() as db:db.execute('INSERT INTO ai_assets VALUES (?,?,?,?)',(key,preview.name,json.dumps(data,ensure_ascii=False),time.time()))
             keep=True
             result=dict(asset_id=key,preview_url='/api/ai/asset/'+key,report=report,metadata=metadata,plan=plan,warning=plan['warning'] or ('' if verified else 'Audio match unverified. Check the preview.'))
-            if body.get('add',True):result.update(self.commit(key,job))
+            if body.get('add',True):result.update(self.commit(key,job,{'variant':True} if full_audio else None))
             job.update(1,'Ready · ready');return result
         finally:
             if not keep:

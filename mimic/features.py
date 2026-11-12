@@ -1,14 +1,28 @@
 """Measurable audio features and heuristic onset candidates; not music understanding."""
-import json
 import subprocess
 import numpy as np
 from .models import tool
 
 
-def analyze(path):
-    p=subprocess.run([tool('ffmpeg'),'-v','error','-nostdin','-i',str(path),'-ac','1','-ar','8000','-f','f32le','-'],capture_output=True,timeout=120)
+def samples(path,channels,rate):
+    p=subprocess.run([tool('ffmpeg'),'-v','error','-nostdin','-i',str(path),'-ac',str(channels),'-ar',str(rate),'-f','f32le','-'],capture_output=True,timeout=120)
     if p.returncode:raise ValueError(p.stderr.decode(errors='replace')[-1000:])
-    x=np.frombuffer(p.stdout,dtype='<f4')
+    return np.frombuffer(p.stdout,dtype='<f4')
+
+
+def audible_edges(path):
+    rate=16000
+    stereo=samples(path,2,rate).reshape(-1,2)
+    audible=np.any(np.abs(stereo)>=10**(-50/20),axis=1)
+    if not audible.any():
+        return None
+    first=audible.argmax()/rate
+    last=(len(audible)-audible[::-1].argmax())/rate
+    return first,last
+
+
+def analyze(path):
+    x=samples(path,1,8000)
     actual_duration=len(x)/8000
     actual_rms=float(np.sqrt(np.mean(x*x))) if len(x) else 0
     actual_peak=float(np.max(np.abs(x))) if len(x) else 0
