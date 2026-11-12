@@ -106,8 +106,15 @@ let openSettings;
    if(modelKey!==modelSignature){
     modelSignature=modelKey;by('modelRows').replaceChildren(...s.models.map(m=>{
      const row=node('div',undefined,'deviceRow'),text=node('div');
-     text.append(node('strong',m.title),node('small',Math.round(m.size/1e6)+' MB · '+(m.installed?'Ready':'Not downloaded')),link('License ↗',m.license_url));
-     const add=button(m.installed?'Ready':'Download',async()=>{await runJob('model',{model:m.id});notify('Model ready');});add.disabled=m.installed;
+     const state=m.installed?(m.active?'Active':'Ready'):m.imported?'File missing':'Not downloaded';
+     text.append(node('strong',m.title),node('small',Math.round(m.size/1e6)+' MB · '+state),link('License ↗',m.license_url));
+     const action=m.installed?(m.language_option?(m.active?'Active':'Use model'):'Ready'):m.imported?'Import again':'Download';
+     const add=button(action,async()=>{
+      await runJob('model',{model:m.id});
+      await updateJobs();
+      notify(m.language_option?'Active model: '+m.title:'Model ready');
+     },{target:'settingsStatus'});
+     add.disabled=m.installed?(!m.language_option||m.active):Boolean(m.imported);
      row.append(text,add);return row;
     }));
    }
@@ -118,7 +125,6 @@ let openSettings;
   finally{jobsTimer=false;}
  }
  setInterval(updateJobs,1600);
- settingButton('compactModel',async()=>{openSettings('jobs');await runJob('model',{model:'language'});notify('Compact model ready');});
  settingButton('indexAll',async()=>{openSettings('jobs');await runJob('index_all');notify('Audio index ready');});
  settingButton('unloadModels',async()=>{await api('ai/unload',{});notify('Models unloaded');});
  settingButton('saveKey',async()=>{if(!by('tavilyKey').value)throw Error('Enter a Tavily key');await api('ai/web-settings',{tavily_key:by('tavilyKey').value});by('tavilyKey').value='';notify('Key saved on this computer');await updateJobs();});

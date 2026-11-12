@@ -11,7 +11,7 @@ import threading
 import time
 from pathlib import Path
 from urllib.request import Request,urlopen
-from .net import download,parallel_download
+from .net import parallel_download
 
 MODELS={
  'language':{'title':'Qwen 2.5 · 0.5B Q4','filename':'qwen2.5-0.5b-instruct-q4.gguf',
@@ -28,6 +28,20 @@ MODELS={
            'repo':'ggerganov/whisper.cpp','size':59707625,
            'sha256':'422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898',
            'license':'MIT','license_url':'https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE'}
+}
+
+LANGUAGE_PRESETS={
+ 'language':MODELS['language'],
+ 'language_balanced':{
+    'title':'Qwen 2.5 · 1.5B Q4',
+    'filename':'qwen2.5-1.5b-instruct-q4_k_m.gguf',
+    'repo':'Qwen/Qwen2.5-1.5B-Instruct-GGUF',
+    'size':1117320736,
+    'url':'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/91cad51170dc346986eccefdc2dd33a9da36ead9/qwen2.5-1.5b-instruct-q4_k_m.gguf',
+    'sha256':'6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e',
+    'license':'Apache-2.0',
+    'license_url':'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/blob/91cad51170dc346986eccefdc2dd33a9da36ead9/LICENSE',
+ },
 }
 
 RELEASE_EMBEDDING={
@@ -59,11 +73,32 @@ class Models:
         self.processes={};self.lock=threading.RLock()
         self.stopping=threading.Event()
         self.language_profile=self.root/'language-profile.json'
+        self.language_preset=self.root/'language-preset'
         self.embedding_path=None
+    def language_options(self):
+        options=dict(LANGUAGE_PRESETS)
+        try:
+            custom=json.loads(self.language_profile.read_text())
+            if isinstance(custom,dict) and {'filename','sha256','size','title'}<=custom.keys():
+                options['language_custom']=custom
+        except (ValueError,OSError):pass
+        return options
+    def selected_language(self,options):
+        try:choice=self.language_preset.read_text().strip()
+        except OSError:choice=''
+        # Existing custom imports remain selected on upgrade.
+        return choice if choice in options else 'language_custom' if 'language_custom' in options else 'language'
+    def choose_language(self,kind):
+        temporary=self.language_preset.with_suffix('.tmp')
+        temporary.write_text(kind)
+        temporary.replace(self.language_preset)
+        self.verified.pop('language',None)
+        with self.lock:
+            self.stop_runtime(self.processes.pop('language',None))
     def spec(self,kind):
-        if kind=='language' and self.language_profile.exists():
-            try:return json.loads(self.language_profile.read_text())
-            except (ValueError,OSError):pass
+        if kind=='language':
+            options=self.language_options()
+            return options[self.selected_language(options)]
         if kind=='embedding' and self.model_file(RELEASE_EMBEDDING).is_file():
             return RELEASE_EMBEDDING
         return MODELS[kind]
@@ -103,10 +138,15 @@ class Models:
             return self.embedding_path
         return path
     def snapshot(self):
+        options=self.language_options()
+        selected=self.selected_language(options)
         result=[]
-        for kind in MODELS:
-            spec=self.spec(kind);path=self.model_file(spec)
-            result.append(dict(spec,id=kind,installed=path.is_file() and path.stat().st_size==spec['size']))
+        specs={**options,'embedding':self.spec('embedding'),'speech':self.spec('speech')}
+        for kind,spec in specs.items():
+            path=self.model_file(spec)
+            row=dict(spec,id=kind,installed=path.is_file() and path.stat().st_size==spec['size'])
+            if kind in options:row.update(language_option=True,active=kind==selected)
+            result.append(row)
         return result
     def import_language(self,source,title,job):
         source=Path(source)
@@ -122,29 +162,37 @@ class Models:
         profile={'title':str(title or source.stem)[:120],'filename':filename,'size':target.stat().st_size,
                  'sha256':digest,'license':'License of your selected model','license_url':'https://huggingface.co/docs/hub/repositories-licenses','imported':True}
         temporary=self.language_profile.with_suffix('.tmp');temporary.write_text(json.dumps(profile));temporary.replace(self.language_profile)
-        self.verified.pop('language',None);self.close()
+        self.choose_language('language_custom')
         return {'imported':True,'model':profile['title']}
     def install(self,kind,job):
-        spec=self.spec(kind) if kind=='embedding' else MODELS[kind]
+        options=self.language_options()
+        language=kind in options
+        if language:spec=options[kind]
+        elif kind in {'embedding','speech'}:spec=self.spec(kind)
+        else:raise ValueError('Unknown model')
         target=self.root/spec['filename']
         if kind=='embedding' and self.model_file(spec)!=target:
             self.path(kind)
             return {'model':kind,'installed':True}
-        if target.exists() and target.stat().st_size==spec['size']:
-            with open(target,'rb') as f:valid=hashlib.file_digest(f,'sha256').hexdigest()==spec['sha256']
+        existing=self.model_file(spec)
+        if existing.is_file() and existing.stat().st_size==spec['size']:
+            with open(existing,'rb') as f:valid=hashlib.file_digest(f,'sha256').hexdigest()==spec['sha256']
             if valid:
-                if kind=='language':self.language_profile.unlink(missing_ok=True)
-                self.verified.pop(kind,None)
+                job.check()
+                if language:self.choose_language(kind)
+                else:self.verified.pop(kind,None)
                 return {'model':kind,'installed':True}
+        if kind=='language_custom':raise ValueError('Import the custom GGUF file again.')
         temporary=target.with_suffix('.part')
         try:
-            parallel_download(spec.get('url') or 'https://huggingface.co/'+spec['repo']+'/resolve/main/'+spec['filename'],temporary,job,spec['size'])
+            url=spec.get('url') or 'https://huggingface.co/'+spec['repo']+'/resolve/main/'+spec['filename']
+            parallel_download(url,temporary,job,spec['size'])
             job.update(.97,'Checking SHA-256…')
             with open(temporary,'rb') as file:digest=hashlib.file_digest(file,'sha256').hexdigest()
             if digest!=spec['sha256']:raise ValueError('Model integrity check failed. Download it again.')
             job.check();temporary.replace(target)
-            if kind=='language':self.language_profile.unlink(missing_ok=True);self.close()
-            self.verified.pop(kind,None)
+            if language:self.choose_language(kind)
+            else:self.verified.pop(kind,None)
             return {'model':kind,'installed':True}
         finally:temporary.unlink(missing_ok=True)
     def _start(self,kind):
@@ -153,13 +201,7 @@ class Models:
             existing=self.processes.get(kind)
             fingerprint=self.spec(kind)['sha256']
             if existing and existing['process'].poll() is None and existing.get('fingerprint')==fingerprint:return existing
-            if existing:
-                old=existing['process']
-                if old.poll() is None:
-                    old.terminate()
-                    try:old.wait(timeout=3)
-                    except subprocess.TimeoutExpired:old.kill()
-                existing['log'].close()
+            self.stop_runtime(self.processes.pop(kind,None))
             path=self.path(kind)
             with socket.socket() as probe:
                 probe.bind(('127.0.0.1',0));port=probe.getsockname()[1]
@@ -203,13 +245,19 @@ class Models:
                             {'messages':[{'role':'system','content':system},{'role':'user','content':text[:8000]}],
                              'temperature':0,'max_tokens':max_tokens,'chat_template_kwargs':{'enable_thinking':False},'response_format':{'type':'json_object'}})
         return json.loads(result['choices'][0]['message']['content'])
+    @staticmethod
+    def stop_runtime(runtime):
+        if runtime is None:return
+        process=runtime['process']
+        if process.poll() is None:
+            process.terminate()
+            try:process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+        runtime['log'].close()
     def close(self):
         self.stopping.set()
-        for runtime in list(self.processes.values()):
-                p=runtime['process']
-                if p.poll() is None:
-                    p.terminate()
-                    try:p.wait(timeout=3)
-                    except subprocess.TimeoutExpired:p.kill()
-                runtime['log'].close()
-        self.processes.clear()
+        with self.lock:
+            for runtime in self.processes.values():self.stop_runtime(runtime)
+            self.processes.clear()

@@ -225,7 +225,8 @@ class WebAgent:
         if not query:raise ValueError('Enter a query')
         if re.match(r'https?://', query, re.I):
             return self.link_result(query)
-        cached=self.cached_searches.get(query)
+        cache_key=(query,self.s.models.spec('language')['sha256'])
+        cached=self.cached_searches.get(cache_key)
         if cached and time.monotonic()-cached[0]<300:
             job.check()
             self.save_results(cached[1]['external'],query)
@@ -322,7 +323,7 @@ class WebAgent:
         result={'external':rows,'query':query,'external_query':terms,'warnings':warnings,'notices':['Tavily: '+('your key' if self.settings.key() else 'free keyless mode with service limits')],'status_message':message,'providers':{'tavily':len(rows)},'scope':'web','topic_search':bool(subject),'ai_ranked':ranked,'history':self.s.finder.history()}
         if rows:
             if len(self.cached_searches)>=64:self.cached_searches.pop(next(iter(self.cached_searches)))
-            self.cached_searches[query]=(time.monotonic(),result)
+            self.cached_searches[cache_key]=(time.monotonic(),result)
         return result
 
     @staticmethod

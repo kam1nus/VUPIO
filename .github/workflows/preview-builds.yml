@@ -95,9 +95,9 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Show Tavily plan credits or this device's Keyless request count directly in Discover.
-          - Show the first web results before AI ranking, and reuse recent searches for five minutes.
-          - Start clip previews and open full audio in Studio without waiting for speech or metadata analysis.
+          - Add an optional local Qwen 2.5 1.5B Q4 model for multilingual search, clip metadata and Studio commands.
+          - Switch between the compact, optional and imported models without deleting existing model files.
+          - Keep cached Discover rankings tied to the language model that generated them.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

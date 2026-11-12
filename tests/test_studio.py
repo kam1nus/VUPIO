@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import threading
@@ -9,8 +10,34 @@ from mimic.catalog import Commons,reusable
 from mimic.editor import make_plan,parse_rule,phrase_span
 from mimic.jobs import Jobs
 from mimic.library import Library
+from mimic.models import LANGUAGE_PRESETS, Models
 from mimic.studio import Studio
 from test_mimic import tone
+
+
+class LanguageModelTests(unittest.TestCase):
+    def test_switch_preserves_existing_custom_import_across_restarts(self):
+        with tempfile.TemporaryDirectory() as root:
+            models=Models(root)
+            def fixture(name):
+                data=('GGUF '+name).encode()
+                profile=dict(title=name,filename=name+'.gguf',size=len(data),sha256=hashlib.sha256(data).hexdigest())
+                (models.root/profile['filename']).write_bytes(data)
+                return profile
+            custom=dict(fixture('Imported'),imported=True)
+            models.language_profile.write_text(json.dumps(custom))
+            self.assertEqual(models.spec('language'),custom)
+            balanced=fixture('Balanced')
+            job=type('Job',(),{'check':lambda self:None})()
+            with patch.dict(LANGUAGE_PRESETS,language_balanced=balanced):
+                self.assertTrue(models.install('language_balanced',job)['installed'])
+                self.assertEqual(Models(root).path('language').name,balanced['filename'])
+                options={row['id']:row for row in models.snapshot()}
+                self.assertTrue(options['language_balanced']['active'])
+                self.assertFalse(options['language_custom']['active'])
+                self.assertTrue(options['language_custom']['installed'])
+                self.assertTrue(models.install('language_custom',job)['installed'])
+                self.assertEqual(Models(root).spec('language'),custom)
 
 
 class EditorTests(unittest.TestCase):

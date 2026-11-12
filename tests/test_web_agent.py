@@ -10,6 +10,7 @@ class Job:
  def update(self,*a):pass
 class NoModel:
  def path(self,*a):raise ValueError('No model')
+ def spec(self,*a):return {'sha256':'fixture'}
 class WebAgentTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.settings=SearchSettings(Library(self.tmp.name))
@@ -51,14 +52,14 @@ class WebAgentTests(unittest.TestCase):
    r=f.search({'scope':'web','query':'\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage','category':'Meme'},Job())
   self.assertEqual(r['scope'],'web');self.assertEqual(len(r['external']),1);self.assertIn('emotional damage',search.call_args.args[0]);self.assertEqual(f.saved(real['source_id'])['title'],'Emotional Damage')
  def test_model_cannot_invent_results_or_download_permission(self):
-  class Model:
+  class Model(NoModel):
    def path(self,*a):return Path('/unused')
    def generate(self,*args):return {'ranking':[{'id':'invented','score':1,'url':'https://evil.example'},{'id':'0','score':.9,'reason':'reaction','can_import':True}]}
   f=self.finder(Model());real=web_row('https://example.org/audio.mp3','Emotional Damage','Tavily')
   with patch.object(f.web.provider,'search',return_value=[real]):r=f.search({'scope':'web','query':'\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage'},Job())
   self.assertEqual(len(r['external']),1);self.assertEqual(r['external'][0]['page_url'],'https://example.org/audio.mp3');self.assertTrue(r['external'][0]['can_import']);self.assertFalse(r['external'][0]['rights_checked']);self.assertNotIn('https://evil.example',json.dumps(r));self.assertTrue(r['ai_ranked'])
  def test_empty_ai_ranking_does_not_erase_web_results(self):
-  class Model:
+  class Model(NoModel):
    def path(self,*a):return Path('/unused')
    def generate(self,*args):return {'ranking':[]}
   f=self.finder(Model());real=web_row('https://example.org/audio.mp3','Emotional Damage','Tavily')
@@ -107,7 +108,7 @@ class WebAgentTests(unittest.TestCase):
   self.assertEqual([r['can_import'] for r in result['external']],[True,True,False])
 
  def test_multilingual_queries_keep_original_text_with_optional_english_expansion(self):
-  class Model:
+  class Model(NoModel):
    def path(self,*args):return Path('/unused')
    def generate(self,prompt,text,*args):
     return {'search_terms':'screaming cat'} if 'search_terms' in prompt else {'ranking':[]}
@@ -129,7 +130,7 @@ class WebAgentTests(unittest.TestCase):
 
  def test_fast_results_are_saved_before_ranking_and_repeat_uses_cache(self):
   real=web_row('https://example.org/cat.mp3','Cat','Tavily')
-  class Model:
+  class Model(NoModel):
    def path(self,*args):return Path('/unused')
    def generate(self,prompt,text,*args):
     self_test.assertEqual(finder.saved(real['source_id'])['title'],'Cat')
