@@ -7,7 +7,7 @@
   const usage=await api('ai/web-usage').catch(()=>null);
   if(request!==usageRequest)return;
   const text=usage?.mode==='keyless'
-   ?'Tavily · Keyless · '+usage.requests.toLocaleString()+' requests this month on this device'
+   ?'Tavily · Keyless · '+usage.requests.toLocaleString()+(usage.requests===1?' request':' requests')+' this month on this device'
    :Number.isFinite(usage?.remaining)
     ?'Tavily · '+usage.remaining.toLocaleString()+' plan credits left'
     :'Tavily · Usage unavailable';
@@ -180,19 +180,23 @@
   busy=true;by('discoverGo').disabled=true;by('quickAdd').disabled=true;
   searched=true;local=[];web=[];catalogs=[];webCards.clear();groups();status('discoverStatus');updateProgress();
   const errors=[];
+  let fallbackNotice='';
   try{
    if(quick){
     const r=await task('quick','quick_add',{...body,scope:useWeb?'web':'catalogs'});
     const found=r.search||r;if(useWeb)web=found.external||[];else catalogs=found.external||[];showHistory(found.history);groups();
-    if(r.item){await sync();notify(r.duplicate?'This sound is already in your library':'Added: '+r.item.title);status('discoverStatus');}
-    else status('discoverStatus',found.topic_search?r.warning:'Quick Add could not confirm a match. Select a card and preview the clip.');
+    if(r.item){await sync();notify(r.duplicate?'This sound is already in your library':'Added: '+r.item.title);status('discoverStatus',found.fallback_notice);}
+    else{
+     const hint=found.topic_search?r.warning:'Quick Add could not confirm a match. Select a card and preview the clip.';
+     status('discoverStatus',[found.fallback_notice,web.length?hint:(found.warnings?.[0]||hint)].filter(Boolean).join(' '));
+    }
     return;
    }
    const requests=[];
    const load=(key,kind,data,apply,onProgress)=>requests.push(task(key,kind,data,onProgress).then(r=>{apply(r);groups();}).catch(e=>errors.push(e.message)));
    let partialKey='';
    if(useWeb)load('web','internet_search',{...body,scope:'web',progressive:true},r=>{
-    web=r.external||[];showHistory(r.history);if(!web.length&&r.warnings?.length)errors.push(...r.warnings);
+    web=r.external||[];fallbackNotice=r.fallback_notice||'';showHistory(r.history);if(!web.length&&r.warnings?.length)errors.push(...r.warnings);
    },j=>{
     if(j.status!=='running'||!j.result?.external?.length)return;
     const key=JSON.stringify(j.result.external);
@@ -207,6 +211,7 @@
    }
    await Promise.all(requests);
    if(errors.length)status('discoverStatus',errors.join(' · '),true);
+   else if(fallbackNotice)status('discoverStatus',fallbackNotice);
    else if(!local.length&&!web.length&&!catalogs.length)status('discoverStatus','No matches. Try an exact name or enable another source.');
    else if(useWeb&&web.length&&!web.some(r=>r.can_import&&r.media_hint==='audio')&&!isLink)
     status('discoverStatus','No ready audio found yet. Paste an MP3 URL or an individual sound page.');

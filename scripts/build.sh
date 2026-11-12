@@ -2,7 +2,7 @@
 set -eu
 cd "${0:A:h:h}"
 mkdir -p build/MIMIC.app/Contents/{MacOS,Resources} build/swift-cache
-build_number="${MIMIC_BUILD_NUMBER:-4051}"
+build_number="${MIMIC_BUILD_NUMBER:-4052}"
 [[ "$build_number" =~ '^[1-9][0-9]{0,8}$' ]] || { echo 'Invalid MIMIC_BUILD_NUMBER'; exit 1; }
 cp native/MIMIC.swift build/main.swift
 clang -std=c11 -O2 -c native/MixerDSP.c -o build/MixerDSP.o
@@ -20,7 +20,7 @@ cat > build/MIMIC.app/Contents/Info.plist <<'PLIST'
 <key>CFBundleDisplayName</key><string>VUPIO</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.4.3</string>
-<key>CFBundleVersion</key><string>4051</string>
+<key>CFBundleVersion</key><string>4052</string>
 <key>CFBundleIconFile</key><string>VUPIO.icns</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>NSMicrophoneUsageDescription</key><string>VUPIO mixes your microphone with soundboard audio for Discord, only when you enable it.</string>

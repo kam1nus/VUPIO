@@ -95,10 +95,9 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Add an optional local Qwen 2.5 1.5B Q4 model for multilingual search, clip metadata and Studio commands.
-          - Switch between the compact, optional and imported models without deleting existing model files.
-          - Keep cached Discover rankings tied to the language model that generated them.
-          - Accept structured model replies inside JSON code blocks and use a shorter Studio prompt for timestamp commands.
+          - Search Myinstants directly when Tavily denies access, runs out of credits, or is unreachable.
+          - Keep Preview and Add available for fallback results and show which source was used.
+          - Explain the next steps when both services are unavailable and clarify the keyless request counter.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

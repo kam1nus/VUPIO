@@ -32,6 +32,8 @@ Under **Settings → AI models**, you can download the optional Qwen 2.5 1.5B Q4
 
 Discover shows the remaining plan credits for your own Tavily key. In Keyless mode, it shows the number of search requests this device made this month. Direct links and Audio catalogs do not consume Tavily search credits.
 
+When Tavily is unavailable, Discover searches the public Myinstants soundboard directly and labels the fallback. Use a direct sound link or Audio catalogs if neither service returns a match.
+
 These are Alpha preview installers. The Mac app is ad-hoc signed without Apple notarization. The Windows installer has no Authenticode signature.
 
 ## Mac setup

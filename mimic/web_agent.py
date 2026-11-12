@@ -1,7 +1,7 @@
 """Real web discovery with Tavily keyless + bounded local AI ranking. No site downloader."""
 import concurrent.futures,hashlib,json,math,os,re,ssl,time,uuid
 from datetime import datetime, timezone
-from urllib.parse import urlsplit,unquote
+from urllib.parse import urlencode,urlsplit,unquote
 from .public_audio import EXTENSIONS, view_only
 from urllib.request import Request,build_opener,HTTPSHandler,HTTPRedirectHandler
 from urllib.error import HTTPError
@@ -128,7 +128,9 @@ class Tavily:
         except HTTPError as e:
             if e.code==429:raise ValueError('Tavily is receiving too many requests. Wait a moment and retry.') from None
             if e.code in {402,432,433}:raise ValueError('Tavily search credits exhausted. Check your usage or choose Audio catalogs.') from None
-            if e.code in {401,403}:raise ValueError('Tavily denied access. Check the key and service availability.') from None
+            if e.code in {401,403}:
+                message='Tavily denied access. Check the saved key.' if key else 'Tavily denied keyless access.'
+                raise ValueError(message) from None
             raise ValueError('Search API returned HTTP '+str(e.code)) from None
         if len(raw)>8*1024*1024:raise ValueError('Search API response is too large')
         try:data=json.loads(raw)
@@ -187,6 +189,19 @@ class WebAgent:
     def __init__(self,studio):
         self.s=studio;self.settings=SearchSettings(studio.library);self.provider=Tavily(self.settings)
         self.cached_searches={}
+    def soundboard_search(self,terms,job):
+        from .radar import InstantLinks,read_feed
+        job.update(.24,'Searching Myinstants directly…')
+        url='https://www.myinstants.com/en/search/?'+urlencode({'name':terms})
+        parser=InstantLinks()
+        parser.feed(read_feed(url).decode('utf-8',errors='replace'))
+        job.check()
+        rows=[]
+        for item in list(parser.rows.values())[:8]:
+            row=web_row(item['url'],item['title'],'Myinstants')
+            row['description']='Public soundboard result from Myinstants.'
+            rows.append(row)
+        return rows
     def topic_results(self, subject, cyrillic, job):
         web_terms = subject + (' \u043c\u0435\u043c\u044b \u0440\u0435\u0430\u043a\u0446\u0438\u0438 \u043d\u0430\u0440\u0435\u0437\u043a\u0438' if cyrillic else ' memes reactions clips')
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
@@ -225,7 +240,7 @@ class WebAgent:
         if not query:raise ValueError('Enter a query')
         if re.match(r'https?://', query, re.I):
             return self.link_result(query)
-        cache_key=(query,self.s.models.spec('language')['sha256'])
+        cache_key=(query,self.s.models.spec('language')['sha256'],bool(self.settings.key()))
         cached=self.cached_searches.get(cache_key)
         if cached and time.monotonic()-cached[0]<300:
             job.check()
@@ -249,17 +264,27 @@ class WebAgent:
 
         job.update(.05, 'Searching the web for sounds and pages…')
         subject = topic_subject(query)
-        if subject:
-            terms = subject
-            job.update(.18, 'Searching for distinct sounds and topic collections…')
-            rows, warnings = self.topic_results(subject, cyrillic, job)
-            publish(rows)
-        else:
-            translated = ''
-            suffix = ' \u0437\u0432\u0443\u043a MP3' if re.search(r'[\u0430-\u044f\u0451]', terms, re.I) else ' audio sound effect'
-            rows = self.provider.search(terms + suffix)
-            rows.sort(key=self.priority)
-            publish(rows)
+        fallback_notice=''
+        try:
+            if subject:
+                terms=subject
+                job.update(.18,'Searching for distinct sounds and topic collections…')
+                rows,warnings=self.topic_results(subject,cyrillic,job)
+            else:
+                suffix=' \u0437\u0432\u0443\u043a MP3' if re.search(r'[\u0430-\u044f\u0451]', terms, re.I) else ' audio sound effect'
+                rows=self.provider.search(terms+suffix)
+        except (OSError,ValueError) as primary_error:
+            try:
+                rows=self.soundboard_search(terms,job)
+            except (OSError,ValueError) as fallback_error:
+                raise ValueError(f'{primary_error} Myinstants is also unavailable. Paste a sound link or try Audio catalogs.') from fallback_error
+            fallback_notice='Tavily was unavailable. Searched Myinstants directly.'
+            if not rows:
+                warnings.append(f'{primary_error} Myinstants found no sounds. Try a different name, Audio catalogs, or add a Tavily key in Settings.')
+        rows.sort(key=self.priority)
+        publish(rows)
+        if not subject and not fallback_notice:
+            translated=''
             has_audio=any(self.priority(row)==0 for row in rows)
             if not exact and not has_audio:
                 job.update(.18,'Expanding the search…')
@@ -311,7 +336,7 @@ class WebAgent:
                         # search just because a small local model returned an incomplete list.
                         rows=order+[r for i,r in enumerate(rows) if str(i) not in seen];ranked=True
                     else:warnings.append('Local AI could not confirm an exact match. Showing original search results.')
-            except (ValueError,TypeError,AttributeError):warnings.append('Local AI ranking unavailable. Showing Tavily search results.')
+            except (ValueError,TypeError,AttributeError):warnings.append('Local AI ranking unavailable. Showing source results.')
         rows.sort(key=self.priority)
         for r in rows:
             if r.get('ai_reason'):
@@ -320,8 +345,9 @@ class WebAgent:
         self.save_results(rows, query)
         message=(f'Internet: pages found: {len(rows)}. '+('Local AI ranked relevance.' if ranked else 'Audio content has not been verified.')) if rows else 'No matching web pages. Refine the name or description.'
         job.update(1,'Ready · '+message)
-        result={'external':rows,'query':query,'external_query':terms,'warnings':warnings,'notices':['Tavily: '+('your key' if self.settings.key() else 'free keyless mode with service limits')],'status_message':message,'providers':{'tavily':len(rows)},'scope':'web','topic_search':bool(subject),'ai_ranked':ranked,'history':self.s.finder.history()}
-        if rows:
+        provider='myinstants' if fallback_notice else 'tavily'
+        result={'external':rows,'query':query,'external_query':terms,'warnings':warnings,'notices':['Tavily: '+('your key' if self.settings.key() else 'free keyless mode with service limits')],'fallback_notice':fallback_notice,'status_message':message,'providers':{provider:len(rows)},'scope':'web','topic_search':bool(subject),'ai_ranked':ranked,'history':self.s.finder.history()}
+        if rows and not fallback_notice:
             if len(self.cached_searches)>=64:self.cached_searches.pop(next(iter(self.cached_searches)))
             self.cached_searches[cache_key]=(time.monotonic(),result)
         return result

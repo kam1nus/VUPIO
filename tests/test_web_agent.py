@@ -51,6 +51,33 @@ class WebAgentTests(unittest.TestCase):
   with patch.object(f.web.provider,'search',return_value=[real]) as search,patch.object(f.providers['commons'],'search',side_effect=AssertionError('catalog called')):
    r=f.search({'scope':'web','query':'\u043d\u0430\u0439\u0434\u0438 \u043c\u0435\u043c emotional damage','category':'Meme'},Job())
   self.assertEqual(r['scope'],'web');self.assertEqual(len(r['external']),1);self.assertIn('emotional damage',search.call_args.args[0]);self.assertEqual(f.saved(real['source_id'])['title'],'Emotional Damage')
+ def test_tavily_denial_searches_myinstants_and_keeps_importable_cards(self):
+  f=self.finder()
+  opener=MagicMock()
+  opener.open.side_effect=HTTPError('https://api.tavily.com/search',401,'Unauthorized',{},None)
+  page=b'<a class="instant-link" href="/en/instant/ankara-messi/">Ankara Messi</a><a class="instant-link" href="https://elsewhere.test/instant/nope/">Bad</a>'
+  job=Job()
+  job.publish=MagicMock()
+  with patch('mimic.web_agent.build_opener',return_value=opener), \
+       patch('mimic.radar.read_feed',return_value=page) as feed:
+   result=f.search({'scope':'web','query':'ankara messi','progressive':True},job)
+  opener.open.assert_called_once()
+  feed.assert_called_once_with('https://www.myinstants.com/en/search/?name=ankara+messi')
+  self.assertEqual(result['providers'],{'myinstants':1})
+  self.assertIn('Myinstants',result['fallback_notice'])
+  row=result['external'][0]
+  self.assertEqual(row['title'],'Ankara Messi')
+  self.assertEqual(row['media_hint'],'audio')
+  self.assertTrue(row['can_import'])
+  self.assertEqual(f.saved(row['source_id'])['page_url'],row['page_url'])
+  job.publish.assert_called_once()
+
+ def test_both_sources_unavailable_gives_a_recovery_path(self):
+  f=self.finder()
+  with patch.object(f.web.provider,'search',side_effect=ValueError('Tavily denied keyless access.')), \
+       patch('mimic.radar.read_feed',side_effect=OSError('offline')):
+   with self.assertRaisesRegex(ValueError,'Myinstants is also unavailable.*Audio catalogs'):
+    f.search({'scope':'web','query':'ankara messi'},Job())
  def test_model_cannot_invent_results_or_download_permission(self):
   class Model(NoModel):
    def path(self,*a):return Path('/unused')
