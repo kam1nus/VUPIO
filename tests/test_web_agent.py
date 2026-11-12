@@ -20,7 +20,7 @@ class WebAgentTests(unittest.TestCase):
   self.settings.save('');self.assertFalse(self.settings.status()['has_key'])
  def test_keyless_request_real_endpoint_basic_only(self):
   opener=MagicMock();opener.open.return_value=io.BytesIO(json.dumps({'results':[{'url':'https://example.org/sound','title':'Emotional Damage','score':.9,'content':'A real search result'},{'url':'file:///etc/passwd','title':'bad'}]}).encode())
-  with patch('mimic.web_agent.build_opener',return_value=opener),patch.dict(os.environ,{},clear=True):
+  with patch('mimic.web_agent.build_opener',return_value=opener),patch.dict(os.environ,{'MIMIC_TAVILY_KEY':''}):
    rows=Tavily(self.settings).search('emotional damage')
   req=opener.open.call_args.args[0];body=json.loads(req.data)
   self.assertEqual(req.full_url,'https://api.tavily.com/search');self.assertIn('keyless',req.headers.values());self.assertNotIn('Authorization',req.headers)
