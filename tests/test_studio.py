@@ -16,6 +16,18 @@ from test_mimic import tone
 
 
 class LanguageModelTests(unittest.TestCase):
+    def test_language_model_accepts_one_json_object_with_optional_code_fence(self):
+        with tempfile.TemporaryDirectory() as root:
+            models=Models(root)
+            with patch.object(models,'request') as request:
+                def respond(content):
+                    request.return_value={'choices':[{'message':{'content':content}}]}
+                    return models.generate('Make a plan','Keep 2–5')
+                self.assertEqual(respond('```json\n{"operation":"trim","start":2,"end":5}\n```')['end'],5)
+                for invalid in ('[]','{}{}','Explanation: {"operation":"trim"}'):
+                    with self.subTest(invalid=invalid),self.assertRaisesRegex(ValueError,'invalid answer'):
+                        respond(invalid)
+
     def test_switch_preserves_existing_custom_import_across_restarts(self):
         with tempfile.TemporaryDirectory() as root:
             models=Models(root)

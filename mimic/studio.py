@@ -275,7 +275,13 @@ class Studio:
         spec=parse_rule(command,phrase)
         if not spec:
             job.update(.1,'Parsing command…')
-            spec=self.models.generate('Understand audio editing requests in any language. Preserve quoted phrases in the original language. Return JSON only for an audio edit. operation: trim, remove_first, keep_phrase, after_phrase, process, before_drop, highlight. Use process for the whole recording, highlight to find a candidate near an energy change, trim for explicit timestamps. Never invent times for musical sections. Allowed fields: start,end,seconds,phrase,tail,silence,normalize,fade_in,fade_out. Times are seconds. Never include code or paths. If unclear use operation="unknown". Input audio duration: '+str(duration),command)
+            prompt=(
+                'Convert the audio edit to one JSON object. For a range use {"operation":"trim","start":1,"end":4}. '
+                'For a quote use keep_phrase or after_phrase with phrase and tail. '
+                'Other operations: remove_first, process, before_drop, highlight. '
+                f'Recording: {duration:g} seconds.'
+            )
+            spec=self.models.generate(prompt,command)
         job.check()
         need_speech=spec.get('operation') in ['keep_phrase','after_phrase']
         if asset_id:

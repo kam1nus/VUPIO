@@ -98,6 +98,7 @@ jobs:
           - Add an optional local Qwen 2.5 1.5B Q4 model for multilingual search, clip metadata and Studio commands.
           - Switch between the compact, optional and imported models without deleting existing model files.
           - Keep cached Discover rankings tied to the language model that generated them.
+          - Accept structured model replies inside JSON code blocks and use a shorter Studio prompt for timestamp commands.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

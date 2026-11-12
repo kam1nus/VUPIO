@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -244,7 +245,14 @@ class Models:
         result=self.request('language','/v1/chat/completions',
                             {'messages':[{'role':'system','content':system},{'role':'user','content':text[:8000]}],
                              'temperature':0,'max_tokens':max_tokens,'chat_template_kwargs':{'enable_thinking':False},'response_format':{'type':'json_object'}})
-        return json.loads(result['choices'][0]['message']['content'])
+        try:
+            content=result['choices'][0]['message']['content'].strip()
+            fenced=re.fullmatch(r'```(?:json)?\s*(\{.*\})\s*```',content,re.I|re.S)
+            answer=json.loads(fenced[1] if fenced else content)
+            if isinstance(answer,dict):return answer
+        except (ValueError,KeyError,IndexError,AttributeError,TypeError):
+            pass
+        raise ValueError('The local model returned an invalid answer. Try a shorter command or select the range manually.')
     @staticmethod
     def stop_runtime(runtime):
         if runtime is None:return
