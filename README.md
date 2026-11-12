@@ -17,7 +17,7 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 ## Features
 
 - Soundboard library with search, categories, favorites, card-triggered playback, volume, STOP and PANIC.
-- Discover searches the web and your local library with natural-language queries. Original queries and names are preserved, with optional English keyword expansion from the local AI model.
+- Discover shows web results as they arrive, caches repeated queries for five minutes, and expands queries when the first pass has no audio. Preview and Add use the same prepared sound.
 - Studio shows the actual audio waveform and supports trim, silence removal, normalization, fades, speech transcription, AI commands and preview before saving.
 - Use **Edit full audio** in Discover to open the entire file available from a source. In Studio, keep the recording, trim quiet edges, or preview a suggested highlight before saving a copy.
 - Trend Radar provides regional meme charts and music charts. Meme sounds are checked and preloaded before appearing, unavailable files are skipped, and Add saves the same audio you previewed.
@@ -27,6 +27,8 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 - Local clip listening is on by default. It follows the system output or remembers your headphones/speakers, without playing your microphone back to you.
 
 Full installers include FFmpeg, llama.cpp, whisper.cpp, Qwen2.5 Instruct, Qwen3 Embedding and multilingual Whisper Base. Local AI features work without Python, Ollama or API keys. Web search uses Tavily with service limits. Add an optional Tavily key in **Settings → Advanced** if needed.
+
+Discover shows the remaining plan credits for your own Tavily key. In Keyless mode, it shows the number of search requests this device made this month. Direct links and Audio catalogs do not consume Tavily search credits.
 
 These are Alpha preview installers. The Mac app is ad-hoc signed without Apple notarization. The Windows installer has no Authenticode signature.
 

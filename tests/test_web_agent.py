@@ -12,10 +12,11 @@ class NoModel:
  def path(self,*a):raise ValueError('No model')
 class WebAgentTests(unittest.TestCase):
  def setUp(self):
-  self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.settings=SearchSettings(self.tmp.name)
+  self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.settings=SearchSettings(Library(self.tmp.name))
  def test_settings_secret_not_returned_and_private_file(self):
   secret='tvly-unit-test-key';r=self.settings.save(secret)
-  self.assertNotIn(secret,json.dumps(r));self.assertTrue(r['has_key']);self.assertEqual(self.settings.path.stat().st_mode&0o777,0o600)
+  self.assertNotIn(secret,json.dumps(r));self.assertTrue(r['has_key'])
+  if os.name!='nt':self.assertEqual(self.settings.path.stat().st_mode&0o777,0o600)
   self.settings.save('');self.assertFalse(self.settings.status()['has_key'])
  def test_keyless_request_real_endpoint_basic_only(self):
   opener=MagicMock();opener.open.return_value=io.BytesIO(json.dumps({'results':[{'url':'https://example.org/sound','title':'Emotional Damage','score':.9,'content':'A real search result'},{'url':'file:///etc/passwd','title':'bad'}]}).encode())
@@ -24,10 +25,22 @@ class WebAgentTests(unittest.TestCase):
   req=opener.open.call_args.args[0];body=json.loads(req.data)
   self.assertEqual(req.full_url,'https://api.tavily.com/search');self.assertIn('keyless',req.headers.values());self.assertNotIn('Authorization',req.headers)
   self.assertEqual(body['search_depth'],'basic');self.assertFalse(body['auto_parameters']);self.assertEqual(len(rows),1);self.assertTrue(rows[0]['can_import']);self.assertFalse(rows[0]['rights_checked'])
+  self.assertEqual(Tavily(self.settings).usage(),{'mode':'keyless','requests':1})
+ def test_usage_respects_both_plan_and_key_limits(self):
+  self.settings.save('tvly-unit-test-key')
+  opener=MagicMock()
+  opener.open.return_value=io.BytesIO(json.dumps({
+   'account':{'plan_usage':120,'plan_limit':1000},'key':{'usage':60,'limit':100},
+  }).encode())
+  with patch('mimic.web_agent.build_opener',return_value=opener):usage=Tavily(self.settings).usage()
+  request=opener.open.call_args.args[0]
+  self.assertEqual(request.full_url,'https://api.tavily.com/usage')
+  self.assertEqual(request.headers['Authorization'],'Bearer tvly-unit-test-key')
+  self.assertEqual(usage,{'mode':'own-key','remaining':40,'used':120,'limit':1000})
  def test_quota_is_not_silent_paid_fallback(self):
   opener=MagicMock();opener.open.side_effect=HTTPError('https://api.tavily.com/search',429,'rate limited',{},None)
   with patch('mimic.web_agent.build_opener',return_value=opener):
-   with self.assertRaisesRegex(ValueError,'Free search limit'):Tavily(self.settings).search('test')
+   with self.assertRaisesRegex(ValueError,'too many requests'):Tavily(self.settings).search('test')
   self.assertEqual(opener.open.call_count,1)
  def finder(self,model=None):
   class Studio:pass
@@ -106,13 +119,35 @@ class WebAgentTests(unittest.TestCase):
    with self.subTest(query=query):
     finder=self.finder(Model())
     real=web_row('https://example.org/cat.mp3','Cat','Tavily')
-    with patch.object(finder.web.provider,'search',return_value=[real]) as search:
+    with patch.object(finder.web.provider,'search',side_effect=[[],[real]]) as search:
      found=finder.search({'scope':'web','query':query},Job())
     first=search.call_args_list[0].args[0]
     self.assertIn(query.split()[-1],first)
     self.assertTrue(any('screaming cat' in call.args[0] for call in search.call_args_list))
     self.assertEqual(found['query'],query)
     self.assertEqual(found['external'][0]['page_url'],real['page_url'])
+
+ def test_fast_results_are_saved_before_ranking_and_repeat_uses_cache(self):
+  real=web_row('https://example.org/cat.mp3','Cat','Tavily')
+  class Model:
+   def path(self,*args):return Path('/unused')
+   def generate(self,prompt,text,*args):
+    self_test.assertEqual(finder.saved(real['source_id'])['title'],'Cat')
+    job.publish.assert_called_once()
+    self_test.assertNotIn('search_terms',prompt)
+    return {'ranking':[{'id':'0','score':.9}]}
+  self_test=self
+  finder=self.finder(Model())
+  job=Job()
+  job.publish=MagicMock()
+  query={'scope':'web','query':'cat sound','progressive':True}
+  with patch.object(finder.web.provider,'search',return_value=[real]) as search:
+   first=finder.search(query,job)
+   second=finder.search(query,job)
+  search.assert_called_once()
+  self.assertTrue(first['ai_ranked'])
+  self.assertTrue(second['cached'])
+  self.assertEqual(first['external'],second['external'])
 
  def test_topics_in_multiple_languages_preserve_person_names(self):
   from mimic.web_agent import topic_subject

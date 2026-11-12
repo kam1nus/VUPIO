@@ -331,6 +331,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.auth(True)
                     studio=a.studio()
                     if path=='/api/ai/status':return self.send(studio.status())
+                    if path=='/api/ai/web-usage':return self.send(studio.finder.web.provider.usage())
                     if path.startswith('/api/ai/job/'):
                         return self.send(studio.jobs.get(path.rsplit('/',1)[1]))
                     if path.startswith('/api/ai/analysis/'):

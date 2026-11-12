@@ -34,6 +34,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_public_audio.py
       - name: Verify Radar failure states
         run: python -m unittest discover -s tests -p test_radar_client.py
+      - name: Verify web search and credit tracking
+        run: python -m unittest discover -s tests -p test_web_agent.py
       - name: Build Windows installer
         run: ./scripts/package_windows.ps1
       - uses: actions/upload-artifact@v4
@@ -93,14 +95,9 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Recover audio downloads and Trend Radar feeds from VPN Fake-IP DNS, including standard IPv6 and mixed IPv4/IPv6 answers.
-          - Open the entire audio file available from a source using Edit full audio in Discover.
-          - Trim quiet edges in Studio while preserving pauses inside the recording.
-          - Verify public DNS over TLS and pin the validated public server IP; private networks remain blocked.
-          - Apply the same network path to meme downloads, catalog audio and Trend Radar feeds.
-          - Show actionable Radar errors instead of silently checking thirty failed downloads.
-          - Replace unavailable sounds; stop repeated requests when a source rate-limits or denies downloads.
-          - Retain local clip listening and its saved output from build 4046.
+          - Show Tavily plan credits or this device's Keyless request count directly in Discover.
+          - Show the first web results before AI ranking, and reuse recent searches for five minutes.
+          - Start clip previews and open full audio in Studio without waiting for speech or metadata analysis.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

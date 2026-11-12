@@ -40,6 +40,13 @@ class StudioWaveTests(unittest.TestCase):
                 track=studio.autofetch.prepare({'source_id':'test:track','add':False},Job())
                 self.assertEqual(track['plan']['basis'],'full_track')
                 self.assertAlmostEqual(track['report']['output']['duration'],40,delta=.03)
+                with patch.object(studio.autofetch,'inspect',side_effect=AssertionError('Preview waited for analysis')), \
+                     patch.object(studio,'metadata',side_effect=AssertionError('Preview waited for AI metadata')):
+                    preview=studio.autofetch.prepare({
+                        'source_id':'test:track','category':'Meme','add':False,'fast_preview':True,
+                    },Job())
+                self.assertEqual(preview['report']['analyzed_seconds'],0)
+                self.assertAlmostEqual(preview['report']['output']['duration'],8,delta=.1)
                 short=studio.autofetch.prepare({'source_id':'test:track','category':'Meme'},Job())['item']
                 full=studio.autofetch.prepare({
                     'source_id':'test:track','category':'Meme','add':False,'full_audio':True,

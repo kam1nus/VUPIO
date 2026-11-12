@@ -1,6 +1,19 @@
 'use strict';
 (() => {
- let local=[],web=[],catalogs=[],searched=false,busy=false,historyKey='',previewRequest;
+ let local=[],web=[],catalogs=[],searched=false,busy=false,historyKey='',previewRequest,usageRequest=0;
+ const webCards=new Map();
+ async function refreshUsage(){
+  const request=++usageRequest;
+  const usage=await api('ai/web-usage').catch(()=>null);
+  if(request!==usageRequest)return;
+  const text=usage?.mode==='keyless'
+   ?'Tavily · Keyless · '+usage.requests.toLocaleString()+' requests this month on this device'
+   :Number.isFinite(usage?.remaining)
+    ?'Tavily · '+usage.remaining.toLocaleString()+' plan credits left'
+    :'Tavily · Usage unavailable';
+  if(by('discoverUsage').textContent!==text)by('discoverUsage').textContent=text;
+ }
+ document.addEventListener('mimic:view',e=>{if(e.detail==='discover')refreshUsage();});
  const resultGroups=['From your library','From the web','From audio catalogs'].map(name=>{
   const section=node('section',undefined,'resultGroup'),heading=node('h2',name);
   section.hidden=true;
@@ -24,11 +37,12 @@
  bind('cancelDiscover',async()=>{
   await Promise.all([...progress.values()].map(j=>api('ai/cancel',{job_id:j.id})));
  });
- async function task(key,kind,data){
+ async function task(key,kind,data,onProgress){
   try{return await runJob(kind,data,j=>{
    if(['queued','running'].includes(j.status))progress.set(key,j);
    else progress.delete(key);updateProgress();
-  });}finally{progress.delete(key);updateProgress();}
+   onProgress?.(j);
+  },250);}finally{progress.delete(key);updateProgress();}
  }
  function groups(){
   const seen=new Set();
@@ -43,7 +57,21 @@
    if(unique.length===group.rows.length&&unique.every((row,j)=>row===group.rows[j]))return;
    group.rows=unique;
    group.section.hidden=!unique.length;
-   group.section.replaceChildren(group.heading,...unique.map(i=>resultCard(i,isLocal)));
+   if(index!==1){
+    group.section.replaceChildren(group.heading,...unique.map(i=>resultCard(i,isLocal)));
+    return;
+   }
+   const cards=unique.map(i=>{
+    let card=webCards.get(i.source_id);
+    if(!card){card=resultCard(i,false);webCards.set(i.source_id,card);}
+    const reason=card.querySelector('.sourceReason');
+    if(reason)reason.textContent=i.reason;
+    return card;
+   });
+   if(cards.length)group.section.prepend(group.heading);
+   for(const old of [...group.section.children])if(old!==group.heading&&!cards.includes(old))old.remove();
+   let previous=group.heading;
+   for(const card of cards){if(previous.nextElementSibling!==card)previous.after(card);previous=card;}
   });
   by('discoverEmpty').hidden=searched;
  }
@@ -65,7 +93,7 @@
   }else if(!i.can_import){
    actions.append(link('Open source ↗',i.page_url));
   }else{
-   const body=()=>({source_id:i.source_id,category:by('importCategory').value});
+   const body=()=>({source_id:i.source_id,category:by('importCategory').value,fast_preview:true});
    let pending,added=false;
    async function prepare(){
     status(error);
@@ -110,7 +138,7 @@
   card.append(badge,detail,actions);error.classList.add('resultError');card.append(error);
   if(!isLocal){
    const meta=node('details');meta.append(node('summary','Source details'),link('Open page ↗',i.page_url));
-   if(i.reason)meta.append(node('p',i.reason,'muted'));
+   if(i.reason)meta.append(node('p',i.reason,'muted sourceReason'));
    if(i.license)meta.append(node('p',[i.license,i.author].filter(Boolean).join(' · '),'muted'));
    if(i.description)meta.append(node('p',i.description.slice(0,500),'muted'));card.append(meta);
   }
@@ -150,7 +178,7 @@
   if(quick&&!useWeb&&!useCatalogs){status('discoverStatus','Enable Internet or Audio catalogs for Quick Add.',true);return;}
   if(!useWeb&&!useCatalogs&&!useLocal){status('discoverStatus','Select at least one source.',true);return;}
   busy=true;by('discoverGo').disabled=true;by('quickAdd').disabled=true;
-  searched=true;local=[];web=[];catalogs=[];groups();status('discoverStatus');updateProgress();
+  searched=true;local=[];web=[];catalogs=[];webCards.clear();groups();status('discoverStatus');updateProgress();
   const errors=[];
   try{
    if(quick){
@@ -161,8 +189,15 @@
     return;
    }
    const requests=[];
-   const load=(key,kind,data,apply)=>requests.push(task(key,kind,data).then(r=>{apply(r);groups();}).catch(e=>errors.push(e.message)));
-   if(useWeb)load('web','internet_search',{...body,scope:'web'},r=>{web=r.external||[];showHistory(r.history);if(!web.length&&r.warnings?.length)errors.push(...r.warnings);});
+   const load=(key,kind,data,apply,onProgress)=>requests.push(task(key,kind,data,onProgress).then(r=>{apply(r);groups();}).catch(e=>errors.push(e.message)));
+   let partialKey='';
+   if(useWeb)load('web','internet_search',{...body,scope:'web',progressive:true},r=>{
+    web=r.external||[];showHistory(r.history);if(!web.length&&r.warnings?.length)errors.push(...r.warnings);
+   },j=>{
+    if(j.status!=='running'||!j.result?.external?.length)return;
+    const key=JSON.stringify(j.result.external);
+    if(key!==partialKey){partialKey=key;web=j.result.external;groups();}
+   });
    if(useCatalogs)load('catalogs','internet_search',{...body,scope:'catalogs'},r=>{catalogs=r.external||[];showHistory(r.history);if(!catalogs.length&&r.warnings?.length)errors.push(...r.warnings);});
    if(useLocal&&items.length){
     const q=body.query.replace(/^(?:(?:\u043d\u0430\u0439\u0434\u0438|\u043f\u043e\u0438\u0449\u0438|\u043d\u0430\u0439\u0442\u0438|\u043c\u0435\u043c|find|search)\s+)+/iu,'');
@@ -177,7 +212,7 @@
     status('discoverStatus','No ready audio found yet. Paste an MP3 URL or an individual sound page.');
    else status('discoverStatus');
   }catch(e){status('discoverStatus',e.message,true);}
-  finally{busy=false;by('discoverGo').disabled=false;by('quickAdd').disabled=false;updateProgress();}
+  finally{busy=false;by('discoverGo').disabled=false;by('quickAdd').disabled=false;updateProgress();if(useWeb&&!isLink)refreshUsage();}
  }
  document.addEventListener('mimic:radar-search',({detail})=>{
   show('discover');

@@ -356,7 +356,8 @@ class Studio:
           'metadata':lambda j:self.auto_metadata(body['id'],j),
         }
         if kind not in actions:raise ValueError('Unknown AI operation')
-        return self.jobs.submit(kind,actions[kind])
+        preview=kind=='fetch' and body.get('fast_preview') is True and body.get('add') is False
+        return self.jobs.submit(kind,actions[kind],preview=preview)
     def auto_metadata(self,id,job):
         item=self.library.get(id);data=self.index(id,job,speech=True)
         job.update(.93,'Generating title and tags…')

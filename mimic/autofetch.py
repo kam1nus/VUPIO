@@ -6,6 +6,7 @@ from .net import catalog_download
 from .features import analyze
 from .editor import phrase_span,number,make_plan,render_filters
 from .jobs import Cancelled
+from .library import suggest
 
 FORMATS='wav,mp3,ogg,flac,aac,mov,matroska,webm,aiff'
 EVENTS={'scream':{'scream','screaming','shout','yell','battle_cry','children_shouting'},'cat':{'cat','meow','cat_meowing'},'music':{'music','background_music','musical_instrument','singing'},'failure':{'impact','explosion','thud','boing'}}
@@ -43,10 +44,29 @@ def radar_asset(id,data):
 
 class AutoFetch:
     def __init__(self,studio):self.s=studio
+    def inspect(self,pcm,key,job):
+        s=self.s
+        sample=s.cache/(key+'.sample.wav')
+        try:
+            s.execute([tool('ffmpeg'),'-v','error','-nostdin','-i',str(pcm),'-t','60','-af','apad=pad_dur=2','-ar','48000','-ac','1',str(sample)],job)
+            analysis=s.classify(sample,job)
+        finally:sample.unlink(missing_ok=True)
+        if analysis.get('error'):analysis={'labels':[],'warning':analysis['error']}
+        analysis['segments']=[]
+        if any(x['label'] in {'speech','shout','scream','yell','narration'} and x['confidence']>.1 for x in analysis.get('labels',[])):
+            short=s.cache/(key+'.speech.wav')
+            try:
+                s.execute([tool('ffmpeg'),'-v','error','-nostdin','-i',str(pcm),'-t','60',str(short)],job)
+                analysis.update(s.transcribe(short,job))
+            except ValueError as e:analysis['speech_warning']=str(e)
+            finally:short.unlink(missing_ok=True)
+        return analysis
+
     def prepare(self,body,job,*,radar=False):
         started=time.monotonic()
         s=self.s;id=str(body['source_id']);saved=s.finder.saved(id);job.update(.05,'Checking · source availability')
         full_audio=not radar and body.get('full_audio') is True
+        fast=not radar and body.get('fast_preview') is True and body.get('add') is False
         source=s.finder.resolve(id,job)
         key=uuid.uuid4().hex;raw=s.cache/(key+'.original');pcm=s.cache/(key+'.wav');preview=s.cache/(key+'.clip.wav')
         keep=False
@@ -95,22 +115,10 @@ class AutoFetch:
                     db.execute('INSERT OR REPLACE INTO radar_clips VALUES (?,?)',(id,key))
                 keep=True
                 return radar_asset(key,data)
-            # Bounded first 60 seconds; do not imply complete analysis of long music.
-            sample=s.cache/(key+'.sample.wav')
-            try:
-                s.execute([tool('ffmpeg'),'-v','error','-nostdin','-i',str(pcm),'-t','60','-af','apad=pad_dur=2','-ar','48000','-ac','1',str(sample)],job)
-                analysis=s.classify(sample,job)
-            finally:sample.unlink(missing_ok=True)
-            if analysis.get('error'):analysis={'labels':[],'warning':analysis['error']}
-            analysis['features']=features;analysis['segments']=[]
-            if any(x['label'] in {'speech','shout','scream','yell','narration'} and x['confidence']>.1 for x in analysis.get('labels',[])):
-                try:
-                    # Whisper only on bounded sample to protect 16GB machines.
-                    short=s.cache/(key+'.speech.wav')
-                    s.execute([tool('ffmpeg'),'-v','error','-nostdin','-i',str(pcm),'-t','60',str(short)],job)
-                    analysis.update(s.transcribe(short,job))
-                except ValueError as e:analysis['speech_warning']=str(e)
-                finally:short.unlink(missing_ok=True)
+            # Manual previews use measured audio features. Quick Add still analyzes
+            # a bounded sample before it can confirm and import a result.
+            analysis={'labels':[],'segments':[]} if fast else self.inspect(pcm,key,job)
+            analysis['features']=features
             terms=saved.get('terms','');labels=analysis.get('labels',[])
             targets=set().union(*(v for k,v in EVENTS.items() if k in terms.lower()))
             evidence=max((float(x['confidence']) for x in labels if x['label'] in targets),default=0.)
@@ -118,9 +126,15 @@ class AutoFetch:
             transcript_match=any(w in transcript for w in re.findall(r'\w+',terms.lower()) if len(w)>2)
             exact=bool(saved.get('named_query')) or bool(re.search(r'wide\s+putin|vine\s+boom|\u0430\u0443\u0440\u0430|aura|phonk|\u0444\u043e\u043d\u043a',saved.get('query',''),re.I))
             verified=(evidence>=.08 or transcript_match) and not exact
-            report=dict(format=fmt.get('format_name'),duration=duration,sample_rate=rate,channels=channels,bitrate=bitrate,quality_warning='Low bitrate. Preview before adding.' if 0<bitrate<64000 else '',sha256=sha,labels=labels,analyzed_seconds=min(duration,60),content_match=verified,content_score=evidence,identity_verified=False,match_basis='SoundAnalysis classes and transcript metadata',analysis=analysis)
+            report=dict(format=fmt.get('format_name'),duration=duration,sample_rate=rate,channels=channels,bitrate=bitrate,quality_warning='Low bitrate. Preview before adding.' if 0<bitrate<64000 else '',sha256=sha,labels=labels,analyzed_seconds=0 if fast else min(duration,60),content_match=verified,content_score=evidence,identity_verified=False,match_basis='Preview, no identity analysis' if fast else 'SoundAnalysis classes and transcript metadata',analysis=analysis)
             if body.get('require_match') and not verified:raise ValueError('The audio did not confirm the query. Choose another result or preview it manually.')
-            metadata=s.metadata(source['title']+' '+source['description'],analysis)
+            if fast:
+                metadata=suggest(source['title'])
+                metadata['title']=source['title'][:160] or metadata['title']
+                category=source.get('category')
+                metadata['category']=category if category in {'Meme','Music','Reaction','Effect'} else 'Effect'
+            else:
+                metadata=s.metadata(source['title']+' '+source['description'],analysis)
             if metadata.get('warning'):
                 metadata['title']=source['title'][:160]
             category=str(body.get('category','All'))
@@ -132,7 +146,10 @@ class AutoFetch:
             if full_track:
                 plan=dict(start=0.,end=duration,basis='full_track',warning='',normalize=not full_audio)
             else:
-                plan=cut_plan(command,duration,analysis)
+                try:plan=cut_plan(command,duration,analysis)
+                except ValueError:
+                    if not fast or body.get('command'):raise
+                    plan=cut_plan('',duration,analysis)
             job.update(.8,'Processing · preparing full audio' if full_audio else 'Processing · trimming and normalization')
             audio_filter='loudnorm=I=-16:TP=-1.5:LRA=11'
             if not full_track:
@@ -151,13 +168,14 @@ class AutoFetch:
                 report['python_peak_rss_mib']=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1048576,2)
                 report['completed_child_peak_rss_mib']=round(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss/1048576,2)
                 report['memory_note']='macOS ru_maxrss: peak server and largest exited child; not total app/model RAM'
-            try:
-                s.models.path('embedding')
-                vectors=s.models.embed(['task: search result | query: '+saved.get('query',''), 'Audio classes: '+', '.join(x['label'] for x in labels)+' Transcript: '+analysis.get('text','')[:1500]])
-                a,b=vectors
-                report['semantic_score']=sum(x*y for x,y in zip(a,b))/max(1e-9,math.sqrt(sum(x*x for x in a)*sum(x*x for x in b)))
-                report['semantic_method']='Text embeddings of measured sound classes and transcript; not direct waveform/CLAP or identity fingerprint'
-            except ValueError as e:report['semantic_warning']=str(e)[:250]
+            if not fast:
+                try:
+                    s.models.path('embedding')
+                    vectors=s.models.embed(['task: search result | query: '+saved.get('query',''), 'Audio classes: '+', '.join(x['label'] for x in labels)+' Transcript: '+analysis.get('text','')[:1500]])
+                    a,b=vectors
+                    report['semantic_score']=sum(x*y for x,y in zip(a,b))/max(1e-9,math.sqrt(sum(x*x for x in a)*sum(x*x for x in b)))
+                    report['semantic_method']='Text embeddings of measured sound classes and transcript; not direct waveform/CLAP or identity fingerprint'
+                except ValueError as e:report['semantic_warning']=str(e)[:250]
             data=dict(source=source,report=report,metadata=metadata,original=raw.name,pcm=pcm.name,query=saved.get('query',''))
             with s.library.db() as db:db.execute('INSERT INTO ai_assets VALUES (?,?,?,?)',(key,preview.name,json.dumps(data,ensure_ascii=False),time.time()))
             keep=True
