@@ -36,12 +36,35 @@ jobs:
         run: python -m unittest discover -s tests -p test_radar_client.py
       - name: Verify web search and credit tracking
         run: python -m unittest discover -s tests -p test_web_agent.py
+      - name: Verify GitHub update download and installer selection
+        run: python -m unittest discover -s tests -p test_updates.py
       - name: Build Windows installer
         run: ./scripts/package_windows.ps1
+      - name: Verify the Windows installer upgrades without writing the models
+        shell: pwsh
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP 'VUPIO upgrade test'
+          $flags = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('"/DIR={0}"' -f $destination))
+          $full = Get-Item build/releases/VUPIO-Windows-x64-Setup.exe
+          $patch = Get-Item build/releases/VUPIO-Windows-x64-Update-*.exe
+          $process = Start-Process $full.FullName -ArgumentList $flags -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Full setup failed ($($process.ExitCode))" }
+          $buildFile = Join-Path $destination 'installed-build.txt'
+          $build = [int](Get-Content $buildFile)
+          $manifest = Join-Path $destination 'Models/components.json'
+          $before = Get-FileHash $manifest
+          Set-Content $buildFile ($build - 1) -Encoding ascii -NoNewline
+          $process = Start-Process $patch.FullName -ArgumentList $flags -PassThru -Wait
+          if ($process.ExitCode -ne 0 -or [int](Get-Content $buildFile) -ne $build) { throw "Updater setup failed ($($process.ExitCode))" }
+          if ((Get-FileHash $manifest).Hash -ne $before.Hash) { throw 'The installer changed the bundled models' }
+          $process = Start-Process (Join-Path $destination 'VUPIO.exe') -ArgumentList '--smoke-test' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Updated app failed ($($process.ExitCode))" }
       - uses: actions/upload-artifact@v4
         with:
           name: VUPIO-Windows-x64-preview
-          path: build/releases/VUPIO-Windows-x64-Setup.exe
+          path: |
+            build/releases/VUPIO-Windows-x64-Setup.exe
+            build/releases/VUPIO-Windows-x64-Update-*.exe
           if-no-files-found: error
 
   macos:
@@ -66,10 +89,14 @@ jobs:
           stage=$(sed -n 's/^Signature verified at //p' build-vupio.log | tail -1)
           test -d "$stage"
           MIMIC_APP_BUNDLE="$stage" ./scripts/package_installer.sh
+          ./scripts/package_mac_update.sh "$stage"
+          .venv/bin/python tests/mac_update_smoke.py "$stage" build/releases/VUPIO-macOS-AppleSilicon-Update-*.zip
       - uses: actions/upload-artifact@v4
         with:
           name: VUPIO-macOS-AppleSilicon-preview
-          path: build/releases/VUPIO-macOS-AppleSilicon.pkg
+          path: |
+            build/releases/VUPIO-macOS-AppleSilicon.pkg
+            build/releases/VUPIO-macOS-AppleSilicon-Update-*.zip
           if-no-files-found: error
 
   publish:
@@ -93,14 +120,19 @@ jobs:
           build=$(python3 -c 'from mimic import BUILD; print(BUILD)')
           tag="alpha-$build"
           cd release
-          sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
+          mac=(VUPIO-macOS-AppleSilicon-Update-*.zip)
+          win=(VUPIO-Windows-x64-Update-*.exe)
+          test "${#mac[@]}" = 1 && test -f "${mac[0]}"
+          test "${#win[@]}" = 1 && test -f "${win[0]}"
+          assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}")
+          sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Broaden sparse topic searches on Myinstants when Tavily is unavailable.
-          - Copy build, platform and failure details from Discover and Trend Radar without sharing search terms, private links or credentials.
+          - Download compatible app updates from GitHub in VUPIO's Updates screen. App updates reuse the installed audio driver and bundled models.
+          - Broaden sparse topic searches and copy diagnostic details from Discover and Trend Radar.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF
           gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease \
             --title "VUPIO Alpha · build $build" --notes-file /tmp/vupio-release-notes \
-            VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe SHA256SUMS.txt
+            "${assets[@]}" SHA256SUMS.txt
           gh release edit "$tag" --draft=false

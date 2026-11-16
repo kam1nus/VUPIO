@@ -218,6 +218,10 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
             checkLocalUpdate()
             return
         }
+        if action == "installPublicUpdate" {
+            applyPublicUpdate()
+            return
+        }
         if action=="importModel" {
             let panel=NSOpenPanel();panel.canChooseDirectories=false
             panel.allowedContentTypes=[UTType(filenameExtension:"gguf") ?? .data]
@@ -237,6 +241,37 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     func updateStatus(_ text: String, error: Bool = false, busy: Bool = false) {
         updateBusy = busy
         web.callAsyncJavaScript("window.vupioUpdateStatus(text,error,busy)",arguments:["text":text,"error":error,"busy":busy],in:nil,in:.page,completionHandler:nil)
+    }
+
+    func applyPublicUpdate() {
+        guard !updateBusy else {
+            web.callAsyncJavaScript("window.vupioPublicUpdateStatus(text,true)",arguments:["text":"Another update is in progress."],in:nil,in:.page,completionHandler:nil)
+            return
+        }
+        updateBusy = true
+        let installed = Bundle.main.bundleURL
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let staged = try LocalUpdate.stagePublicRequest(installed: installed)
+                DispatchQueue.main.async {
+                    do {
+                        let serverPID = self.process.flatMap { $0.isRunning ? $0.processIdentifier : nil } ?? 0
+                        try LocalUpdate.install(staged, at: installed, appPID: ProcessInfo.processInfo.processIdentifier, serverPID: serverPID)
+                        NSApplication.shared.terminate(nil)
+                    } catch {
+                        try? FileManager.default.removeItem(at: staged.deletingLastPathComponent())
+                        self.publicUpdateFailed(error)
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { self.publicUpdateFailed(error) }
+            }
+        }
+    }
+
+    func publicUpdateFailed(_ error: Error) {
+        updateBusy = false
+        web.callAsyncJavaScript("window.vupioPublicUpdateStatus(text,true)",arguments:["text":error.localizedDescription],in:nil,in:.page,completionHandler:nil)
     }
 
     func checkLocalUpdate() {

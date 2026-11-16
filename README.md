@@ -10,7 +10,7 @@ Download and run the installer for your computer. [Release notes](https://github
 
 ## Updates
 
-Open **Updates → Check for updates** in VUPIO to find the latest installer for your platform. Published previews are also available in [GitHub Releases](https://github.com/kam1nus/VUPIO/releases).
+Starting with build 4054, **Updates** can download compatible app updates from GitHub in the background. Select **Install update** when ready, or turn background downloads off in Updates. App updates reuse the installed driver and bundled models. The full installer is available for first installs, model bundle changes, or when the app folder cannot be updated. Builds without the updater need to install a current full version once. Published previews are available in [GitHub Releases](https://github.com/kam1nus/VUPIO/releases).
 
 The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote, Updates and Settings. Search queries, meme names and imported metadata can use their original languages. Search quality depends on the model and available sources.
 

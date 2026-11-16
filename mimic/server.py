@@ -22,8 +22,8 @@ from urllib.parse import urlsplit
 
 from . import BUILD
 from .library import Library, select_fragment, suggest
-from .net import open_url
 from .sources import LicensedCatalog
+from .updates import Updates
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,31 +32,6 @@ def installed_build():
     value = os.environ.get('MIMIC_BUILD_NUMBER', '')
     return int(value) if re.fullmatch(r'[1-9][0-9]{0,8}', value) else BUILD
 
-
-def public_update():
-    repo = 'https://github.com/kam1nus/VUPIO'
-    filename = 'VUPIO-Windows-x64-Setup.exe' if sys.platform == 'win32' else 'VUPIO-macOS-AppleSilicon.pkg'
-    try:
-        with open_url('https://api.github.com/repos/kam1nus/VUPIO/releases?per_page=20', timeout=8) as response:
-            raw = response.read(1_000_001)
-        if len(raw) > 1_000_000:
-            raise ValueError('Large release response')
-        releases = json.loads(raw)
-        if not isinstance(releases, list):
-            raise ValueError('Invalid release response')
-    except (OSError, ValueError):
-        raise ValueError('Could not check GitHub. Open the releases page or try again later.') from None
-    available = {}
-    for release in releases:
-        tag = release.get('tag_name', '')
-        if release.get('draft') or not re.fullmatch(r'alpha-[1-9][0-9]{0,8}', tag):
-            continue
-        url = f'{repo}/releases/download/{tag}/{filename}'
-        if any(asset.get('browser_download_url') == url and asset.get('state') == 'uploaded'
-               for asset in release.get('assets', [])):
-            available[int(tag.removeprefix('alpha-'))] = url
-    newest = max(available, default=0)
-    return {'latest': newest, 'download': available.get(newest), 'installed': installed_build()}
 
 
 class Audio:
@@ -128,6 +103,7 @@ class App:
         self.attempts = defaultdict(list)
         self.started = time.time()
         self._studio=None
+        self.updates=Updates(self.library.root, installed_build())
         with self.library.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, role TEXT, name TEXT, expiry REAL)')
         self.preferences_path=self.library.root/'preferences.json'
@@ -356,9 +332,10 @@ class Handler(BaseHTTPRequestHandler):
                         _,file=studio.draft(path.rsplit('/',1)[1])
                         return self.send_audio(file)
                     raise ValueError('Unknown AI Studio endpoint')
-                if path == '/api/updates':
+                if path in {'/api/updates', '/api/updates/status'}:
                     self.auth(True)
-                    return self.send(public_update())
+                    info=a.updates.check() if path == '/api/updates' else a.updates.info()
+                    return self.send({**info, 'auto':a.preferences.get('autoUpdateDownload',True)})
                 if path == '/api/state':
                     try:audio = a.audio.command('status')
                     except (ValueError,OSError) as error:
@@ -458,6 +435,15 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/search':
                 return self.send(a.library.search(str(body.get('query',''))[:2000],bool(body.get('semantic'))))
             self.auth(True)
+            if path == '/api/updates/download':
+                return self.send(a.updates.begin())
+            if path == '/api/updates/install':
+                return self.send(a.updates.install())
+            if path == '/api/updates/preferences':
+                if type(body.get('auto')) is not bool:
+                    raise ValueError('Choose whether to download updates automatically.')
+                a.save_preference(autoUpdateDownload=body['auto'])
+                return self.send({'auto':body['auto']})
             if path.startswith('/api/ai/'):
                 studio=a.studio()
                 if path=='/api/ai/submit':return self.send(studio.submit(body))

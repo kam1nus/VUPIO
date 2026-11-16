@@ -224,6 +224,7 @@ function sync(){
   const version=audioVersion;
   const data=await api('state'),newRole=role!==data.role;
   role=data.role;
+  if(newRole&&role==='admin')schedulePublicUpdates();
   if(data.build){currentBuild=data.build;by('currentBuild').textContent='Installed build '+data.build;}
   if(version===audioVersion)audio=data.audio;
   if(previewEpoch!==null&&previewEpoch!==data.preview_stop_epoch)stopPreview();
@@ -252,16 +253,94 @@ for(const el of document.querySelectorAll('[data-icon]')){
  else el.prepend(icon(el.dataset.icon));
 }
 by('nav').addEventListener('click',e=>{const target=e.target.closest('[data-view]');if(target)show(target.dataset.view);});
-bind('checkPublicUpdate',async()=>{
- status('publicUpdateStatus','Checking GitHub…');
- const download=by('publicUpdateDownload');
- download.replaceChildren();
- const data=await api('updates');
- if(data.latest>data.installed&&data.download){
-  status('publicUpdateStatus','Build available '+data.latest);
-  download.append(link('Download installer ↗',data.download));
- }else status('publicUpdateStatus',data.latest?'Your build is up to date.':'No installers have been published for your platform yet.');
-},'publicUpdateStatus');
+let updatePoll, updateCheck, updateInfo, publicInstalling=false;
+const updateTarget='publicUpdateStatus';
+function nativeUpdates(info){
+ return info.platform==='win32'||(info.platform==='darwin'&&Boolean(window.webkit?.messageHandlers?.mimicNative));
+}
+function updateSize(bytes){return (bytes/1048576).toFixed(1)+' MB';}
+function drawPublicUpdate(info,checked=true){
+ updateInfo=info;
+ const available=info.latest>info.installed;
+ const compatible=available&&info.app_update&&nativeUpdates(info);
+ const progress=by('publicUpdateProgress');
+ by('autoUpdateOption').hidden=!info.supported||!nativeUpdates(info);
+ if(typeof info.auto==='boolean')by('autoUpdate').checked=info.auto;
+ by('downloadAppUpdate').hidden=!compatible||['ready','downloading'].includes(info.state);
+ by('installAppUpdate').hidden=!compatible||info.state!=='ready'||publicInstalling;
+ by('publicUpdateDownload').replaceChildren(...(available&&info.download?[link('Full installer ↗',info.download)]:[]));
+ progress.hidden=info.state!=='downloading';
+ progress.value=info.size?Math.min(1,info.received/info.size):0;
+ if(publicInstalling)return;
+ if(!available){
+  if(checked)status(updateTarget,info.latest?'Your build is up to date.':'No releases are available for this platform.');
+  return;
+ }
+ if(info.state==='failed')status(updateTarget,info.error,true);
+ else if(info.state==='ready')status(updateTarget,'Build '+info.latest+' is ready to install.');
+ else if(info.state==='downloading')status(updateTarget,'Downloading '+updateSize(info.received)+' of '+updateSize(info.size)+'…');
+ else status(updateTarget,compatible?'Build '+info.latest+' · '+updateSize(info.size):'Build '+info.latest+' is available as a full installer.');
+}
+async function watchPublicDownload(info){
+ drawPublicUpdate(info);
+ if(info.state!=='downloading'||updatePoll)return;
+ updatePoll=true;
+ try{
+  do{
+   await pause(750);
+   if(role!=='admin')return;
+   info=await api('updates/status');
+   drawPublicUpdate(info);
+  }while(info.state==='downloading');
+ }finally{updatePoll=false;}
+}
+async function checkPublicUpdates(automatic=false){
+ if(updateCheck||role!=='admin')return;
+ updateCheck=true;
+ try{
+  if(!automatic)status(updateTarget,'Checking GitHub…');
+  const info=await api('updates');
+  drawPublicUpdate(info);
+  if(automatic&&info.auto&&info.app_update&&info.state==='idle'&&nativeUpdates(info))
+   await watchPublicDownload({...await api('updates/download',{}),auto:info.auto});
+  else if(info.state==='downloading')await watchPublicDownload(info);
+ }finally{updateCheck=false;}
+}
+let periodicUpdateCheck;
+function schedulePublicUpdates(){
+ const check=()=>checkPublicUpdates(true).catch(()=>{});
+ if(periodicUpdateCheck)return;
+ setTimeout(check,3500);
+ periodicUpdateCheck=setInterval(check,4*60*60*1000);
+ api('updates/status').then(info=>drawPublicUpdate(info,false)).catch(()=>{});
+}
+bind('checkPublicUpdate',()=>checkPublicUpdates(),updateTarget);
+bind('downloadAppUpdate',async()=>watchPublicDownload(await api('updates/download',{})),updateTarget);
+by('autoUpdate').addEventListener('change',async e=>{
+ const value=e.target.checked;
+ try{
+  await api('updates/preferences',{auto:value});
+  if(value)await checkPublicUpdates(true);
+ }catch(err){e.target.checked=!value;status(updateTarget,err.message,true);}
+});
+window.vupioPublicUpdateStatus=(message,error)=>{
+ publicInstalling=false;
+ if(updateInfo)drawPublicUpdate(updateInfo);
+ status(updateTarget,message,error);
+};
+bind('installAppUpdate',async()=>{
+ if(publicInstalling||!confirm('Install the update now? Save any work in Studio before continuing.'))return;
+ publicInstalling=true;
+ by('installAppUpdate').hidden=true;
+ status(updateTarget,'Preparing the update…');
+ try{
+  const result=await api('updates/install',{});
+  if(result.platform==='macos')window.webkit.messageHandlers.mimicNative.postMessage('installPublicUpdate');
+  else window.vupioPublicUpdateStatus('The Windows installer is open. Follow its steps to update VUPIO.',false);
+ }catch(err){
+  window.vupioPublicUpdateStatus(err.message,true);
+ }
+},updateTarget);
 bind('findSound',()=>{show('discover');by('discoverQuery').focus();});
 by('search').oninput=e=>{query=e.target.value;page=0;renderLibrary();};by('category').onchange=e=>{activeCategory=e.target.value;page=0;renderLibrary();};
 by('favorites').onclick=()=>{favoritesOnly=!favoritesOnly;by('favorites').setAttribute('aria-pressed',String(favoritesOnly));page=0;renderLibrary();};

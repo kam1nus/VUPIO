@@ -81,6 +81,14 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(self.req(path,{},self.remote)[0],403,path)
         self.assertEqual(self.req('/api/settings',token=self.remote)[0],403)
         self.assertEqual(self.req('/api/audio',token=self.remote)[0],403)
+    def test_updates_require_local_admin_and_save_background_preference(self):
+        for path, body in [('status',None),('download',{}),('install',{}),('preferences',{'auto':False})]:
+            for token in (None,self.remote):
+                self.assertEqual(self.req('/api/updates/'+path,body,token)[0],403)
+        self.assertEqual(self.req('/api/updates/preferences',{'auto':False},self.admin)[0],200)
+        self.assertFalse(self.req('/api/updates/status',token=self.admin)[1]['auto'])
+        self.assertEqual(self.req('/api/updates/download',{},self.admin)[0],400)
+        self.assertEqual(self.req('/api/updates/install',{},self.admin)[0],400)
     def test_mixer_validation_and_preferences(self):
         self.assertEqual(self.req('/api/mixer',{'gain':float('nan')},self.admin)[0],400)
         self.assertEqual(self.req('/api/mixer',{'gain':2},self.admin)[0],400)

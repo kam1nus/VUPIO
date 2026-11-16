@@ -4,10 +4,13 @@
 #ifndef AppIcon
 #error AppIcon must point to the Windows application icon
 #endif
+#ifndef BuildNumber
+#error BuildNumber is required
+#endif
 [Setup]
 AppId=VUPIO
 AppName=VUPIO
-AppVersion=0.4.3.4053
+AppVersion=0.4.3.{#BuildNumber}
 AppPublisher=VUPIO
 DefaultDirName={autopf}\VUPIO
 DefaultGroupName=VUPIO
@@ -15,7 +18,12 @@ ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
 MinVersion=10.0.22000
 PrivilegesRequired=admin
+#ifdef ModelHash
+OutputBaseFilename=VUPIO-Windows-x64-Update-{#ModelHash}
+DisableDirPage=yes
+#else
 OutputBaseFilename=VUPIO-Windows-x64-Setup
+#endif
 Compression=lzma2/fast
 SolidCompression=yes
 UninstallDisplayIcon={app}\VUPIO.exe
@@ -32,13 +40,37 @@ Source: "{#AppDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cre
 [Icons]
 Name: "{autoprograms}\VUPIO"; Filename: "{app}\VUPIO.exe"
 
+#ifndef ModelHash
 [Tasks]
 Name: "discord"; Description: "Download VB-CABLE from VB-Audio and open its driver installer for Discord"; Flags: unchecked
+#endif
 
 [Run]
 Filename: "{app}\VUPIO.exe"; Description: "Open VUPIO"; Flags: nowait postinstall skipifsilent
 
 [Code]
+#ifdef ModelHash
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Build: AnsiString;
+  Models: String;
+  Installed: Integer;
+begin
+  Result := 'This update needs an older compatible VUPIO installation. Download the full installer from GitHub Releases.';
+  if not FileExists(ExpandConstant('{app}\VUPIO.exe')) or
+     not LoadStringFromFile(ExpandConstant('{app}\installed-build.txt'), Build) then
+    exit;
+  Installed := StrToIntDef(String(Build), 0);
+  Models := ExpandConstant('{app}\Models\components.json');
+  if (Installed <= 0) or (Installed >= {#BuildNumber}) or not FileExists(Models) then
+    exit;
+  try
+    if CompareText(GetSHA256OfFile(Models), '{#ModelHash}') = 0 then Result := '';
+  except
+    Result := 'Could not verify the existing VUPIO models. Use the full installer.';
+  end;
+end;
+#else
 function PowerShellQuote(Value: String): String;
 begin
   StringChangeEx(Value, '''', '''''', True);
@@ -102,3 +134,4 @@ begin
     MsgBox(GetExceptionMessage + #13#10 + 'VUPIO is installed. Download the driver separately at https://vb-audio.com/Cable/.', mbInformation, MB_OK);
   end;
 end;
+#endif

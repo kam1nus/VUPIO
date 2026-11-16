@@ -50,6 +50,64 @@ struct LocalRelease: Codable {
 }
 
 enum LocalUpdate {
+    struct PublicRequest: Decodable {
+        let build: Int
+        let sha256: String
+    }
+
+    static func stagePublicRequest(installed: URL) throws -> URL {
+        let override = ProcessInfo.processInfo.environment["MIMIC_DATA"]
+        let data = override.map { URL(fileURLWithPath: $0, isDirectory: true) } ??
+            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/MIMIC")
+        let cache = data.appendingPathComponent("app-updates")
+        let ticket = cache.appendingPathComponent("install.json")
+        let handle = try FileHandle(forReadingFrom: ticket)
+        defer { try? handle.close() }
+        let payload = try handle.read(upToCount: 1025) ?? Data()
+        guard payload.count <= 1024 else { throw LocalUpdateError.message("Invalid update request.") }
+        try FileManager.default.removeItem(at: ticket)
+        let request = try JSONDecoder().decode(PublicRequest.self, from: payload)
+        guard request.sha256.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil,
+              let current = version(of: installed), request.build > current else {
+            throw LocalUpdateError.message("The update request is not for a newer compatible build.")
+        }
+        let archive = cache.appendingPathComponent("vupio-\(request.build)-\(request.sha256).zip")
+        return try stagePublic(archive: archive, request: request, installed: installed)
+    }
+
+    static func stagePublic(archive: URL, request: PublicRequest, installed: URL) throws -> URL {
+        let manager = FileManager.default
+        let handle = try FileHandle(forReadingFrom: archive)
+        defer { try? handle.close() }
+        var digest = SHA256()
+        while let bytes = try handle.read(upToCount: 1024 * 1024), !bytes.isEmpty {
+            digest.update(data: bytes)
+        }
+        let hash = digest.finalize().map { String(format: "%02x", $0) }.joined()
+        guard hash == request.sha256 else { throw LocalUpdateError.message("The saved update failed verification. Download it again.") }
+
+        let directory = installed.deletingLastPathComponent().appendingPathComponent(".vupio-update-" + UUID().uuidString)
+        do {
+            try manager.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        } catch {
+            throw LocalUpdateError.message("VUPIO cannot update its app folder. Use an administrator account or the full installer.")
+        }
+        do {
+            try run("/usr/bin/ditto", ["-x", "-k", archive.path, directory.path])
+            let unpacked = directory.appendingPathComponent("VUPIO.app")
+            guard version(of: unpacked) == request.build else { throw LocalUpdateError.message("Unexpected update build.") }
+            let models = "Contents/Resources/Models"
+            try run("/bin/cp", ["-cRP", installed.appendingPathComponent(models).path, unpacked.appendingPathComponent(models).path])
+            let staged = directory.appendingPathComponent(installed.lastPathComponent)
+            if staged != unpacked { try manager.moveItem(at: unpacked, to: staged) }
+            _ = try LocalRelease.codeHash(of: staged)
+            return staged
+        } catch {
+            try? manager.removeItem(at: directory)
+            throw error
+        }
+    }
+
     static func version(of app: URL) -> Int? {
         let plist = app.appendingPathComponent("Contents/Info.plist")
         guard let data = try? Data(contentsOf: plist),

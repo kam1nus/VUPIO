@@ -117,9 +117,12 @@
         <div class="pagehead"><div><h1>Updates</h1><p id="currentBuild" class="muted"></p></div></div>
         <article class="panel stack">
           <h2>VUPIO preview releases</h2>
-          <p class="muted">Check for the latest release for your computer.</p>
+          <p class="muted">App updates use your installed audio driver and bundled AI models.</p>
+          <label class="check" id="autoUpdateOption" hidden><input id="autoUpdate" type="checkbox" checked> Download app updates automatically</label>
           <div class="row wrap"><button id="checkPublicUpdate" class="primary" data-icon="refresh">Check for updates</button><a href="https://github.com/kam1nus/VUPIO/releases" target="_blank" rel="noopener noreferrer">All GitHub releases ↗</a></div>
-          <p id="publicUpdateStatus" class="inlineStatus" role="status" hidden></p><div id="publicUpdateDownload"></div>
+          <p id="publicUpdateStatus" class="inlineStatus" role="status" hidden></p>
+          <progress id="publicUpdateProgress" max="1" aria-label="App update download" hidden></progress>
+          <div class="row wrap"><button id="downloadAppUpdate" hidden>Download app update</button><button id="installAppUpdate" class="primary" hidden>Install update</button><span id="publicUpdateDownload"></span></div>
         </article>
         <article class="panel stack nativeOnly"><h2>Local Mac builds</h2><p class="muted">For builds connected to a local update folder.</p><div><button id="checkUpdates" data-icon="refresh">Check local channel</button></div><p id="updateStatus" class="inlineStatus" role="status" hidden></p></article>
         <article class="panel stack"><h2>What's new</h2><p>Trend Radar checks and preloads meme sounds, replaces unavailable entries and adds ready sounds to Soundboard with one click.</p></article>
