@@ -16,6 +16,7 @@ import certifi
 
 REPO = 'https://github.com/kam1nus/VUPIO'
 RELEASES = 'https://api.github.com/repos/kam1nus/VUPIO/releases?per_page=20'
+FEED = 'https://raw.githubusercontent.com/kam1nus/VUPIO/update-feed/vupio-updates.json'
 ASSET_HOSTS = {'github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com'}
 MAX_UPDATE = 1024 * 1024 * 1024
 HASH = r'[0-9a-f]{64}'
@@ -98,6 +99,22 @@ def bundled_model_hash():
     return None
 
 
+def check_releases(platform, models_hash):
+    # The static channel is independent of GitHub's per-IP REST request limit.
+    for url, host in [(FEED, 'raw.githubusercontent.com'), (RELEASES, 'api.github.com')]:
+        try:
+            with open_release(url, {host}, 8) as response:
+                raw = response.read(2_000_001)
+            if len(raw) > 2_000_000:
+                raise ValueError('Large release response.')
+            result = select_release(json.loads(raw), platform, models_hash)
+            if result[0]:
+                return result
+        except (OSError, ValueError, TypeError):
+            continue
+    raise ValueError('Could not check GitHub. Try again or open GitHub Releases.')
+
+
 def sha256(path):
     with path.open('rb') as file:
         return hashlib.file_digest(file, 'sha256').hexdigest()
@@ -143,15 +160,7 @@ class Updates:
             if self.state == 'downloading' or self.installing or (
                     self.checked_at is not None and time.monotonic() - self.checked_at < 300):
                 return self.info()
-            try:
-                with open_release(RELEASES, {'api.github.com'}, 8) as response:
-                    raw = response.read(2_000_001)
-                if len(raw) > 2_000_000:
-                    raise ValueError('Large release response.')
-                releases = json.loads(raw)
-                latest, full, asset = select_release(releases, self.platform, self.models_hash)
-            except (OSError, ValueError, TypeError):
-                raise ValueError('Could not check GitHub. Try again or open GitHub Releases.') from None
+            latest, full, asset = check_releases(self.platform, self.models_hash)
             if asset != self.asset:
                 self.state = 'idle'
                 self.received = 0

@@ -103,6 +103,9 @@ jobs:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
     needs: [windows, macos]
     runs-on: ubuntu-24.04
+    concurrency:
+      group: vupio-public-release
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -136,3 +139,11 @@ jobs:
             --title "VUPIO Alpha · build $build" --notes-file /tmp/vupio-release-notes \
             "${assets[@]}" SHA256SUMS.txt
           gh release edit "$tag" --draft=false
+          python3 ../scripts/write_update_feed.py "$tag" "${assets[@]}" > /tmp/vupio-updates.json
+          endpoint="repos/$GITHUB_REPOSITORY/contents/vupio-updates.json"
+          current=$(gh api "$endpoint?ref=update-feed")
+          current_build=$(jq -r '.content' <<< "$current" | base64 -d | jq -er '.[0].tag_name | sub("^alpha-"; "") | tonumber')
+          if (( build > current_build )); then
+            gh api --method PUT "$endpoint" -f branch=update-feed -f message="Point VUPIO updates to $tag" \
+              -f sha="$(jq -er .sha <<< "$current")" -f content="$(base64 -w0 /tmp/vupio-updates.json)" --silent
+          fi

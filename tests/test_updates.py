@@ -7,7 +7,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from mimic.updates import REPO, ReleaseRedirect, Updates, select_release
+from mimic.updates import FEED, RELEASES, REPO, ReleaseRedirect, Updates, check_releases, select_release
 
 MODELS = 'a' * 64
 BODY = b'new build archive'
@@ -49,6 +49,15 @@ class UpdateTests(unittest.TestCase):
         for url in ['https://example.org/file', 'http://github.com/file', 'https://github.com@evil.example/file']:
             with self.subTest(url=url), self.assertRaisesRegex(ValueError, 'unexpected'):
                 ReleaseRedirect({'github.com'}).redirect_request(None, None, 302, '', None, url)
+
+    def test_static_feed_avoids_rest_limit_and_falls_back_when_unavailable(self):
+        data = json.dumps([release(4055)]).encode()
+        with patch('mimic.updates.open_release', return_value=io.BytesIO(data)) as network:
+            self.assertEqual(check_releases('darwin', MODELS)[0], 4055)
+            network.assert_called_once_with(FEED, {'raw.githubusercontent.com'}, 8)
+        with patch('mimic.updates.open_release', side_effect=[OSError('offline'), io.BytesIO(data)]) as network:
+            self.assertEqual(check_releases('darwin', MODELS)[0], 4055)
+            self.assertEqual(network.call_args.args[0], RELEASES)
 
     def wait_for(self, service, state):
         for _ in range(100):
