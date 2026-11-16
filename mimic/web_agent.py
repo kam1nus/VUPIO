@@ -202,6 +202,26 @@ class WebAgent:
             row['description']='Public soundboard result from Myinstants.'
             rows.append(row)
         return rows
+
+    def topic_soundboard_search(self, subject, job):
+        rows = self.soundboard_search(subject, job)
+        words = re.findall(r'[^\W\d_]+', subject)
+        if len(rows) >= 3 or len(words) < 2 or len(words[-1]) < 6:
+            return rows
+
+        # Soundboard search may index a clip by surname or tag alone.
+        try:
+            extra = self.soundboard_search(words[-1], job)
+        except (OSError, ValueError):
+            if not rows:
+                raise
+            return rows
+
+        unique = {}
+        for row in rows + extra:
+            unique.setdefault(topic_key(row), row)
+        return list(unique.values())[:8]
+
     def topic_results(self, subject, cyrillic, job):
         web_terms = subject + (' \u043c\u0435\u043c\u044b \u0440\u0435\u0430\u043a\u0446\u0438\u0438 \u043d\u0430\u0440\u0435\u0437\u043a\u0438' if cyrillic else ' memes reactions clips')
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
@@ -275,7 +295,8 @@ class WebAgent:
                 rows=self.provider.search(terms+suffix)
         except (OSError,ValueError) as primary_error:
             try:
-                rows=self.soundboard_search(terms,job)
+                rows=(self.topic_soundboard_search(subject, job) if subject
+                      else self.soundboard_search(terms,job))
             except (OSError,ValueError) as fallback_error:
                 raise ValueError(f'{primary_error} Myinstants is also unavailable. Paste a sound link or try Audio catalogs.') from fallback_error
             fallback_notice='Tavily was unavailable. Searched Myinstants directly.'

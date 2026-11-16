@@ -4,6 +4,8 @@
  const region=by('radarRegion'),source=by('radarSource'),refresh=by('radarRefresh');
  const results=by('radarResults'),heading=by('radarHeading');
  const controls=[...kinds,region,source,refresh];
+ const radarDiagnostics=diagnosticsButton('Trend Radar','Trend Radar provider');
+ by('radarStatus').after(radarDiagnostics);
  let kind='memes',lastKey='',loadedAt=0,busy=false,previewRequest=0;
  let cards=[],selection=null,checking=false;
 
@@ -18,8 +20,9 @@
       batch.notice,
       batch.shown<batch.limit?'Playable sounds: '+batch.shown+'.':'',
       batch.failed?'Unavailable sounds skipped: '+batch.failed+'.':'',
-      !batch.shown&&batch.lastError?batch.lastError:'',
+      !batch.shown&&batch.lastError?batch.lastError.message:'',
      ].filter(Boolean).join(' '),!batch.shown&&Boolean(batch.failed));
+     if(!batch.shown&&batch.lastError)setDiagnostic(radarDiagnostics,batch.lastError,'Trend Radar preload');
      selection=null;
      break;
     }
@@ -39,12 +42,13 @@
     }catch(error){
      result?.dispose?.();
      if(selection!==batch)continue;
-     batch.failed++;batch.lastError=error.message;
+     batch.failed++;batch.lastError=error;
      batch.denied=error.code==='source_forbidden'?batch.denied+1:0;
      // A dead sound is replaced. A shared DNS/network/rate limit is reported
      // immediately instead of repeating the same failure for thirty cards.
      if(['network_dns','network_connect','network_timeout','source_rate_limit'].includes(error.code)||batch.denied>=3){
       status('radarStatus',[batch.notice,'Playable sounds: '+batch.shown+'.',error.message,'Refresh after the connection is restored.'].filter(Boolean).join(' '),true);
+      setDiagnostic(radarDiagnostics,error,'Trend Radar preload');
       selection=null;break;
      }
     }
@@ -76,6 +80,8 @@
   const options={target:error};
   const card={el};
   if(row.source_id){
+   const diagnostics=diagnosticsButton('Trend Radar','myinstants.com');
+   const action=stage=>({...options,onError:e=>setDiagnostic(diagnostics,e,stage)});
    const readiness=node('small',initial?.item?'In library':'Ready to preview','availability');
    const abort=new AbortController();
    let pending,prepared=initial,blobUrl;
@@ -119,11 +125,13 @@
 
    actions.append(button('Preview',async()=>{
     status(error);
+    setDiagnostic(diagnostics);
     const request=++previewRequest,version=previewVersion,r=await prepare();
     if(el.isConnected&&view==='radar'&&version===previewVersion&&request===previewRequest)
      await playPreview(blobUrl||media(r),r.item?.title||row.title,r.item?.id);
-   },{...options,glyph:'play'}),button('Add',async()=>{
+   },{...action('Trend Radar preview'),glyph:'play'}),button('Add',async()=>{
     status(error);
+    setDiagnostic(diagnostics);
     const r=await prepare();
     readiness.textContent=r.item?'In library':'Adding…';
     try{
@@ -136,12 +144,13 @@
      readiness.textContent='Ready to preview';
      throw e;
     }
-   },{...options,cls:'primary',glyph:'plus'}),button('Open in Studio',async()=>{
+   },{...action('Trend Radar add'),cls:'primary',glyph:'plus'}),button('Open in Studio',async()=>{
     status(error);
+    setDiagnostic(diagnostics);
     const r=await prepare();
     if(!el.isConnected||view!=='radar')return;
     if(r.item)await openStudio(r.item.id);else await openExternal(r);
-   },{...options,glyph:'edit'}));
+   },{...action('Trend Radar open in Studio'),glyph:'edit'}),diagnostics);
   }else{
    const add=button('Add',null,{glyph:'plus'});
    add.disabled=true;
@@ -174,6 +183,7 @@
    data.warning,data.stale?'Showing cached results.':'',
    !count&&!data.warning?(data.chart?'The chart is empty.':'No matching public videos or sound pages. Try another country or platform.'):'',
   ].filter(Boolean).join(' '),Boolean(data.warning&&!count));
+  if(data.warning&&!count)setDiagnostic(radarDiagnostics,{},'Trend Radar chart');
   clearCards();
   if(data.playable_chart&&count){
    selection={rows:data.rows.filter(row=>row.source_id),category,index:0,shown:0,failed:0,denied:0,lastError:'',limit:data.limit,
@@ -189,6 +199,7 @@
   const key=[kind,region.value,source.value].join('/');
   if(busy||(!force&&key===lastKey&&Date.now()-loadedAt<300000))return;
   busy=true;
+  setDiagnostic(radarDiagnostics);
   controls.forEach(el=>el.disabled=true);
   results.setAttribute('aria-busy','true');
   if(key!==lastKey)heading.hidden=true;
@@ -201,7 +212,7 @@
    render(data,kind==='memes'?'Meme':'Music');
    lastKey=key;
    loadedAt=Date.now();
-  }catch(e){status('radarStatus',e.message,true);}
+  }catch(e){status('radarStatus',e.message,true);setDiagnostic(radarDiagnostics,e,'Trend Radar chart');}
   finally{
    busy=false;
    results.removeAttribute('aria-busy');

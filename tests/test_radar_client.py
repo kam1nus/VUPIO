@@ -12,14 +12,15 @@ class RadarClientTests(unittest.TestCase):
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync('web/radar.js','utf8');
 async function scenario(code,expectedCalls){
- const elements=new Map(),events={},states=[];let clipCalls=0;
+ const elements=new Map(),events={},states=[],diagnostics=[];let clipCalls=0;
  const element=id=>{if(!elements.has(id))elements.set(id,{
   value:id==='radarRegion'?'us':'chart',dataset:{kind:'memes'},hidden:false,
-  querySelectorAll:()=>[],replaceChildren(){},append(){},setAttribute(){},removeAttribute(){},
+  querySelectorAll:()=>[],replaceChildren(){},append(){},after(){},setAttribute(){},removeAttribute(){},
   addEventListener(name,fn){this[name]=fn;}
  });return elements.get(id);};
  const context={by:element,view:'radar',document:{addEventListener(name,fn){events[name]=fn;}},
   status:(id,text,error)=>states.push({text,error}),link:()=>({}),
+  diagnosticsButton:()=>({}),setDiagnostic:(button,error,stage)=>{if(error)diagnostics.push({code:error.code,stage});},
   runJob:async(kind)=>{
    if(kind==='radar')return {title:'Myinstants',chart:true,playable_chart:true,limit:10,days:1,day:'2026-11-07',source_url:'https://www.myinstants.com/',rows:Array.from({length:5},(_,i)=>({source_id:String(i)}))};
    clipCalls++;const error=Error(code==='source_missing'?'Sound unavailable (HTTP 404)':code==='source_forbidden'?'Source denied download (HTTP 403)':'VPN DNS unavailable');error.code=code;throw error;
@@ -29,6 +30,7 @@ async function scenario(code,expectedCalls){
  for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));
  assert.equal(clipCalls,expectedCalls);
  assert.equal(states.at(-1).error,true);
+ assert.deepEqual(diagnostics.at(-1),{code,stage:'Trend Radar preload'});
  assert.match(states.at(-1).text,code==='source_missing'?/Unavailable sounds skipped: 5/:code==='source_forbidden'?/Source denied download/:/VPN DNS unavailable/);
 }
 (async()=>{await scenario('network_dns',1);await scenario('source_forbidden',3);await scenario('source_missing',5);console.log('Radar error-state checks passed');})().catch(error=>{console.error(error);process.exitCode=1;});

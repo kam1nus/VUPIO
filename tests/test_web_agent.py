@@ -78,6 +78,19 @@ class WebAgentTests(unittest.TestCase):
        patch('mimic.radar.read_feed',side_effect=OSError('offline')):
    with self.assertRaisesRegex(ValueError,'Myinstants is also unavailable.*Audio catalogs'):
     f.search({'scope':'web','query':'ankara messi'},Job())
+
+ def test_topic_fallback_broadens_sparse_results_and_deduplicates_locales(self):
+  f=self.finder()
+  first=web_row('https://www.myinstants.com/en/instant/clip-one/', 'First quote', 'Myinstants')
+  duplicate=web_row('https://www.myinstants.com/ru/instant/clip-one/', 'First quote', 'Myinstants')
+  second=web_row('https://www.myinstants.com/en/instant/clip-two/', 'Second quote', 'Myinstants')
+  with patch.object(f.web.provider,'search',side_effect=ValueError('Tavily denied keyless access.')), \
+       patch.object(f.web,'soundboard_search',side_effect=[[first],[duplicate,second]]) as fallback:
+   result=f.search({'scope':'web','query':'Мемы с Арсеном Маркаряном'},Job())
+  self.assertEqual([call.args[0] for call in fallback.call_args_list], ['Арсен Маркарян','Маркарян'])
+  self.assertEqual(result['providers'],{'myinstants':2})
+  self.assertEqual([row['title'] for row in result['external']], ['First quote','Second quote'])
+  self.assertTrue(all(row['topic_search'] and row['can_import'] for row in result['external']))
  def test_model_cannot_invent_results_or_download_permission(self):
   class Model(NoModel):
    def path(self,*a):return Path('/unused')

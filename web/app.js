@@ -27,20 +27,49 @@ function icon(name){
  svg.setAttribute('class','icon');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.7');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');svg.innerHTML=icons[name]||icons.wave;return svg;
 }
 function node(tag,text,cls){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;}
-function button(text,fn,{cls='',glyph='',label='',target}={}){
- const b=node('button',text,cls);b.type='button';if(glyph)b.prepend(icon(glyph));if(label){b.setAttribute('aria-label',label);b.title=label;}if(fn)bind(b,fn,target);return b;
+function button(text,fn,{cls='',glyph='',label='',target,onError}={}){
+ const b=node('button',text,cls);b.type='button';if(glyph)b.prepend(icon(glyph));if(label){b.setAttribute('aria-label',label);b.title=label;}if(fn)bind(b,fn,target,onError);return b;
 }
 function status(target,text='',error=false){const el=typeof target==='string'?by(target):target;if(!el)return;el.hidden=!text;el.textContent=text;el.classList.toggle('error',error);}
 let toastTimer;
 function notify(text,error=false){status('toast',text,error);clearTimeout(toastTimer);toastTimer=setTimeout(()=>status('toast'),error?7500:3200);}
-function bind(target,fn,errorTarget){
+function bind(target,fn,errorTarget,onError){
  const el=typeof target==='string'?by(target):target;
- el.addEventListener('click',async e=>{e.preventDefault();if(el.disabled)return;el.disabled=true;try{await fn(e);}catch(err){if(errorTarget)status(errorTarget,err.message,true);else notify(err.message,true);}finally{el.disabled=false;}});
+ el.addEventListener('click',async e=>{e.preventDefault();if(el.disabled)return;el.disabled=true;try{await fn(e);}catch(err){if(errorTarget)status(errorTarget,err.message,true);else notify(err.message,true);onError?.(err);}finally{el.disabled=false;}});
 }
 async function api(path,data){
  const res=await fetch('/api/'+path,data===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
  const body=await res.json();
  if(!res.ok){const err=Error(body.error||'Request failed');err.code=res.status;throw err;}return body;
+}
+function diagnosticsButton(stage,source){
+ const copy=button('Copy diagnostics',async()=>{
+  const code=copy.dataset.errorCode||'unclassified';
+  const report=['VUPIO build '+(currentBuild??'unknown'),
+   'Platform: '+(/Win/i.test(navigator.platform)?'Windows':/Mac/i.test(navigator.platform)?'macOS':'Other'),
+   'Stage: '+(copy.dataset.stage||stage),'Source: '+source,'Error code: '+code].join('\n');
+  if(navigator.clipboard?.writeText){
+   try{await navigator.clipboard.writeText(report);notify('Diagnostics copied');return;}catch{}
+  }
+  const field=node('textarea');field.value=report;field.readOnly=true;
+  field.setAttribute('aria-label','Diagnostics');document.body.append(field);field.select();
+  try{if(!document.execCommand('copy'))throw Error('Could not copy diagnostics');}
+  finally{field.remove();}
+  notify('Diagnostics copied');
+ },{cls:'quiet'});
+ copy.hidden=true;
+ return copy;
+}
+function setDiagnostic(button,error,stage){
+ const codes=['private_address','network_dns','network_timeout','network_connect',
+  'source_forbidden','source_rate_limit','source_missing','source_http'];
+ button.dataset.errorCode=codes.includes(error?.code)?error.code:'unclassified';
+ button.dataset.stage=stage||'';
+ button.hidden=!error||Boolean(error.cancelled);
+}
+function diagnosticSource(host){
+ const providers=['myinstants.com','tuna.voicemod.net','quicksounds.com','uwupad.me','archive.org','commons.wikimedia.org','openverse.org'];
+ return providers.includes(host)?host:'External source';
 }
 function fmt(t,precise=false){
  if(!Number.isFinite(t)||t<0)return '—';
@@ -67,11 +96,11 @@ async function runJob(kind,data={},onProgress,pollMs=850){
   const job=await api('ai/job/'+id);
   onProgress?.(job);
   if(job.status==='done')return job.result;
-  if(job.status==='failed'||job.status==='cancelled'){const error=Error(job.error||'Task cancelled');error.code=job.result?.error_code||'';throw error;}
+  if(job.status==='failed'||job.status==='cancelled'){const error=Error(job.error||'Task cancelled');error.code=job.result?.error_code||'';error.cancelled=job.status==='cancelled';throw error;}
   await pause(pollMs);
  }
 }
-let role='',items=[],audio={},revision=null,previewEpoch=null,view='soundboard',syncing;
+let role='',items=[],audio={},revision=null,previewEpoch=null,view='soundboard',syncing,currentBuild;
 const preview=new Audio();
 preview.preload='metadata';
 let previewClip=null,launchingClip=null,audioVersion=0,requestedVolume=null,previewVersion=0;
@@ -195,7 +224,7 @@ function sync(){
   const version=audioVersion;
   const data=await api('state'),newRole=role!==data.role;
   role=data.role;
-  if(data.build)by('currentBuild').textContent='Installed build '+data.build;
+  if(data.build){currentBuild=data.build;by('currentBuild').textContent='Installed build '+data.build;}
   if(version===audioVersion)audio=data.audio;
   if(previewEpoch!==null&&previewEpoch!==data.preview_stop_epoch)stopPreview();
   previewEpoch=data.preview_stop_epoch;

@@ -95,9 +95,8 @@ jobs:
           cd release
           sha256sum VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Search Myinstants directly when Tavily denies access, runs out of credits, or is unreachable.
-          - Keep Preview and Add available for fallback results and show which source was used.
-          - Explain the next steps when both services are unavailable and clarify the keyless request counter.
+          - Broaden sparse topic searches on Myinstants when Tavily is unavailable.
+          - Copy build, platform and failure details from Discover and Trend Radar without sharing search terms, private links or credentials.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

@@ -2,6 +2,8 @@
 (() => {
  let local=[],web=[],catalogs=[],searched=false,busy=false,historyKey='',previewRequest,usageRequest=0;
  const webCards=new Map();
+ const searchDiagnostics=diagnosticsButton('Discover search','Discover search providers');
+ by('discoverStatus').after(searchDiagnostics);
  async function refreshUsage(){
   const request=++usageRequest;
   const usage=await api('ai/web-usage').catch(()=>null);
@@ -93,10 +95,13 @@
   }else if(!i.can_import){
    actions.append(link('Open source ↗',i.page_url));
   }else{
+   const diagnostics=diagnosticsButton('Discover',diagnosticSource(source));
+   const action=stage=>({...opts,onError:e=>setDiagnostic(diagnostics,e,stage)});
    const body=()=>({source_id:i.source_id,category:by('importCategory').value,fast_preview:true});
    let pending,added=false;
    async function prepare(){
     status(error);
+    setDiagnostic(diagnostics);
     pending??=task(Symbol(),'fetch',{...body(),add:false}).catch(err=>{pending=null;throw err;});
     const r=await pending;
     heading.textContent=r.item?.title||r.metadata.title;
@@ -113,9 +118,10 @@
     if(!card.isConnected||view!=='discover'||previewRequest!==request||previewVersion!==version)return;
     await playPreview(r.item?'/api/file/'+r.item.id:r.preview_url,heading.textContent,r.item?.id);
     if(r.asset_id&&!added)addBtn.hidden=false;
-   },{...opts,glyph:'play'});
+   },{...action('Discover preview'),glyph:'play'});
    const addBtn=button('Add clip',async()=>{
     status(error);
+    setDiagnostic(diagnostics);
     const draft=await pending;
     const r=await task(Symbol(),'fetch_commit',{asset_id:draft.asset_id});
     added=true;
@@ -124,16 +130,17 @@
     state.textContent='In library · '+fmt(r.item.duration,true);
     await sync();
     notify(r.duplicate?'This sound is already in your library':'Added: '+r.item.title);
-   },{...opts,cls:'primary',glyph:'plus'});
+   },{...action('Discover add'),cls:'primary',glyph:'plus'});
    addBtn.hidden=true;
    const editBtn=button('Edit full audio',async()=>{
     status(error);
+    setDiagnostic(diagnostics);
     let r=pending?await pending:null;
     if(!r?.asset_id)r=await task(Symbol(),'fetch',{...body(),add:false,full_audio:true});
     if(!card.isConnected||view!=='discover')return;
     await openExternal(r,undefined,true);
-   },{...opts,glyph:'edit'});
-   actions.append(previewBtn,addBtn,editBtn);
+   },{...action('Discover open in Studio'),glyph:'edit'});
+   actions.append(previewBtn,addBtn,editBtn,diagnostics);
   }
   card.append(badge,detail,actions);error.classList.add('resultError');card.append(error);
   if(!isLocal){
@@ -171,6 +178,7 @@
  document.addEventListener('mimic:jobs',e=>showHistory(e.detail.finder_history));
  async function search(quick=false){
   if(busy)return;
+  setDiagnostic(searchDiagnostics);
   const body=options(),isLink=/^https?:\/\//i.test(body.query);
   const useWeb=isLink||by('webSource').checked,useCatalogs=!isLink&&by('catalogSource').checked,useLocal=!isLink&&by('localSource').checked;
   if(isLink)quick=false;
@@ -193,7 +201,9 @@
     return;
    }
    const requests=[];
-   const load=(key,kind,data,apply,onProgress)=>requests.push(task(key,kind,data,onProgress).then(r=>{apply(r);groups();}).catch(e=>errors.push(e.message)));
+   const load=(key,kind,data,apply,onProgress)=>requests.push(task(key,kind,data,onProgress).then(r=>{apply(r);groups();}).catch(e=>{
+    errors.push(e.message);setDiagnostic(searchDiagnostics,e,'Discover '+key+' search');
+   }));
    let partialKey='';
    if(useWeb)load('web','internet_search',{...body,scope:'web',progressive:true},r=>{
     web=r.external||[];fallbackNotice=r.fallback_notice||'';showHistory(r.history);if(!web.length&&r.warnings?.length)errors.push(...r.warnings);
@@ -216,7 +226,7 @@
    else if(useWeb&&web.length&&!web.some(r=>r.can_import&&r.media_hint==='audio')&&!isLink)
     status('discoverStatus','No ready audio found yet. Paste an MP3 URL or an individual sound page.');
    else status('discoverStatus');
-  }catch(e){status('discoverStatus',e.message,true);}
+  }catch(e){status('discoverStatus',e.message,true);setDiagnostic(searchDiagnostics,e,quick?'Quick Add':undefined);}
   finally{busy=false;by('discoverGo').disabled=false;by('quickAdd').disabled=false;updateProgress();if(useWeb&&!isLink)refreshUsage();}
  }
  document.addEventListener('mimic:radar-search',({detail})=>{
