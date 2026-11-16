@@ -1,1 +1,36 @@
-[{"assets":[{"browser_download_url":"https://github.com/kam1nus/VUPIO/releases/download/alpha-4052/VUPIO-macOS-AppleSilicon.pkg","digest":"sha256:0a11096a5854190961d24d55b8275683ab8b6142489cbf12d7179cfdbe22dfe6","name":"VUPIO-macOS-AppleSilicon.pkg","size":874313916,"state":"uploaded"},{"browser_download_url":"https://github.com/kam1nus/VUPIO/releases/download/alpha-4052/VUPIO-Windows-x64-Setup.exe","digest":"sha256:1c589363e18d591ed40fe85f2f09af439edc1f97d40144d0a233249dff801e03","name":"VUPIO-Windows-x64-Setup.exe","size":937510413,"state":"uploaded"}],"draft":false,"tag_name":"alpha-4052"}]
+[
+  {
+    "tag_name": "alpha-4054",
+    "draft": false,
+    "assets": [
+      {
+        "name": "VUPIO-macOS-AppleSilicon.pkg",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4054/VUPIO-macOS-AppleSilicon.pkg",
+        "size": 874322829,
+        "digest": "sha256:bd310a5894d65794bfc1bd5cc4bb15291b43affa3b7911ec0e00676dc474844d"
+      },
+      {
+        "name": "VUPIO-Windows-x64-Setup.exe",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4054/VUPIO-Windows-x64-Setup.exe",
+        "size": 937519841,
+        "digest": "sha256:dbba51c8d85b13902333214e3935673356a764c7a38fdadbb106601742c11d3e"
+      },
+      {
+        "name": "VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4054/VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
+        "size": 46597918,
+        "digest": "sha256:918ef3dd637d674ca7b2c77380a09d08f082a52918518947a08f2417a853afc4"
+      },
+      {
+        "name": "VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4054/VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
+        "size": 107729522,
+        "digest": "sha256:9a45ec9beafc1f38c432a7b76c82bbb0a9528a8920bf5343f97c719c19c0dbbf"
+      }
+    ]
+  }
+]
