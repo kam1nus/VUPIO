@@ -67,6 +67,13 @@ main{overflow:auto;outline:none!important;scrollbar-gutter:stable}
 .card h3{overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card .cardTrigger{position:absolute;inset:0;padding:0;border:0;border-radius:inherit;background:transparent}
 .card .fav,.card .tools button{position:relative;z-index:1}
+.cardOrder{display:flex;align-items:center;gap:2px;flex-shrink:0;position:relative;z-index:1}
+.cardOrder button{min-height:30px;padding:5px 6px}
+.cardGrip{cursor:grab;color:var(--muted)}
+.cardGrip:active{cursor:grabbing}
+.card.dragging{opacity:.55}
+.card.dropTarget{outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.boardOrderHelp{font-size:var(--small);margin:0 0 var(--s3)}
 .card:has(.cardTrigger:hover){border-color:#50555f;background:var(--raise)}
 .card.playing{border-color:var(--accent);background:var(--accent-soft)}
 .fav[aria-pressed=true]{color:var(--accent)}.fav[aria-pressed=true] svg{fill:currentColor}

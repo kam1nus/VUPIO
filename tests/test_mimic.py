@@ -148,6 +148,25 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.audio.calls[-1][0],'panic')
         self.assertEqual(self.req('/api/volume',{'value':.2},self.remote)[0],200)
         self.assertEqual(self.req('/api/volume',{'value':8},self.remote)[0],400)
+
+    def test_favorite_and_custom_card_order_survive_reopening_the_library(self):
+        library = self.app.library
+        # Existing clips have no manual order. Seed them as an old library would.
+        with library.db() as db:
+            db.executemany('INSERT INTO clips (id,title,favorite) VALUES (?,?,0)',
+                           [(id, id) for id in ('first','middle','last')])
+        def board(token):
+            return [item['id'] for item in self.req('/api/state',token=token)[1]['items']]
+        self.assertEqual(board(self.admin),['last','middle','first'])
+        self.assertEqual(self.req('/api/favorite',{'id':'first','favorite':True},self.admin)[0],200)
+        self.assertEqual(board(self.remote),['first','last','middle'])
+        self.assertEqual(self.req('/api/board/swap',{'source':'first','target':'last'},self.admin)[0],400)
+        payload={'source':'last','target':'middle'}
+        self.assertEqual(self.req('/api/board/swap',payload,self.remote)[0],403)
+        self.assertEqual(self.req('/api/board/swap',payload,self.admin)[0],200)
+        self.assertEqual(board(self.remote),['first','middle','last'])
+        self.assertEqual(self.req('/api/favorite',{'id':'first','favorite':False},self.admin)[0],200)
+        self.assertEqual([item['id'] for item in Library(library.root).items()],['middle','last','first'])
     def test_volume_persists_without_enabling_microphone(self):
         self.req('/api/volume',{'value':.42},self.remote)
         replacement=FakeAudio()

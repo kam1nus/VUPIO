@@ -130,8 +130,9 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}")
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Download compatible app updates from GitHub in VUPIO's Updates screen. App updates reuse the installed audio driver and bundled models.
-          - Broaden sparse topic searches and copy diagnostic details from Discover and Trend Radar.
+          - Star a sound to show it in Favorites at the top of the Soundboard.
+          - Drag the handle to swap cards within Favorites or the rest of the board. Use the arrow keys on a focused handle to move it with the keyboard.
+          - The saved order also appears on the phone remote. VUPIO 4054 can install this as an app update from Updates.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

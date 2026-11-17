@@ -18,6 +18,9 @@ def run(args, timeout=180):
     return p.stdout
 
 
+BOARD_ORDER = 'p.position IS NOT NULL, p.position, c.rowid DESC'
+
+
 class Library:
     def __init__(self, root):
         self.root = Path(root)
@@ -30,6 +33,7 @@ class Library:
                  description TEXT, favorite INTEGER DEFAULT 0, duration REAL,
                  filename TEXT, license TEXT DEFAULT '')''')
             db.execute('CREATE TABLE IF NOT EXISTS vectors (key TEXT PRIMARY KEY, value TEXT)')
+            db.execute('CREATE TABLE IF NOT EXISTS board_positions (id TEXT PRIMARY KEY, position INTEGER NOT NULL)')
 
     @contextmanager
     def db(self):
@@ -43,7 +47,26 @@ class Library:
 
     def items(self):
         with self.db() as db:
-            return [dict(r) for r in db.execute('SELECT * FROM clips ORDER BY rowid DESC')]
+            return [dict(row) for row in db.execute(
+                'SELECT c.* FROM clips c LEFT JOIN board_positions p ON p.id=c.id '
+                f'ORDER BY c.favorite DESC, {BOARD_ORDER}')]
+
+    def swap_cards(self, source, target):
+        if not isinstance(source, str) or not isinstance(target, str) or source == target:
+            raise ValueError('Choose two different Soundboard cards.')
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            cards = db.execute('SELECT c.id, c.favorite FROM clips c LEFT JOIN board_positions p ON p.id=c.id '
+                               f'ORDER BY {BOARD_ORDER}').fetchall()
+            indexes = {row['id']: index for index, row in enumerate(cards)}
+            if source not in indexes or target not in indexes:
+                raise ValueError('A card was removed. Try again with two cards still on the board.')
+            first, second = indexes[source], indexes[target]
+            if bool(cards[first]['favorite']) != bool(cards[second]['favorite']):
+                raise ValueError('Use the star to move a card into or out of Favorites.')
+            cards[first], cards[second] = cards[second], cards[first]
+            db.executemany('INSERT OR REPLACE INTO board_positions VALUES (?,?)',
+                           ((row['id'], index) for index, row in enumerate(cards)))
 
     def get(self, id):
         with self.db() as db:
@@ -95,6 +118,7 @@ class Library:
         path = self.path(id)
         with self.db() as db:
             db.execute('DELETE FROM clips WHERE id=?', (id,))
+            db.execute('DELETE FROM board_positions WHERE id=?', (id,))
         path.unlink(missing_ok=True)
 
     def prepare(self, data):

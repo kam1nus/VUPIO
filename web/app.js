@@ -17,6 +17,7 @@ const icons={
  bolt:'<path d="M13 2 5 14h6l-1 8 9-12h-6z"/>',
  left:'<path d="m14 6-6 6 6 6"/>',right:'<path d="m10 6 6 6-6 6"/>',
  jobs:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+ grip:'<path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01" stroke-width="3"/>',
  volume:'<path d="M3 9h4l5-4v14l-5-4H3zM15 9a4 4 0 0 1 0 6m3-8a7 7 0 0 1 0 10"/>',
  qr:'<path d="M3 3h6v6H3zm12 0h6v6h-6zM3 15h6v6H3zm12 0h3v3h3v3h-6z"/>',
  refresh:'<path d="M20 11a8 8 0 1 0-2 6m2-13v7h-7"/>',
@@ -153,6 +154,80 @@ function show(viewID){
  document.dispatchEvent(new CustomEvent('mimic:view',{detail:view}));
 }
 let activeCategory='',favoritesOnly=false,query='',page=0,editing;
+let draggedCard, dropCard, swapping=false;
+
+function clearBoardDrag(){
+ draggedCard?.element.classList.remove('dragging');
+ dropCard?.classList.remove('dropTarget');
+ draggedCard=dropCard=null;
+}
+
+async function swapBoardCards(source,target,targetPage){
+ if(swapping)return;
+ swapping=true;
+ try{
+  await api('board/swap',{source,target});
+  if(targetPage!==undefined)page=targetPage;
+  if(syncing)await syncing.catch(()=>{});
+  await sync();
+  if(targetPage!==undefined&&view==='soundboard'){
+   const card=[...by('grid').children].find(el=>el.dataset.id===source);
+   card?.querySelector('.cardGrip')?.focus();
+  }
+ }catch(err){notify(err.message,true);}
+ finally{swapping=false;}
+}
+
+function boardGrip(item,card,filtered,index,perPage){
+ const grip=button('',null,{glyph:'grip',cls:'quiet cardGrip',label:'Reorder '+item.title});
+ grip.title='Drag to swap cards, or use the arrow keys';
+ grip.setAttribute('aria-describedby','boardOrderHelp');
+ grip.draggable=true;
+ grip.addEventListener('keydown',e=>{
+  const offset={ArrowUp:-1,ArrowLeft:-1,ArrowDown:1,ArrowRight:1}[e.key];
+  if(!offset)return;
+  e.preventDefault();
+  const next=filtered[index+offset];
+  if(next&&Boolean(next.favorite)===Boolean(item.favorite))
+   swapBoardCards(item.id,next.id,Math.floor((index+offset)/perPage));
+ });
+ grip.addEventListener('dragstart',e=>{
+  if(swapping||!e.dataTransfer){e.preventDefault();return;}
+  clearBoardDrag();
+  draggedCard={id:item.id,favorite:Boolean(item.favorite),element:card};
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',item.id);
+  e.dataTransfer.setDragImage(card,card.clientWidth/2,24);
+  card.classList.add('dragging');
+ });
+ grip.addEventListener('dragend',clearBoardDrag);
+ const canDrop=()=>draggedCard&&draggedCard.id!==item.id&&draggedCard.favorite===Boolean(item.favorite);
+ card.addEventListener('dragover',e=>{
+  if(!canDrop())return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  if(dropCard!==card){
+   dropCard?.classList.remove('dropTarget');
+   dropCard=card;
+   card.classList.add('dropTarget');
+  }
+ });
+ card.addEventListener('dragleave',e=>{
+  if(dropCard===card&&!card.contains(e.relatedTarget)){
+   card.classList.remove('dropTarget');
+   dropCard=null;
+  }
+ });
+ card.addEventListener('drop',e=>{
+  if(!canDrop())return;
+  e.preventDefault();
+  const source=draggedCard.id;
+  clearBoardDrag();
+  swapBoardCards(source,item.id);
+ });
+ return grip;
+}
+
 function categoryLabel(value){
  const legacy={'\u041c\u0435\u043c\u044b':'Memes','\u0422\u0440\u0435\u043a\u0438':'Tracks','\u042d\u0444\u0444\u0435\u043a\u0442\u044b':'Effects',
   '\u041c\u0443\u0437\u044b\u043a\u0430':'Music','\u0420\u0435\u0430\u043a\u0446\u0438\u0438':'Reactions'};
@@ -166,16 +241,19 @@ function libraryOptions(){
  by('category').value=activeCategory;
 }
 function renderLibrary(){
+ clearBoardDrag();
  const q=query.trim().toLocaleLowerCase();
  const filtered=items.filter(i=>(!activeCategory||i.category===activeCategory)&&(!favoritesOnly||i.favorite)&&(!q||[i.title,i.tags,i.category,i.description].join(' ').toLocaleLowerCase().includes(q)));
+ const favoriteCount=filtered.filter(i=>i.favorite).length;
  const perPage=role==='remote'?32:48,pages=Math.max(1,Math.ceil(filtered.length/perPage));page=Math.min(page,pages-1);
  by('librarySummary').textContent=items.length?(filtered.length===items.length?'Sounds in library: '+items.length:'Found '+filtered.length+' of '+items.length):'Your sound collection.';
  by('empty').hidden=Boolean(filtered.length);
  by('emptyTitle').textContent=items.length?'No results':'Your sounds will appear here';
  by('emptyDescription').textContent=items.length?'Try another query or reset the filters.':role==='admin'?'Add an audio file or find a meme in Discover.':'Add your first sound in VUPIO on your computer.';
+ by('boardOrderHelp').hidden=role!=='admin'||filtered.length<2;
  by('pages').hidden=pages<=1;by('pageText').textContent=(page+1)+' / '+pages;by('prevPage').disabled=page===0;by('nextPage').disabled=page+1>=pages;
  const frag=document.createDocumentFragment();
- for(const i of filtered.slice(page*perPage,(page+1)*perPage)){
+ for(const [offset,i] of filtered.slice(page*perPage,(page+1)*perPage).entries()){
   if(role==='remote'){
    const tile=button(i.title,()=>play(i.id),{cls:'card remoteTile'});
    tile.dataset.id=i.id;
@@ -185,9 +263,18 @@ function renderLibrary(){
   const card=node('article',undefined,'card');
   card.dataset.id=i.id;
   const trigger=button('',()=>play(i.id),{cls:'cardTrigger',label:'Play '+i.title});
-  const top=node('div',undefined,'split'),title=node('h3',i.title);
-  const fav=button('',async()=>{await api('favorite',{id:i.id,favorite:!i.favorite});await sync();},{glyph:'star',cls:'quiet fav',label:'Favorites: '+i.title});fav.setAttribute('aria-pressed',String(Boolean(i.favorite)));
-  top.append(title,fav);
+  const top=node('div',undefined,'split'),title=node('h3',i.title),order=node('div',undefined,'cardOrder');
+  const fav=button('',async()=>{
+   await api('favorite',{id:i.id,favorite:!i.favorite});
+   if(!i.favorite)page=0;
+   if(syncing)await syncing.catch(()=>{});
+   await sync();
+  },{glyph:'star',cls:'quiet fav',label:'Favorite: '+i.title});
+  fav.setAttribute('aria-pressed',String(Boolean(i.favorite)));
+  if((i.favorite?favoriteCount:filtered.length-favoriteCount)>1)
+   order.append(boardGrip(i,card,filtered,page*perPage+offset,perPage));
+  order.append(fav);
+  top.append(title,order);
   const tools=node('div',undefined,'tools');
   tools.append(button('Preview',()=>playPreview('/api/file/'+i.id,i.title,i.id)),button('Edit',()=>openStudio(i.id),{glyph:'edit',label:'Edit audio: '+i.title}),button('⋯',()=>openEditor(i),{label:'Details: '+i.title}));
   card.append(trigger,top,node('small',categoryLabel(i.category)+' · '+fmt(i.duration),'type'),tools);

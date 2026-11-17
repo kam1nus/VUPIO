@@ -435,6 +435,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/search':
                 return self.send(a.library.search(str(body.get('query',''))[:2000],bool(body.get('semantic'))))
             self.auth(True)
+            if path == '/api/board/swap':
+                a.library.swap_cards(body.get('source'), body.get('target'))
+                a.changed()
+                return self.send({'ok': True})
             if path == '/api/updates/download':
                 return self.send(a.updates.begin())
             if path == '/api/updates/install':
