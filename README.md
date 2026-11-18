@@ -4,15 +4,17 @@ VUPIO is a free, open-source soundboard for Discord on macOS and Windows. Find m
 
 [Official VUPIO website](https://vupio-soundboard.denserat4.chatgpt.site/) · [GitHub Releases](https://github.com/kam1nus/VUPIO/releases)
 
-## Download VUPIO Alpha 4056
+## Download VUPIO Alpha 4057
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-macOS-AppleSilicon.pkg)**
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-macOS-AppleSilicon.pkg)**
 
-Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4056) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/SHA256SUMS.txt)
+Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4057) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/SHA256SUMS.txt)
 
 ## Updates
 
 Starting with build 4054, **Updates** can download compatible app updates from GitHub in the background. Select **Install update** when ready, or turn background downloads off in Updates. App updates reuse the installed driver and bundled models. The full installer is available for first installs, model bundle changes, or when the app folder cannot be updated. Builds without the updater need to install a current full version once. Published previews are available in [GitHub Releases](https://github.com/kam1nus/VUPIO/releases).
+
+On Mac, build 4057 fixes the `Unexpected update build` error. Check for updates again to download the corrected build. For subsequent updates, VUPIO in the Applications folder opens macOS Installer for approval.
 
 The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote, Updates and Settings. Search queries, meme names and imported metadata can use their original languages. Search quality depends on the model and available sources.
 
