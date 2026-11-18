@@ -88,9 +88,11 @@ jobs:
           MIMIC_BUNDLE_MODELS=1 ./scripts/package.sh | tee build-vupio.log
           stage=$(sed -n 's/^Signature verified at //p' build-vupio.log | tail -1)
           test -d "$stage"
+          build=$(.venv/bin/python -c 'from mimic import BUILD; print(BUILD)')
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$stage/Contents/Info.plist")" = "$build"
           MIMIC_APP_BUNDLE="$stage" ./scripts/package_installer.sh
           ./scripts/package_mac_update.sh "$stage"
-          .venv/bin/python tests/mac_update_smoke.py "$stage" build/releases/VUPIO-macOS-AppleSilicon-Update-*.zip
+          .venv/bin/python tests/mac_update_smoke.py "$build" "$stage" build/releases/VUPIO-macOS-AppleSilicon-Update-*.zip
       - uses: actions/upload-artifact@v4
         with:
           name: VUPIO-macOS-AppleSilicon-preview
@@ -130,9 +132,9 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}")
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Discover tries public audio catalogs automatically when Tavily and Myinstants cannot return results.
-          - Discover respects Tavily's retry window after rate limiting and keeps the monthly request counter accurate.
-          - Compatible earlier builds can install this from Updates using the existing audio driver and models.
+          - Fixed the macOS build number so it matches the release tag and the updater can verify the archive.
+          - Future updates from the Applications folder open macOS Installer for approval when needed, using the existing driver and models.
+          - Includes Discover's automatic fallback to audio catalogs when Tavily and Myinstants cannot return results.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

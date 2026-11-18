@@ -252,7 +252,26 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         let installed = Bundle.main.bundleURL
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let staged = try LocalUpdate.stagePublicRequest(installed: installed)
+                let systemInstall = LocalUpdate.usesSystemInstaller(at: installed)
+                let staged = try LocalUpdate.stagePublicRequest(installed: installed,
+                    stagingParent: systemInstall ? FileManager.default.temporaryDirectory : nil)
+                if systemInstall {
+                    do {
+                        let package = try LocalUpdate.makeSystemInstaller(from: staged)
+                        DispatchQueue.main.async {
+                            if NSWorkspace.shared.open(package) {
+                                NSApplication.shared.terminate(nil)
+                            } else {
+                                try? FileManager.default.removeItem(at: package.deletingLastPathComponent())
+                                self.publicUpdateFailed(LocalUpdateError.message("Could not open the macOS Installer. Try again or use the full installer."))
+                            }
+                        }
+                    } catch {
+                        try? FileManager.default.removeItem(at: staged.deletingLastPathComponent())
+                        throw error
+                    }
+                    return
+                }
                 DispatchQueue.main.async {
                     do {
                         let serverPID = self.process.flatMap { $0.isRunning ? $0.processIdentifier : nil } ?? 0

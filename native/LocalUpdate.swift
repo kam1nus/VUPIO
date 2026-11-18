@@ -55,7 +55,11 @@ enum LocalUpdate {
         let sha256: String
     }
 
-    static func stagePublicRequest(installed: URL) throws -> URL {
+    static func usesSystemInstaller(at installed: URL) -> Bool {
+        installed.standardizedFileURL.path == "/Applications/VUPIO.app"
+    }
+
+    static func stagePublicRequest(installed: URL, stagingParent: URL? = nil) throws -> URL {
         let override = ProcessInfo.processInfo.environment["MIMIC_DATA"]
         let data = override.map { URL(fileURLWithPath: $0, isDirectory: true) } ??
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/MIMIC")
@@ -72,10 +76,10 @@ enum LocalUpdate {
             throw LocalUpdateError.message("The update request is not for a newer compatible build.")
         }
         let archive = cache.appendingPathComponent("vupio-\(request.build)-\(request.sha256).zip")
-        return try stagePublic(archive: archive, request: request, installed: installed)
+        return try stagePublic(archive: archive, request: request, installed: installed, stagingParent: stagingParent)
     }
 
-    static func stagePublic(archive: URL, request: PublicRequest, installed: URL) throws -> URL {
+    static func stagePublic(archive: URL, request: PublicRequest, installed: URL, stagingParent: URL? = nil) throws -> URL {
         let manager = FileManager.default
         let handle = try FileHandle(forReadingFrom: archive)
         defer { try? handle.close() }
@@ -86,7 +90,8 @@ enum LocalUpdate {
         let hash = digest.finalize().map { String(format: "%02x", $0) }.joined()
         guard hash == request.sha256 else { throw LocalUpdateError.message("The saved update failed verification. Download it again.") }
 
-        let directory = installed.deletingLastPathComponent().appendingPathComponent(".vupio-update-" + UUID().uuidString)
+        let parent = stagingParent ?? installed.deletingLastPathComponent()
+        let directory = parent.appendingPathComponent(".vupio-update-" + UUID().uuidString)
         do {
             try manager.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         } catch {
@@ -106,6 +111,33 @@ enum LocalUpdate {
             try? manager.removeItem(at: directory)
             throw error
         }
+    }
+
+    static func makeSystemInstaller(from staged: URL) throws -> URL {
+        guard staged.lastPathComponent == "VUPIO.app", let build = version(of: staged),
+              let version = Bundle(url: staged)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+            throw LocalUpdateError.message("Cannot prepare the installer for this app.")
+        }
+        _ = try LocalRelease.codeHash(of: staged)
+        let manager = FileManager.default
+        let directory = staged.deletingLastPathComponent()
+        let root = directory.appendingPathComponent("payload")
+        let applications = root.appendingPathComponent("Applications")
+        let components = directory.appendingPathComponent("components.plist")
+        let package = directory.appendingPathComponent("VUPIO-Update-\(build).pkg")
+        defer {
+            try? manager.removeItem(at: root)
+            try? manager.removeItem(at: components)
+        }
+        try manager.createDirectory(at: applications, withIntermediateDirectories: true)
+        try manager.moveItem(at: staged, to: applications.appendingPathComponent("VUPIO.app"))
+        let manifest: [[String: Any]] = [["RootRelativeBundlePath":"Applications/VUPIO.app",
+                                          "BundleIsRelocatable":false, "BundleIsVersionChecked":true]]
+        try PropertyListSerialization.data(fromPropertyList: manifest, format: .xml, options: 0).write(to: components)
+        try run("/usr/bin/pkgbuild", ["--root", root.path, "--install-location", "/", "--ownership", "recommended",
+                                      "--identifier", "local.mimic.app", "--version", version,
+                                      "--component-plist", components.path, package.path])
+        return package
     }
 
     static func version(of app: URL) -> Int? {

@@ -416,7 +416,10 @@ window.vupioPublicUpdateStatus=(message,error)=>{
  status(updateTarget,message,error);
 };
 bind('installAppUpdate',async()=>{
- if(publicInstalling||!confirm('Install the update now? Save any work in Studio before continuing.'))return;
+ const message=updateInfo?.platform==='darwin'
+  ?'Install the update now? Save your work in Studio. If macOS Installer opens, follow its steps, then reopen VUPIO.'
+  :'Install the update now? Save your work in Studio before continuing.';
+ if(publicInstalling||!confirm(message))return;
  publicInstalling=true;
  by('installAppUpdate').hidden=true;
  status(updateTarget,'Preparing the update…');
