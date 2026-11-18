@@ -1,35 +1,35 @@
 [
   {
-    "tag_name": "alpha-4056",
+    "tag_name": "alpha-4057",
     "draft": false,
     "assets": [
       {
         "name": "VUPIO-macOS-AppleSilicon.pkg",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-macOS-AppleSilicon.pkg",
-        "size": 874346960,
-        "digest": "sha256:d83df5046391dcd5869620de60c44120c9fb0869cbb1a7bf7cba59d81fb0f87e"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-macOS-AppleSilicon.pkg",
+        "size": 874332466,
+        "digest": "sha256:377b5cf19c726af8e2fec23e949a234637a734ea679f9f32260f4394393c9020"
       },
       {
         "name": "VUPIO-Windows-x64-Setup.exe",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-Windows-x64-Setup.exe",
-        "size": 937527457,
-        "digest": "sha256:5369f6a7553bbeb2f5611132a74bb3d59b24d95432852f26a0e8f4e7afe96f8f"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-Windows-x64-Setup.exe",
+        "size": 937526275,
+        "digest": "sha256:fd11ad56d32b158f92a1efbfcc705976e85f53211a8519bace228d1d04f9a61a"
       },
       {
         "name": "VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
-        "size": 46616375,
-        "digest": "sha256:1477820d1bb273c6aec7b115e3108a31c524d15440fc3262831759aeb548e0e5"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
+        "size": 46607009,
+        "digest": "sha256:91e25b2f952058d8bc9bada702385434b5d7388c3df494927b293f802b8ff17a"
       },
       {
         "name": "VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
-        "size": 107737460,
-        "digest": "sha256:c381b00af2c123f8d6f52bcec9bd6244ce88f4c3548e40e7ceca8f7ca5729c9b"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
+        "size": 107737546,
+        "digest": "sha256:73f37a8c7e9a8f9e0ddd89da487307bd2ff05769b456cd543e024a34cae41012"
       }
     ]
   }
