@@ -1,6 +1,8 @@
-# VUPIO
+# VUPIO — Soundboard for Discord on macOS and Windows
 
-A local soundboard, audio editor and wireless phone remote for macOS and Windows.
+VUPIO is a free, open-source soundboard for Discord on macOS and Windows. Find meme sounds, edit audio clips and play them in voice calls. Use your phone as a wireless remote on the same network.
+
+[Official VUPIO website](https://vupio-soundboard.denserat4.chatgpt.site/) · [GitHub Releases](https://github.com/kam1nus/VUPIO/releases)
 
 ## Download VUPIO Alpha 4055
 
