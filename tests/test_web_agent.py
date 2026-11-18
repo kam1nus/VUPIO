@@ -43,6 +43,20 @@ class WebAgentTests(unittest.TestCase):
   with patch('mimic.web_agent.build_opener',return_value=opener):
    with self.assertRaisesRegex(ValueError,'too many requests'):Tavily(self.settings).search('test')
   self.assertEqual(opener.open.call_count,1)
+ def test_tavily_honors_retry_after_without_counting_skipped_requests(self):
+  provider=Tavily(self.settings)
+  limited=HTTPError('https://api.tavily.com/search',429,'rate limited',{'Retry-After':'120'},None)
+  opener=MagicMock()
+  opener.open.side_effect=[limited,io.BytesIO(b'{"results":[]}')]
+  with patch('mimic.web_agent.build_opener',return_value=opener), \
+       patch('mimic.web_agent.time.monotonic',return_value=100) as clock:
+   with self.assertRaisesRegex(ValueError,'too many requests'):provider.search('test')
+   clock.return_value=219
+   with self.assertRaisesRegex(ValueError,'rate-limited'):provider.search('another sound')
+   self.assertEqual(provider.usage(),{'mode':'keyless','requests':1})
+   clock.return_value=220
+   self.assertEqual(provider.search('another sound'),[])
+  self.assertEqual(opener.open.call_count,2)
  def finder(self,model=None):
   class Studio:pass
   s=Studio();s.library=Library(self.tmp.name);s.models=model or NoModel();s.finder=Finder(s);return s.finder
@@ -72,12 +86,37 @@ class WebAgentTests(unittest.TestCase):
   self.assertEqual(f.saved(row['source_id'])['page_url'],row['page_url'])
   job.publish.assert_called_once()
 
- def test_both_sources_unavailable_gives_a_recovery_path(self):
+ def test_both_web_sources_unavailable_uses_catalogs(self):
+  f=self.finder()
+  match=row('commons:1','Wilhelm scream','Wikimedia Commons','https://commons.wikimedia.org/wiki/File:Wilhelm.ogg')
+  match.update(download_url='https://upload.wikimedia.org/example.ogg',can_import=True)
+  with patch.object(f.web.provider,'search',side_effect=ValueError('Tavily denied keyless access.')), \
+       patch('mimic.radar.read_feed',side_effect=OSError('offline')), \
+       patch.object(f.providers['commons'],'search',return_value=[match]) as commons, \
+       patch.object(f.providers['archive'],'search',return_value=[]), \
+       patch.object(f.providers['openverse'],'search',return_value=[]):
+   result=f.search({'scope':'web','query':'Wilhelm scream'},Job())
+   explicit=f.search({'scope':'web','query':'Wilhelm scream','separate_catalog_search':True},Job())
+  commons.assert_called_once()
+  self.assertEqual(result['scope'],'catalogs')
+  self.assertIn('Showing results from audio catalogs',result['fallback_notice'])
+  self.assertEqual(result['external'],[match])
+  self.assertEqual(f.saved('commons:1'),match)
+  self.assertEqual(result['history'],['Wilhelm scream'])
+  self.assertEqual(explicit['external'],[])
+  self.assertEqual(explicit['scope'],'web')
+
+ def test_all_sources_unavailable_gives_a_recovery_path(self):
   f=self.finder()
   with patch.object(f.web.provider,'search',side_effect=ValueError('Tavily denied keyless access.')), \
-       patch('mimic.radar.read_feed',side_effect=OSError('offline')):
-   with self.assertRaisesRegex(ValueError,'Myinstants is also unavailable.*Audio catalogs'):
-    f.search({'scope':'web','query':'ankara messi'},Job())
+       patch('mimic.radar.read_feed',side_effect=OSError('offline')), \
+       patch.object(f.providers['commons'],'search',side_effect=OSError('offline')), \
+       patch.object(f.providers['archive'],'search',side_effect=OSError('offline')), \
+       patch.object(f.providers['openverse'],'search',side_effect=OSError('offline')):
+   result=f.search({'scope':'web','query':'ankara messi'},Job())
+  self.assertEqual(result['external'],[])
+  self.assertTrue(result['sources_unavailable'])
+  self.assertIn('paste a sound link',result['fallback_notice'])
 
  def test_topic_fallback_broadens_sparse_results_and_deduplicates_locales(self):
   f=self.finder()

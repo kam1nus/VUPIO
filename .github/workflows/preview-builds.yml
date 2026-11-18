@@ -130,9 +130,9 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}")
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Star a sound to show it in Favorites at the top of the Soundboard.
-          - Drag the handle to swap cards within Favorites or the rest of the board. Use the arrow keys on a focused handle to move it with the keyboard.
-          - The saved order also appears on the phone remote. VUPIO 4054 can install this as an app update from Updates.
+          - Discover tries public audio catalogs automatically when Tavily and Myinstants cannot return results.
+          - Discover respects Tavily's retry window after rate limiting and keeps the monthly request counter accurate.
+          - Compatible earlier builds can install this from Updates using the existing audio driver and models.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

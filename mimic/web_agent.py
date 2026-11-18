@@ -1,6 +1,8 @@
 """Real web discovery with Tavily keyless + bounded local AI ranking. No site downloader."""
 import concurrent.futures,hashlib,json,math,os,re,ssl,time,uuid
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from threading import Lock
 from urllib.parse import urlencode,urlsplit,unquote
 from .public_audio import EXTENSIONS, view_only
 from urllib.request import Request,build_opener,HTTPSHandler,HTTPRedirectHandler
@@ -91,7 +93,25 @@ def tavily_opener():
 
 class Tavily:
     name='Tavily · Internet'
-    def __init__(self,settings):self.settings=settings
+    def __init__(self, settings):
+        self.settings = settings
+        self._rate_limits = {}
+        self._rate_lock = Lock()
+
+    def _pause_after_limit(self, identity, header):
+        delay = 60
+        if header:
+            try:
+                delay = float(int(header))
+            except (ValueError, OverflowError):
+                try:
+                    delay = parsedate_to_datetime(header).timestamp() - time.time()
+                except (ValueError, OverflowError, OSError):
+                    pass
+        with self._rate_lock:
+            deadline = time.monotonic() + max(1, delay)
+            self._rate_limits[identity] = max(deadline, self._rate_limits.get(identity, 0))
+
     def usage(self):
         key=self.settings.key()
         if not key:return {'mode':'keyless','requests':self.settings.keyless_requests()}
@@ -112,6 +132,12 @@ class Tavily:
             return {'mode':'own-key','unavailable':True}
     def search(self,query,domains=None,*,time_range=None,max_results=8):
         key=self.settings.key()
+        identity = hashlib.sha256(key.encode()).digest()
+        with self._rate_lock:
+            now = time.monotonic()
+            self._rate_limits = {key_id: end for key_id, end in self._rate_limits.items() if end > now}
+            if identity in self._rate_limits:
+                raise ValueError('Tavily is temporarily rate-limited.')
         headers={'Content-Type':'application/json','Accept':'application/json'}
         if key:headers['Authorization']='Bearer '+key
         else:
@@ -126,7 +152,10 @@ class Tavily:
         try:
             with tavily_opener().open(Request('https://api.tavily.com/search',data=json.dumps(payload).encode(),headers=headers),timeout=40) as f:raw=f.read(8*1024*1024+1)
         except HTTPError as e:
-            if e.code==429:raise ValueError('Tavily is receiving too many requests. Wait a moment and retry.') from None
+            e.close()
+            if e.code == 429:
+                self._pause_after_limit(identity, e.headers.get('Retry-After') if e.headers else None)
+                raise ValueError('Tavily is receiving too many requests.') from None
             if e.code in {402,432,433}:raise ValueError('Tavily search credits exhausted. Check your usage or choose Audio catalogs.') from None
             if e.code in {401,403}:
                 message='Tavily denied access. Check the saved key.' if key else 'Tavily denied keyless access.'
@@ -254,6 +283,26 @@ class WebAgent:
             unique.setdefault(topic_key(result), result)
         return sorted(unique.values(), key=self.priority)[:8], warnings
 
+    def catalog_fallback(self, body, query, subject, warnings, job):
+        notice = 'Web search had no results. '
+        if body.get('separate_catalog_search') is True:
+            return dict(scope='web', external=[], history=self.s.finder.history(),
+                        fallback_notice=notice.rstrip(),
+                        warnings=warnings, topic_search=bool(subject))
+        job.check()
+        job.update(.30, 'Searching audio catalogs…')
+        found = self.s.finder.search(dict(body, scope='catalogs'), job, progress_start=.30)
+        found.update(scope='catalogs', query=query, topic_search=bool(subject),
+                     warnings=warnings + found['warnings'])
+        if found['external']:
+            found['fallback_notice'] = notice + 'Showing results from audio catalogs.'
+        elif any(status == 'ok' for status in found['provider_status'].values()):
+            found['fallback_notice'] = notice + 'Audio catalogs found no matches. Try a shorter query or paste a sound link.'
+        else:
+            found['fallback_notice'] = 'Search sources are temporarily unavailable. Try again later or paste a sound link.'
+            found['sources_unavailable'] = True
+        return found
+
     def search(self,body,job):
         from .finder import named_terms
         query=str(body.get('query','')).strip()[:1000]
@@ -294,14 +343,17 @@ class WebAgent:
                 suffix=' \u0437\u0432\u0443\u043a MP3' if re.search(r'[\u0430-\u044f\u0451]', terms, re.I) else ' audio sound effect'
                 rows=self.provider.search(terms+suffix)
         except (OSError,ValueError) as primary_error:
+            warnings.append(str(primary_error))
+            job.check()
             try:
                 rows=(self.topic_soundboard_search(subject, job) if subject
                       else self.soundboard_search(terms,job))
             except (OSError,ValueError) as fallback_error:
-                raise ValueError(f'{primary_error} Myinstants is also unavailable. Paste a sound link or try Audio catalogs.') from fallback_error
+                warnings.append('Myinstants: ' + str(fallback_error)[:250])
+                rows = []
             fallback_notice='Tavily was unavailable. Searched Myinstants directly.'
             if not rows:
-                warnings.append(f'{primary_error} Myinstants found no sounds. Try a different name, Audio catalogs, or add a Tavily key in Settings.')
+                return self.catalog_fallback(body, query, subject, warnings, job)
         rows.sort(key=self.priority)
         publish(rows)
         if not subject and not fallback_notice:

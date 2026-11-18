@@ -188,15 +188,17 @@
   busy=true;by('discoverGo').disabled=true;by('quickAdd').disabled=true;
   searched=true;local=[];web=[];catalogs=[];webCards.clear();groups();status('discoverStatus');updateProgress();
   const errors=[];
-  let fallbackNotice='';
+  let fallbackNotice='',catalogMessage='',sourcesUnavailable=false;
   try{
    if(quick){
     const r=await task('quick','quick_add',{...body,scope:useWeb?'web':'catalogs'});
-    const found=r.search||r;if(useWeb)web=found.external||[];else catalogs=found.external||[];showHistory(found.history);groups();
+    const found=r.search||r,rows=found.external||[];
+    if(found.scope==='catalogs'||!useWeb)catalogs=rows;else web=rows;
+    showHistory(found.history);groups();
     if(r.item){await sync();notify(r.duplicate?'This sound is already in your library':'Added: '+r.item.title);status('discoverStatus',found.fallback_notice);}
     else{
-     const hint=found.topic_search?r.warning:'Quick Add could not confirm a match. Select a card and preview the clip.';
-     status('discoverStatus',[found.fallback_notice,web.length?hint:(found.warnings?.[0]||hint)].filter(Boolean).join(' '));
+     const hint=rows.some(row=>row.can_import)?r.warning:'No audio available for Quick Add.';
+     status('discoverStatus',[found.fallback_notice,rows.length||!found.fallback_notice?hint:''].filter(Boolean).join(' '),found.sources_unavailable);
     }
     return;
    }
@@ -205,14 +207,21 @@
     errors.push(e.message);setDiagnostic(searchDiagnostics,e,'Discover '+key+' search');
    }));
    let partialKey='';
-   if(useWeb)load('web','internet_search',{...body,scope:'web',progressive:true},r=>{
-    web=r.external||[];fallbackNotice=r.fallback_notice||'';showHistory(r.history);if(!web.length&&r.warnings?.length)errors.push(...r.warnings);
+   if(useWeb)load('web','internet_search',{...body,scope:'web',progressive:true,separate_catalog_search:useCatalogs},r=>{
+    if(r.scope==='catalogs')catalogs=r.external||[];else web=r.external||[];
+    fallbackNotice=r.fallback_notice||'';sourcesUnavailable=!!r.sources_unavailable;showHistory(r.history);
    },j=>{
     if(j.status!=='running'||!j.result?.external?.length)return;
     const key=JSON.stringify(j.result.external);
     if(key!==partialKey){partialKey=key;web=j.result.external;groups();}
    });
-   if(useCatalogs)load('catalogs','internet_search',{...body,scope:'catalogs'},r=>{catalogs=r.external||[];showHistory(r.history);if(!catalogs.length&&r.warnings?.length)errors.push(...r.warnings);});
+   if(useCatalogs)load('catalogs','internet_search',{...body,scope:'catalogs'},r=>{
+    catalogs=r.external||[];showHistory(r.history);
+    if(!catalogs.length){
+     if(Object.values(r.provider_status||{}).includes('ok'))catalogMessage='Audio catalogs found no matches.';
+     else errors.push('Audio catalogs are temporarily unavailable.');
+    }
+   });
    if(useLocal&&items.length){
     const q=body.query.replace(/^(?:(?:\u043d\u0430\u0439\u0434\u0438|\u043f\u043e\u0438\u0449\u0438|\u043d\u0430\u0439\u0442\u0438|\u043c\u0435\u043c|find|search)\s+)+/iu,'');
     const exact=items.filter(i=>[i.title,i.tags,i.description].join(' ').toLowerCase().includes(q.toLowerCase())).slice(0,30);
@@ -221,7 +230,8 @@
    }
    await Promise.all(requests);
    if(errors.length)status('discoverStatus',errors.join(' · '),true);
-   else if(fallbackNotice)status('discoverStatus',fallbackNotice);
+   else if(fallbackNotice)status('discoverStatus',[fallbackNotice,catalogMessage].filter(Boolean).join(' '),sourcesUnavailable&&!local.length);
+   else if(catalogMessage&&!local.length&&!web.length)status('discoverStatus',catalogMessage);
    else if(!local.length&&!web.length&&!catalogs.length)status('discoverStatus','No matches. Try an exact name or enable another source.');
    else if(useWeb&&web.length&&!web.some(r=>r.can_import&&r.media_hint==='audio')&&!isLink)
     status('discoverStatus','No ready audio found yet. Paste an MP3 URL or an individual sound page.');
