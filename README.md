@@ -4,11 +4,11 @@ VUPIO is a free, open-source soundboard for Discord on macOS and Windows. Find m
 
 [Official VUPIO website](https://vupio-soundboard.denserat4.chatgpt.site/) · [GitHub Releases](https://github.com/kam1nus/VUPIO/releases)
 
-## Download VUPIO Alpha 4055
+## Download VUPIO Alpha 4056
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4055/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4055/VUPIO-macOS-AppleSilicon.pkg)**
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/VUPIO-macOS-AppleSilicon.pkg)**
 
-Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4055) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4055/SHA256SUMS.txt)
+Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4056) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4056/SHA256SUMS.txt)
 
 ## Updates
 
@@ -34,7 +34,7 @@ Under **Settings → AI models**, you can download the optional Qwen 2.5 1.5B Q4
 
 Discover shows the remaining plan credits for your own Tavily key. In Keyless mode, it shows the number of search requests this device made this month. Direct links and Audio catalogs do not consume Tavily search credits.
 
-When Tavily is unavailable, Discover searches the public Myinstants soundboard directly and labels the fallback. Use a direct sound link or Audio catalogs if neither service returns a match.
+When Tavily is unavailable, Discover tries Myinstants directly, then searches public audio catalogs if Myinstants is unavailable or has no matches. Catalog coverage differs from web search. Paste a direct sound link to look up a specific file.
 
 These are Alpha preview installers. The Mac app is ad-hoc signed without Apple notarization. The Windows installer has no Authenticode signature.
 
