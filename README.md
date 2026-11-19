@@ -4,17 +4,19 @@ VUPIO is a free, open-source soundboard for Discord on macOS and Windows. Find m
 
 [Official VUPIO website](https://vupio-soundboard.denserat4.chatgpt.site/) · [GitHub Releases](https://github.com/kam1nus/VUPIO/releases)
 
-## Download VUPIO Alpha 4058
+## Download VUPIO Alpha 4059
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-macOS-AppleSilicon.pkg)**
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-macOS-AppleSilicon.pkg)**
 
-Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4058) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/SHA256SUMS.txt)
+Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4059) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/SHA256SUMS.txt)
 
 ## Updates
 
-Starting with build 4054, **Updates** can download compatible app updates from GitHub in the background. Select **Install update** when ready, or turn background downloads off in Updates. App updates reuse the installed driver and bundled models. The full installer is available for first installs, model bundle changes, or when the app folder cannot be updated. Builds without the updater need to install a current full version once. Published previews are available in [GitHub Releases](https://github.com/kam1nus/VUPIO/releases).
+Starting with **build 4059**, Mac updates are downloaded and verified by Sparkle inside **Updates**. Select **Update and restart** when ready. Compatible updates reuse your audio driver and AI models; macOS Installer does not open. macOS may request administrator approval if the app folder needs elevated access. Both the update feed and Mac app archives are signed with Ed25519.
 
-On Mac, build 4057 fixes the `Unexpected update build` error. Check for updates again to download the corrected build. For subsequent updates, VUPIO in the Applications folder opens macOS Installer for approval.
+**One-time transition:** if your current Mac build is 4058 or older, its existing updater still needs the final installer handoff. Install 4059 once from the download above. Later compatible releases use the new in-app updater. AI models are migrated to a reusable local folder on first launch; your library stays in place.
+
+Windows downloads compatible app-only updates in **Updates**, then installs them silently and relaunches VUPIO. Confirm the Windows administrator prompt if shown. Driver/model bundle changes still require a full installer. First installs use the download buttons above.
 
 The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote, Updates and Settings. Search queries, meme names and imported metadata can use their original languages. Search quality depends on the model and available sources.
 
