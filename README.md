@@ -4,11 +4,11 @@ VUPIO is a free, open-source soundboard for Discord on macOS and Windows. Find m
 
 [Official VUPIO website](https://vupio-soundboard.denserat4.chatgpt.site/) · [GitHub Releases](https://github.com/kam1nus/VUPIO/releases)
 
-## Download VUPIO Alpha 4059
+## Download VUPIO Alpha 4060
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-macOS-AppleSilicon.pkg)**
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4060/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4060/VUPIO-macOS-AppleSilicon.pkg)**
 
-Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4059) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/SHA256SUMS.txt)
+Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4060) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4060/SHA256SUMS.txt)
 
 ## Updates
 
