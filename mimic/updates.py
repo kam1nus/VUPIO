@@ -241,7 +241,9 @@ class Updates:
                 raise ValueError('The saved update failed verification. Download it again.')
             if self.platform == 'win32':
                 try:
-                    os.startfile(str(path), 'runas')
+                    log = self.root / 'install.log'
+                    os.startfile(str(path), 'runas',
+                                 arguments=f'/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG="{log}"')
                 except OSError:
                     raise ValueError('The installer did not open. Confirm the Windows administrator prompt and try again.') from None
                 return {'platform': 'windows'}

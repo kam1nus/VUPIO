@@ -46,7 +46,11 @@ Name: "discord"; Description: "Download VB-CABLE from VB-Audio and open its driv
 #endif
 
 [Run]
+#ifdef ModelHash
+Filename: "{app}\VUPIO.exe"; Flags: nowait runasoriginaluser
+#else
 Filename: "{app}\VUPIO.exe"; Description: "Open VUPIO"; Flags: nowait postinstall skipifsilent
+#endif
 
 [Code]
 #ifdef ModelHash

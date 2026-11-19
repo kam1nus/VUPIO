@@ -2,11 +2,12 @@
 set -eu
 cd "${0:A:h:h}"
 mkdir -p build/MIMIC.app/Contents/{MacOS,Resources} build/swift-cache
+.venv/bin/python scripts/bundle_sparkle.py
 build_number="${MIMIC_BUILD_NUMBER:-$(python3 -c 'from mimic import BUILD; print(BUILD)')}"
 [[ "$build_number" =~ '^[1-9][0-9]{0,8}$' ]] || { echo 'Invalid MIMIC_BUILD_NUMBER'; exit 1; }
 cp native/MIMIC.swift build/main.swift
 clang -std=c11 -O2 -c native/MixerDSP.c -o build/MixerDSP.o
-swiftc build/main.swift native/SoundAnalysis.swift native/AudioMixer.swift native/AudioProbe.swift native/CoreInput.swift native/LocalUpdate.swift build/MixerDSP.o -import-objc-header native/MixerDSP.h -O -module-cache-path build/swift-cache -o build/MIMIC.app/Contents/MacOS/MIMIC -framework Cocoa -framework WebKit -framework SoundAnalysis -framework AVFoundation -framework CoreAudio -framework AudioToolbox
+swiftc build/main.swift native/SoundAnalysis.swift native/AudioMixer.swift native/AudioProbe.swift native/CoreInput.swift native/LocalUpdate.swift native/BundledModels.swift native/AppUpdater.swift build/MixerDSP.o -import-objc-header native/MixerDSP.h -O -module-cache-path build/swift-cache -F build/MIMIC.app/Contents/Frameworks -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks -o build/MIMIC.app/Contents/MacOS/MIMIC -framework Cocoa -framework WebKit -framework SoundAnalysis -framework AVFoundation -framework CoreAudio -framework AudioToolbox
 swiftc scripts/icon.swift -module-cache-path build/swift-cache -o build/mimic-icon
 build/mimic-icon web/icon.svg build/MIMIC.iconset
 python3 scripts/icon_container.py build/MIMIC.iconset build/MIMIC.app/Contents/Resources/VUPIO.icns
@@ -30,6 +31,13 @@ cat > build/MIMIC.app/Contents/Info.plist <<'PLIST'
 PLIST
 plist=build/MIMIC.app/Contents/Info.plist
 /usr/libexec/PlistBuddy -c "Add CFBundleVersion string $build_number" "$plist"
+sparkle_key=$(cat native/SparklePublicKey.txt)
+/usr/libexec/PlistBuddy -c "Add SUPublicEDKey string $sparkle_key" "$plist"
+/usr/libexec/PlistBuddy -c 'Add SUFeedURL string https://raw.githubusercontent.com/kam1nus/VUPIO/update-feed/vupio-macos-appcast.xml' "$plist"
+/usr/libexec/PlistBuddy -c 'Add SUVerifyUpdateBeforeExtraction bool true' "$plist"
+/usr/libexec/PlistBuddy -c 'Add SURequireSignedFeed bool true' "$plist"
+/usr/libexec/PlistBuddy -c 'Add SUEnableAutomaticChecks bool false' "$plist"
+/usr/libexec/PlistBuddy -c 'Add SUAutomaticallyUpdate bool false' "$plist"
 if [[ -n "${MIMIC_LOCAL_UPDATE_CHANNEL:-}" ]]; then
   : "${MIMIC_LOCAL_UPDATE_KEY:?Set the private key path for this local channel}"
   [[ "$MIMIC_LOCAL_UPDATE_CHANNEL" = /* && "$MIMIC_LOCAL_UPDATE_KEY" = /* ]] || { echo 'Use absolute update paths'; exit 1; }

@@ -114,4 +114,7 @@ class UpdateTests(unittest.TestCase):
             self.wait_for(service, 'ready')
         with patch('mimic.updates.os.startfile', create=True) as launch:
             self.assertEqual(service.install(), {'platform':'windows'})
-            launch.assert_called_once_with(str(service.path(service.asset)), 'runas')
+            launch.assert_called_once_with(
+                str(service.path(service.asset)), 'runas',
+                arguments=f'/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG="{service.root / "install.log"}"',
+            )

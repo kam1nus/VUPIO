@@ -57,6 +57,10 @@ jobs:
           $process = Start-Process $patch.FullName -ArgumentList $flags -PassThru -Wait
           if ($process.ExitCode -ne 0 -or [int](Get-Content $buildFile) -ne $build) { throw "Updater setup failed ($($process.ExitCode))" }
           if ((Get-FileHash $manifest).Hash -ne $before.Hash) { throw 'The installer changed the bundled models' }
+          Start-Sleep -Seconds 2
+          $relaunched = Get-Process VUPIO -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq (Join-Path $destination 'VUPIO.exe') }
+          if (!$relaunched) { throw 'The silent updater did not relaunch VUPIO' }
+          $relaunched | Stop-Process -Force
           $process = Start-Process (Join-Path $destination 'VUPIO.exe') -ArgumentList '--smoke-test' -PassThru -Wait
           if ($process.ExitCode -ne 0) { throw "Updated app failed ($($process.ExitCode))" }
       - uses: actions/upload-artifact@v4
@@ -83,6 +87,8 @@ jobs:
       - name: Verify app and DSP
         run: .venv/bin/python -m unittest discover -s tests
       - name: Build Mac installer with driver and local models
+        env:
+          VUPIO_SPARKLE_PRIVATE_KEY: ${{ secrets.VUPIO_SPARKLE_PRIVATE_KEY }}
         run: |
           set -o pipefail
           MIMIC_BUNDLE_MODELS=1 ./scripts/package.sh | tee build-vupio.log
@@ -93,12 +99,22 @@ jobs:
           MIMIC_APP_BUNDLE="$stage" ./scripts/package_installer.sh
           ./scripts/package_mac_update.sh "$stage"
           .venv/bin/python tests/mac_update_smoke.py "$build" "$stage" build/releases/VUPIO-macOS-AppleSilicon-Update-*.zip
+          test -n "$VUPIO_SPARKLE_PRIVATE_KEY"
+          signature=$(printf '%s' "$VUPIO_SPARKLE_PRIVATE_KEY" | build/dependencies/sparkle/bin/sign_update --ed-key-file - -p build/releases/VUPIO-macOS-AppleSilicon-Sparkle.zip)
+          models_hash=$(shasum -a 256 "$stage/Contents/Resources/Models/components.json" | cut -d ' ' -f 1)
+          .venv/bin/python scripts/write_sparkle_feed.py "$build" build/releases/VUPIO-macOS-AppleSilicon-Sparkle.zip "$signature" "$models_hash" > build/releases/vupio-macos-appcast.xml
+          printf '%s' "$VUPIO_SPARKLE_PRIVATE_KEY" | build/dependencies/sparkle/bin/sign_update --ed-key-file - build/releases/vupio-macos-appcast.xml
+          printf '%s' "$VUPIO_SPARKLE_PRIVATE_KEY" | build/dependencies/sparkle/bin/sign_update --ed-key-file - --verify build/releases/vupio-macos-appcast.xml
+          .venv/bin/python tests/mac_sparkle_smoke.py -
+          .venv/bin/python tests/mac_sparkle_smoke.py - --tamper
       - uses: actions/upload-artifact@v4
         with:
           name: VUPIO-macOS-AppleSilicon-preview
           path: |
             build/releases/VUPIO-macOS-AppleSilicon.pkg
             build/releases/VUPIO-macOS-AppleSilicon-Update-*.zip
+            build/releases/VUPIO-macOS-AppleSilicon-Sparkle.zip
+            build/releases/vupio-macos-appcast.xml
           if-no-files-found: error
 
   publish:
@@ -129,13 +145,13 @@ jobs:
           win=(VUPIO-Windows-x64-Update-*.exe)
           test "${#mac[@]}" = 1 && test -f "${mac[0]}"
           test "${#win[@]}" = 1 && test -f "${win[0]}"
-          assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}")
+          assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}" VUPIO-macOS-AppleSilicon-Sparkle.zip vupio-macos-appcast.xml)
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Mac audio verifies the selected output route and resumes requested microphone capture after rebuilding it.
-          - Virtual-input diagnostics follow the selected MIMIC or BlackHole output and measure both stereo channels.
-          - Windows preserves output and microphone selections across device reordering, avoids routing voice to speakers after virtual-output loss, and limits local monitoring peaks.
-          - Includes the Mac update-number and permission fixes from build 4057.
+          - Mac app updates use Sparkle with signed feeds and archives, progress in Updates and a restart button.
+          - Existing bundled models migrate into verified external storage and are reused by lightweight updates.
+          - Windows app updates install in the background and relaunch VUPIO after any required administrator approval.
+          - Versions through 4058 use their existing installation flow once to receive this transition build.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF
@@ -148,6 +164,12 @@ jobs:
           current=$(gh api "$endpoint?ref=update-feed")
           current_build=$(jq -r '.content' <<< "$current" | base64 -d | jq -er '.[0].tag_name | sub("^alpha-"; "") | tonumber')
           if (( build > current_build )); then
+            appcast_endpoint="repos/$GITHUB_REPOSITORY/contents/vupio-macos-appcast.xml"
+            appcast_sha=$(gh api "$appcast_endpoint?ref=update-feed" --jq .sha 2>/dev/null || true)
+            appcast_args=()
+            if [[ -n "$appcast_sha" ]]; then appcast_args=(-f "sha=$appcast_sha"); fi
+            gh api --method PUT "$appcast_endpoint" -f branch=update-feed -f message="Sign Mac appcast for $tag" \
+              "${appcast_args[@]}" -f content="$(base64 -w0 vupio-macos-appcast.xml)" --silent
             gh api --method PUT "$endpoint" -f branch=update-feed -f message="Point VUPIO updates to $tag" \
               -f sha="$(jq -er .sha <<< "$current")" -f content="$(base64 -w0 /tmp/vupio-updates.json)" --silent
           fi

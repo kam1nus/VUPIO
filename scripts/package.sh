@@ -23,6 +23,7 @@ if [[ "${MIMIC_BUNDLE_MODELS:-0}" == 1 ]]; then
  args=(build/MIMIC.app/Contents/Resources/Models)
  if [[ -n "${MIMIC_MODEL_CACHE:-}" ]]; then args+=(--cache "$MIMIC_MODEL_CACHE"); fi
  .venv/bin/python scripts/bundle_models.py "${args[@]}"
+ cp build/MIMIC.app/Contents/Resources/Models/components.json build/MIMIC.app/Contents/Resources/model-components.json
 fi
 ./scripts/package_audio.sh
 MIMIC_SIGN_STAGE=$(mktemp -d /private/tmp/mimic-sign.XXXXXX)

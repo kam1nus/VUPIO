@@ -60,6 +60,10 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     var statusLabel:NSTextField!
     var appURL:URL?
     var updateBusy=false
+    lazy var appUpdater = AppUpdater { [weak self] info in
+        self?.web.callAsyncJavaScript("window.vupioNativeUpdateState(info)", arguments: ["info":info],
+                                     in:nil, in:.page, completionHandler:nil)
+    }
     let root=Bundle.main.bundleURL.deletingLastPathComponent()
     func applicationDidFinishLaunching(_ notification:Notification) {
         let app=NSApplication.shared
@@ -84,6 +88,7 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         let content=NSView(frame:NSRect(x:0,y:0,width:1200,height:820))
         let config=WKWebViewConfiguration()
         config.userContentController.add(self,name:"mimicNative")
+        config.userContentController.addUserScript(WKUserScript(source:"window.vupioNativeUpdater=true;",injectionTime:.atDocumentStart,forMainFrameOnly:true))
         web=WKWebView(frame:content.bounds,configuration:config)
         web.navigationDelegate=self;web.uiDelegate=self
         web.underPageBackgroundColor=window.backgroundColor
@@ -116,7 +121,14 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
         if portable {
             let tools=resources.appendingPathComponent("Tools").path
             env["MIMIC_TOOLS"]=tools
-            env["MIMIC_BUNDLED_MODELS"]=resources.appendingPathComponent("Models").path
+            let data = env["MIMIC_DATA"].map { URL(fileURLWithPath:$0,isDirectory:true) } ??
+                FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/MIMIC",isDirectory:true)
+            do {
+                env["MIMIC_BUNDLED_MODELS"] = try BundledModels.prepare(resources:resources,data:data).path
+            } catch {
+                statusLabel.stringValue = "Could not prepare the AI models.\n" + error.localizedDescription
+                return
+            }
             env["PATH"]=tools+":/usr/bin:/bin:/usr/sbin:/sbin"
             if !FileManager.default.isExecutableFile(atPath:tools+"/llama-server/llama-server") {
                 env["GGML_METAL_PATH_RESOURCES"]=tools
@@ -214,6 +226,16 @@ final class WindowDelegate:NSObject,NSApplicationDelegate,WKNavigationDelegate,W
     }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
         guard message.frameInfo.isMainFrame,trusted(message.frameInfo.request.url),let action=message.body as? String else{return}
+        switch action {
+        case "appUpdate:status": appUpdater.publish(); return
+        case "appUpdate:check": appUpdater.check(); return
+        case "appUpdate:auto": appUpdater.check(automatic:true); return
+        case "appUpdate:download": appUpdater.download(); return
+        case "appUpdate:install": appUpdater.install(); return
+        case "appUpdate:enable": appUpdater.automaticDownload=true; return
+        case "appUpdate:disable": appUpdater.automaticDownload=false; return
+        default: break
+        }
         if action == "checkUpdates" {
             checkLocalUpdate()
             return

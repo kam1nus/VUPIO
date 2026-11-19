@@ -353,12 +353,16 @@ function drawPublicUpdate(info,checked=true){
  const progress=by('publicUpdateProgress');
  by('autoUpdateOption').hidden=!info.supported||!nativeUpdates(info);
  if(typeof info.auto==='boolean')by('autoUpdate').checked=info.auto;
- by('downloadAppUpdate').hidden=!compatible||['ready','downloading'].includes(info.state);
+ by('downloadAppUpdate').hidden=!compatible||['ready','downloading','checking','preparing','installing'].includes(info.state);
  by('installAppUpdate').hidden=!compatible||info.state!=='ready'||publicInstalling;
  by('publicUpdateDownload').replaceChildren(...(available&&info.download?[link('Full installer ↗',info.download)]:[]));
- progress.hidden=info.state!=='downloading';
- progress.value=info.size?Math.min(1,info.received/info.size):0;
- if(publicInstalling)return;
+ by('installAppUpdate').textContent=window.vupioNativeUpdater?'Update and restart':'Install update';
+ progress.hidden=!['downloading','checking','preparing','installing'].includes(info.state);
+ if(info.state==='downloading'&&info.size)progress.value=Math.min(1,info.received/info.size);
+ else progress.removeAttribute('value');
+ if(publicInstalling&&!window.vupioNativeUpdater)return;
+ if(info.state==='failed'){status(updateTarget,info.error,true);return;}
+ if(info.message){status(updateTarget,info.message);return;}
  if(!available){
   if(checked)status(updateTarget,info.latest?'Your build is up to date.':'No releases are available for this platform.');
   return;
@@ -383,6 +387,10 @@ async function watchPublicDownload(info){
 }
 async function checkPublicUpdates(automatic=false){
  if(updateCheck||role!=='admin')return;
+ if(window.vupioNativeUpdater){
+  window.webkit.messageHandlers.mimicNative.postMessage('appUpdate:'+(automatic?'auto':'check'));
+  return;
+ }
  updateCheck=true;
  try{
   if(!automatic)status(updateTarget,'Checking GitHub…');
@@ -399,14 +407,23 @@ function schedulePublicUpdates(){
  if(periodicUpdateCheck)return;
  setTimeout(check,3500);
  periodicUpdateCheck=setInterval(check,4*60*60*1000);
- api('updates/status').then(info=>drawPublicUpdate(info,false)).catch(()=>{});
+ api('updates/status').then(info=>{
+  if(window.vupioNativeUpdater){
+   window.webkit.messageHandlers.mimicNative.postMessage('appUpdate:'+(info.auto?'enable':'disable'));
+   window.webkit.messageHandlers.mimicNative.postMessage('appUpdate:status');
+  }else drawPublicUpdate(info,false);
+ }).catch(()=>{});
 }
 bind('checkPublicUpdate',()=>checkPublicUpdates(),updateTarget);
-bind('downloadAppUpdate',async()=>watchPublicDownload(await api('updates/download',{})),updateTarget);
+bind('downloadAppUpdate',async()=>{
+ if(window.vupioNativeUpdater){window.webkit.messageHandlers.mimicNative.postMessage('appUpdate:download');return;}
+ await watchPublicDownload(await api('updates/download',{}));
+},updateTarget);
 by('autoUpdate').addEventListener('change',async e=>{
  const value=e.target.checked;
  try{
   await api('updates/preferences',{auto:value});
+  if(window.vupioNativeUpdater)window.webkit.messageHandlers.mimicNative.postMessage('appUpdate:'+(value?'enable':'disable'));
   if(value)await checkPublicUpdates(true);
  }catch(err){e.target.checked=!value;status(updateTarget,err.message,true);}
 });
@@ -415,18 +432,25 @@ window.vupioPublicUpdateStatus=(message,error)=>{
  if(updateInfo)drawPublicUpdate(updateInfo);
  status(updateTarget,message,error);
 };
+window.vupioNativeUpdateState=info=>{
+ publicInstalling=info.state==='installing';
+ drawPublicUpdate(info);
+};
 bind('installAppUpdate',async()=>{
- const message=updateInfo?.platform==='darwin'
+ const message=window.vupioNativeUpdater
+  ?'Update and restart VUPIO now? Save your work in Studio before continuing.'
+  :updateInfo?.platform==='darwin'
   ?'Install the update now? Save your work in Studio. If macOS Installer opens, follow its steps, then reopen VUPIO.'
   :'Install the update now? Save your work in Studio before continuing.';
  if(publicInstalling||!confirm(message))return;
  publicInstalling=true;
  by('installAppUpdate').hidden=true;
  status(updateTarget,'Preparing the update…');
+ if(window.vupioNativeUpdater){window.webkit.messageHandlers.mimicNative.postMessage('appUpdate:install');return;}
  try{
   const result=await api('updates/install',{});
   if(result.platform==='macos')window.webkit.messageHandlers.mimicNative.postMessage('installPublicUpdate');
-  else window.vupioPublicUpdateStatus('The Windows installer is open. Follow its steps to update VUPIO.',false);
+  else status(updateTarget,'Installing the update. Confirm Windows administrator access if requested. VUPIO will restart when ready.');
  }catch(err){
   window.vupioPublicUpdateStatus(err.message,true);
  }

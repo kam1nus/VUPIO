@@ -8,6 +8,7 @@ The standalone Mac application embeds its Python runtime, qrcode, NumPy, certifi
 - qrcode 8.2: BSD license — https://github.com/lincolnloop/python-qrcode
 - NumPy 2.5.4: BSD-3-Clause plus dependency notices — https://numpy.org/doc/stable/license.html
 - certifi 2026.10.23: MPL-2.0 certificate bundle — https://github.com/certifi/python-certifi
+- Sparkle 2.10.1: MIT and included component notices, shipped as Sparkle-LICENSE.txt — https://github.com/sparkle-project/Sparkle
 - PyInstaller 6.22.3: GPL with the bootloader distribution exception — https://pyinstaller.org/en/stable/license.html
 - llama.cpp 0.7.0 / ggml 0.27.0: MIT — https://github.com/ggml-org/llama.cpp and https://github.com/ggml-org/ggml
 - whisper.cpp 1.9.5: MIT — https://github.com/ggml-org/whisper.cpp
