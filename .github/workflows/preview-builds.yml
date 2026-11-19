@@ -54,7 +54,9 @@ jobs:
           $manifest = Join-Path $destination 'Models/components.json'
           $before = Get-FileHash $manifest
           Set-Content $buildFile ($build - 1) -Encoding ascii -NoNewline
-          $process = Start-Process $patch.FullName -ArgumentList $flags -PassThru -Wait
+          $process = Start-Process $patch.FullName -ArgumentList $flags -PassThru
+          $process.WaitForExit()
+          $process.Refresh()
           if ($process.ExitCode -ne 0 -or [int](Get-Content $buildFile) -ne $build) { throw "Updater setup failed ($($process.ExitCode))" }
           if ((Get-FileHash $manifest).Hash -ne $before.Hash) { throw 'The installer changed the bundled models' }
           Start-Sleep -Seconds 2
