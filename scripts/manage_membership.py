@@ -13,7 +13,7 @@ args = parser.parse_args()
 token = args.admin_token_file.read_text().strip()
 if len(token) != 64: raise SystemExit('Invalid administrator token file.')
 request = urllib.request.Request(WEBSITE + '/api/account/tester-code', data=json.dumps({'days':args.days}).encode(),
-    headers={'Authorization':'Bearer ' + token, 'Content-Type':'application/json'})
+    headers={'Authorization':'Bearer ' + token, 'Content-Type':'application/json','User-Agent':'VUPIO-Account/1'})
 try:
     with urllib.request.build_opener(NoRedirect()).open(request, timeout=20) as result:
         reply = json.load(result)
