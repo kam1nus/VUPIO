@@ -4,11 +4,11 @@ VUPIO is a free, open-source soundboard for Discord on macOS and Windows. Find m
 
 [Official VUPIO website](https://vupio-soundboard.denserat4.chatgpt.site/) · [GitHub Releases](https://github.com/kam1nus/VUPIO/releases)
 
-## Download VUPIO Alpha 4057
+## Download VUPIO Alpha 4058
 
-**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/VUPIO-macOS-AppleSilicon.pkg)**
+**[↓ Windows 11 x64](https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-Windows-x64-Setup.exe)** · **[↓ Apple Silicon Mac, macOS 26+](https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-macOS-AppleSilicon.pkg)**
 
-Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4057) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4057/SHA256SUMS.txt)
+Download and run the installer for your computer. [Release notes](https://github.com/kam1nus/VUPIO/releases/tag/alpha-4058) · [SHA-256 checksums](https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/SHA256SUMS.txt)
 
 ## Updates
 
@@ -44,7 +44,7 @@ These are Alpha preview installers. The Mac app is ad-hoc signed without Apple n
 
 1. Close VUPIO, open the PKG and follow the installer.
 2. Restart your Mac after the first driver installation, then open VUPIO in Applications.
-3. In Discord **Voice & Video**, select **MIMIC Microphone** as input and your headphones as output.
+3. In Discord **Voice & Video**, select **MIMIC Microphone** as input, your headphones as output and **Studio** as the input profile.
 4. In VUPIO, select your physical microphone and enable it to mix your voice with clips. Grant microphone access when macOS asks. Local clip listening is enabled by default; select your headphones or **System output (automatic)** in Settings. Your microphone is not sent to local listening.
 5. Start Discord Mic Test and trigger a sound in Soundboard. Stop Mic Test afterward to end voice playback.
 
@@ -55,10 +55,12 @@ MIMIC Microphone keeps its existing device name for compatibility with saved Dis
 1. Run `VUPIO-Windows-x64-Setup.exe`. Keep the small VUPIO launcher window open while using the browser interface.
 2. For Discord routing, select **Download VB-CABLE** during setup. The installer downloads it from VB-Audio, checks the archive hash and vendor signature, then opens the vendor installer. Confirm installation there and restart Windows.
 3. In VUPIO **Settings → Audio devices**, select **CABLE Input** as output and your physical microphone as input.
-4. In Discord, select **CABLE Output** as input and your headphones as output.
+4. In Discord, select **CABLE Output** as input, your headphones as output and **Studio** as the input profile.
 5. Clip listening is enabled by default. In **Settings → Audio devices**, use **System output (automatic)** or choose headphones/speakers. Keep Windows **Listen to this device** disabled to avoid doubled audio.
 
 Windows uses WASAPI. Speech transcription, waveform editing, energy-based highlights and semantic search are available on both platforms. Core Audio and Apple SoundAnalysis diagnostics run on Mac. Windows data is stored in `%LOCALAPPDATA%\MIMIC`.
+
+For clips to reach Discord, its microphone must be the virtual input selected above. Use Studio to avoid voice processing cutting off meme sounds. If you use Push to Talk, hold its shortcut during clip playback. Use VUPIO's main clip volume to adjust transmitted sounds. In Settings, local listening controls the headphones route. Stop Discord Mic Test when finished to end its delayed playback.
 
 ## Phone remote
 
