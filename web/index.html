@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="VUPIO">
 <title>VUPIO</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/discover.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script><script defer src="/account.js"></script>
+<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/boards.js"></script><script defer src="/discover.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script><script defer src="/account.js"></script>
 </head>
 <body>
 <section id="login" class="login" hidden>
@@ -23,14 +23,20 @@
   <aside id="sidebar" class="sidebar admin">
     <div class="brand"><img src="/icon.svg" width="38" height="38" alt=""><div><strong>VUPIO</strong><small>Alpha 0.4.3</small></div></div>
     <nav id="nav" aria-label="VUPIO navigation">
-      <button data-view="soundboard" data-icon="grid" aria-current="page">Soundboard</button>
-      <button data-view="discover" data-icon="search">Discover</button>
-      <button data-view="radar" data-icon="radar">Trend Radar</button>
-      <button data-view="studio" data-icon="wave">Studio</button>
-      <button data-view="remote" data-icon="phone">Remote</button>
-      <button data-view="account" data-icon="user">Account</button>
-      <button data-view="updates" data-icon="refresh">Updates</button>
-      <button data-view="settings" data-icon="settings">Settings</button>
+      <div class="navMain">
+        <button data-view="soundboard" data-icon="grid" aria-current="page">Soundboard</button>
+        <button data-view="discover" data-icon="search">Discover</button>
+        <button data-view="radar" data-icon="radar">Trend Radar</button>
+        <button data-view="studio" data-icon="wave">Studio</button>
+      </div>
+      <div class="navUtilities">
+        <div class="navTools" aria-label="App tools">
+          <button data-view="remote" data-icon="phone">Remote</button>
+          <button data-view="updates" data-icon="refresh" id="updatesNav">Updates</button>
+          <button data-view="settings" data-icon="settings">Settings</button>
+        </div>
+        <button data-view="account" data-icon="user" class="accountNav">Account</button>
+      </div>
     </nav>
     <div class="sidebarFoot"><span id="sideMic" class="signal"></span><div><strong id="sideAudio">Audio</strong><small id="sideRoute">Connecting…</small></div></div>
   </aside>
@@ -40,8 +46,14 @@
       <div class="row"><button id="jobBadge" class="quiet admin" data-icon="jobs" hidden>Tasks</button><span id="connection" class="connection">Connecting…</span></div>
     </header>
     <main id="main" tabindex="-1">
+      <p id="importBoardHint" class="importBoardHint admin" hidden></p>
       <section id="soundboard" class="view">
         <div class="pagehead"><div><h1>Soundboard</h1><p id="librarySummary" class="muted">Your sound collection.</p></div><div class="row admin"><button id="findSound" data-icon="search">Find a meme</button><button id="uploadButton" class="primary" data-icon="plus">Add audio</button><input id="upload" type="file" accept="audio/*,.mp4,.m4a,.flac,.ogg" hidden></div></div>
+        <div class="boardBar">
+          <div id="boardTabs" class="boardTabs admin" role="group" aria-label="Soundboards"></div>
+          <label class="remoteBoardLabel"><span class="sr">Soundboard</span><select id="remoteBoardChoice" aria-label="Soundboard"></select></label>
+          <div class="row admin boardActions"><button id="manageBoard" class="quiet" data-icon="edit" hidden>Manage board</button><button id="newBoard" class="quiet" data-icon="plus">New board</button></div>
+        </div>
         <div class="toolbar" role="search"><input id="search" type="search" aria-label="Search library" placeholder="Search titles, tags and descriptions"><select id="category" aria-label="Category"><option value="">All categories</option></select><button id="favorites" data-icon="star" aria-pressed="false">Favorites</button></div>
         <p id="uploadStatus" class="inlineStatus" role="status" hidden></p>
         <p id="boardOrderHelp" class="muted boardOrderHelp" hidden>Favorites stay on top. Drag the handle to swap two cards in the same group.</p>
@@ -140,7 +152,7 @@
           <div class="row wrap"><button id="downloadAppUpdate" hidden>Download app update</button><button id="installAppUpdate" class="primary" hidden>Install update</button><span id="publicUpdateDownload"></span></div>
         </article>
         <article class="panel stack nativeOnly"><h2>Local Mac builds</h2><p class="muted">For builds connected to a local update folder.</p><div><button id="checkUpdates" data-icon="refresh">Check local channel</button></div><p id="updateStatus" class="inlineStatus" role="status" hidden></p></article>
-        <article class="panel stack"><h2>What's new</h2><p>Verified app updates download here and restart VUPIO when you are ready. Existing AI models are reused. Account connects this computer to the website and supports tester membership codes.</p></article>
+        <article class="panel stack"><h2>What's new</h2><p>Create soundboards for games and moments, share sounds across them and switch boards on your phone. The sidebar keeps four workspace sections above compact app tools. Your audio, favorites and existing order are preserved.</p></article>
       </section>
       <section id="settings" class="view admin" hidden>
         <div class="pagehead"><div><h1>Settings</h1><p class="muted">Devices, microphone, models and background tasks.</p></div></div>
@@ -174,6 +186,17 @@
     </footer>
   </div>
 </div>
+<dialog id="boardEditor"><form id="boardForm" class="stack">
+  <div class="split"><h2 id="boardDialogTitle">Create a soundboard</h2><button id="closeBoardEditor" type="button" class="quiet" data-icon="close" aria-label="Close board editor"></button></div>
+  <label>Board name<input id="boardName" maxlength="80" placeholder="For example, Minecraft or Late night" required autocomplete="off"></label>
+  <div class="split"><label for="boardSoundSearch">Choose sounds from your library</label><small id="boardSelectionCount" role="status">0 selected</small></div>
+  <div class="row"><input id="boardSoundSearch" type="search" aria-label="Search sounds for this board" placeholder="Search sounds, tags or categories"><button id="selectBoardMatches" type="button" class="quiet">Select visible</button></div>
+  <div id="boardSoundList" class="boardSoundList" role="group" aria-label="Sounds in this board"></div>
+  <p class="muted">The same sound can be on several boards. Unchecking it removes it from this board only.</p>
+  <div class="split"><button id="deleteBoard" type="button" class="danger" hidden>Delete board</button><button id="saveBoard" class="primary">Create board</button></div>
+  <div id="boardDeleteConfirm" class="boardDeleteConfirm stack" hidden><p id="boardDeleteMessage"></p><p class="muted">Audio files stay in All sounds and on your other boards.</p><div class="row"><button id="cancelDeleteBoard" type="button">Keep board</button><button id="confirmDeleteBoard" type="button" class="danger">Confirm deletion</button></div></div>
+  <p id="boardStatus" class="inlineStatus" role="status" hidden></p>
+</form></dialog>
 <dialog id="editor"><form id="editForm" class="stack"><div class="split"><h2>Sound details</h2><button type="button" id="closeEditor" class="quiet" data-icon="close" aria-label="Close"></button></div><label>Title<input id="editTitle" required maxlength="160"></label><div class="rangeGrid two"><label>Category<input id="editCategory" list="categories" maxlength="80"><datalist id="categories"><option>Memes</option><option>Tracks</option><option>Effects</option></datalist></label><label>Tags<input id="editTags" maxlength="500"></label></div><label>Description<textarea id="editDescription" maxlength="4000"></textarea></label><details><summary>Source and license</summary><textarea id="editLicense" aria-label="Source and license" maxlength="16000"></textarea></details><div class="row wrap"><button type="button" id="cardMetadata" data-icon="spark">AI title and tags</button><button type="button" id="cardIndex">Refresh index</button></div><div class="split"><button type="button" id="deleteClip" class="danger">Delete sound</button><button class="primary">Save</button></div><p id="cardStatus" class="inlineStatus" role="status" hidden></p></form></dialog>
 <div id="toast" role="status" hidden></div>
 </body>

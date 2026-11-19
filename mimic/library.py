@@ -34,6 +34,11 @@ class Library:
                  filename TEXT, license TEXT DEFAULT '')''')
             db.execute('CREATE TABLE IF NOT EXISTS vectors (key TEXT PRIMARY KEY, value TEXT)')
             db.execute('CREATE TABLE IF NOT EXISTS board_positions (id TEXT PRIMARY KEY, position INTEGER NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS soundboards (id TEXT PRIMARY KEY, title TEXT NOT NULL)')
+            db.execute('''CREATE TABLE IF NOT EXISTS soundboard_clips
+                          (board_id TEXT NOT NULL, clip_id TEXT NOT NULL, position INTEGER NOT NULL,
+                           PRIMARY KEY(board_id, clip_id))''')
+            db.execute('CREATE INDEX IF NOT EXISTS soundboard_clips_clip ON soundboard_clips(clip_id)')
 
     @contextmanager
     def db(self):
@@ -51,13 +56,80 @@ class Library:
                 'SELECT c.* FROM clips c LEFT JOIN board_positions p ON p.id=c.id '
                 f'ORDER BY c.favorite DESC, {BOARD_ORDER}')]
 
-    def swap_cards(self, source, target):
+    def boards(self):
+        with self.db() as db:
+            boards = [dict(row, clips=[]) for row in db.execute('SELECT id,title FROM soundboards ORDER BY rowid')]
+            by_id = {board['id']: board for board in boards}
+            for row in db.execute('SELECT b.board_id,b.clip_id FROM soundboard_clips b JOIN clips c ON c.id=b.clip_id ORDER BY b.position,b.clip_id'):
+                if row['board_id'] in by_id:
+                    by_id[row['board_id']]['clips'].append(row['clip_id'])
+            return boards
+
+    @staticmethod
+    def _board_title(title):
+        if not isinstance(title, str) or not title.strip() or len(title.strip()) > 80:
+            raise ValueError('Enter a board name between 1 and 80 characters.')
+        return title.strip()
+
+    @staticmethod
+    def _ids(values):
+        if not isinstance(values, list) or len(values) > 10000 or any(not isinstance(value,str) or not value or len(value)>128 for value in values):
+            raise ValueError('Choose sounds from your library.')
+        return list(dict.fromkeys(values))
+
+    @staticmethod
+    def _board_exists(db, board):
+        if not isinstance(board,str) or not db.execute('SELECT 1 FROM soundboards WHERE id=?',(board,)).fetchone():
+            raise ValueError('This board no longer exists. Select another board.')
+
+    def _board_members(self, db, board, add, remove):
+        add, remove = self._ids(add), self._ids(remove)
+        if set(add) & set(remove): raise ValueError('A sound cannot be added and removed at the same time.')
+        # Validate the whole selection before writing; a stale picker cannot partially save a board.
+        for clip in add:
+            if not db.execute('SELECT 1 FROM clips WHERE id=?',(clip,)).fetchone():
+                raise ValueError('A selected sound was deleted. Refresh the list and try again.')
+        db.executemany('DELETE FROM soundboard_clips WHERE board_id=? AND clip_id=?', ((board,clip) for clip in remove))
+        position = db.execute('SELECT COALESCE(MAX(position),-1)+1 FROM soundboard_clips WHERE board_id=?',(board,)).fetchone()[0]
+        db.executemany('INSERT OR IGNORE INTO soundboard_clips VALUES (?,?,?)', ((board,clip,position+offset) for offset,clip in enumerate(add)))
+
+    def save_board(self, title, board=None, add=None, remove=None):
+        title = self._board_title(title)
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if board is None:
+                board = uuid.uuid4().hex
+                db.execute('INSERT INTO soundboards VALUES (?,?)',(board,title))
+            else:
+                self._board_exists(db,board)
+                db.execute('UPDATE soundboards SET title=? WHERE id=?',(title,board))
+            self._board_members(db,board,[] if add is None else add,[] if remove is None else remove)
+        return board
+
+    def board_members(self, board, add=None, remove=None):
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            self._board_exists(db,board)
+            self._board_members(db,board,[] if add is None else add,[] if remove is None else remove)
+
+    def delete_board(self, board):
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            self._board_exists(db,board)
+            db.execute('DELETE FROM soundboard_clips WHERE board_id=?',(board,))
+            db.execute('DELETE FROM soundboards WHERE id=?',(board,))
+
+    def swap_cards(self, source, target, board=None):
         if not isinstance(source, str) or not isinstance(target, str) or source == target:
             raise ValueError('Choose two different Soundboard cards.')
         with self.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            cards = db.execute('SELECT c.id, c.favorite FROM clips c LEFT JOIN board_positions p ON p.id=c.id '
-                               f'ORDER BY {BOARD_ORDER}').fetchall()
+            if board:
+                self._board_exists(db,board)
+                cards = db.execute('SELECT c.id,c.favorite FROM clips c JOIN soundboard_clips b ON b.clip_id=c.id WHERE b.board_id=? ORDER BY b.position,b.clip_id',(board,)).fetchall()
+            else:
+                cards = db.execute('SELECT c.id, c.favorite FROM clips c LEFT JOIN board_positions p ON p.id=c.id '
+                                   f'ORDER BY {BOARD_ORDER}').fetchall()
             indexes = {row['id']: index for index, row in enumerate(cards)}
             if source not in indexes or target not in indexes:
                 raise ValueError('A card was removed. Try again with two cards still on the board.')
@@ -65,8 +137,12 @@ class Library:
             if bool(cards[first]['favorite']) != bool(cards[second]['favorite']):
                 raise ValueError('Use the star to move a card into or out of Favorites.')
             cards[first], cards[second] = cards[second], cards[first]
-            db.executemany('INSERT OR REPLACE INTO board_positions VALUES (?,?)',
-                           ((row['id'], index) for index, row in enumerate(cards)))
+            if board:
+                db.executemany('UPDATE soundboard_clips SET position=? WHERE board_id=? AND clip_id=?',
+                               ((index,board,row['id']) for index,row in enumerate(cards)))
+            else:
+                db.executemany('INSERT OR REPLACE INTO board_positions VALUES (?,?)',
+                               ((row['id'], index) for index, row in enumerate(cards)))
 
     def get(self, id):
         with self.db() as db:
@@ -119,6 +195,7 @@ class Library:
         with self.db() as db:
             db.execute('DELETE FROM clips WHERE id=?', (id,))
             db.execute('DELETE FROM board_positions WHERE id=?', (id,))
+            db.execute('DELETE FROM soundboard_clips WHERE clip_id=?',(id,))
         path.unlink(missing_ok=True)
 
     def prepare(self, data):

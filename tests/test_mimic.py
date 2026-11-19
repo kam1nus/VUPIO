@@ -98,6 +98,27 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(body['state'],'signed_out')
         self.assertNotIn('token',body)
 
+    def test_soundboard_management_and_phone_permissions(self):
+        library=self.app.library
+        with library.db() as db:
+            db.executemany('INSERT INTO clips(id,title,favorite) VALUES (?,?,0)',[(id,id) for id in ('one','two')])
+        for path in ('save','members','delete'):
+            for token in (None,self.remote):
+                self.assertEqual(self.req('/api/boards/'+path,{},token)[0],403)
+        status,board,_=self.req('/api/boards/save',{'title':'Minecraft','add':['one','two']},self.admin)
+        self.assertEqual(status,200)
+        id=board['id']
+        self.assertEqual(self.req('/api/state',token=self.remote)[1]['boards'],[{'id':id,'title':'Minecraft','clips':['one','two']}])
+        self.assertEqual(self.req('/api/board/swap',{'source':'one','target':'two','board':id},self.remote)[0],403)
+        self.assertEqual(self.req('/api/board/swap',{'source':'one','target':'two','board':id},self.admin)[0],200)
+        self.assertEqual(self.req('/api/boards/members',{'id':id,'remove':['one']},self.admin)[0],200)
+        self.assertEqual(self.req('/api/state',token=self.remote)[1]['boards'][0]['clips'],['two'])
+        self.assertEqual(self.req('/api/boards/save',{'id':id,'title':'Chill','add':['missing']},self.admin)[0],400)
+        self.assertEqual(library.boards()[0]['title'],'Minecraft')
+        self.assertEqual(self.req('/api/boards/delete',{'id':id},self.admin)[0],200)
+        self.assertEqual(len(library.items()),2)
+        self.assertEqual(self.req('/api/state',token=self.remote)[1]['boards'],[])
+
     def test_mixer_validation_and_preferences(self):
         self.assertEqual(self.req('/api/mixer',{'gain':float('nan')},self.admin)[0],400)
         self.assertEqual(self.req('/api/mixer',{'gain':2},self.admin)[0],400)

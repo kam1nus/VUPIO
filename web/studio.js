@@ -181,10 +181,12 @@ let openStudio,openExternal;
   by('draftStatus').textContent='Changes discarded.';
  },'editorStatus');
  bind('saveEdit',async()=>{
+  const destination=activeBoard;
   const current=source,r=await render(),title=by('copyTitle').value.trim(),tags=by('copyTags').value.trim();
   const result=await work(current.kind==='clip'?'commit':'fetch_commit',current.kind==='clip'?{draft_id:r.draft_id,title,tags}:{asset_id:r.asset_id,title,tags,variant:true});
   r.saved=true;
   if(result.undo_draft_id){undo=result.undo_draft_id;by('undoSave').hidden=false;}
+  await addImportedSound(result.item,destination);
   await sync();status('editorStatus');by('draftStatus').textContent=result.duplicate?'This sound is already in your library.':'Saved: '+result.item.title;
   notify(result.duplicate?'This sound is already in your library':'Copy saved to Soundboard');
  },'editorStatus');

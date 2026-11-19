@@ -130,12 +130,14 @@
     if(el.isConnected&&view==='radar'&&version===previewVersion&&request===previewRequest)
      await playPreview(blobUrl||media(r),r.item?.title||row.title,r.item?.id);
    },{...action('Trend Radar preview'),glyph:'play'}),button('Add',async()=>{
+    const destination=activeBoard;
     status(error);
     setDiagnostic(diagnostics);
     const r=await prepare();
     readiness.textContent=r.item?'In library':'Adding…';
     try{
      const saved=r.item?r:await runJob('fetch_commit',{asset_id:r.asset_id},undefined,250);
+     await addImportedSound(saved.item,destination);
      await sync();
      prepared=saved;
      readiness.textContent='In library';

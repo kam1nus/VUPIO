@@ -293,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
             a = self.app
             if method == 'GET':
                 static = {'/':'index.html','/app.js':'app.js','/style.css':'style.css',
-                          '/account.js':'account.js','/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
+                          '/boards.js':'boards.js','/account.js':'account.js','/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
                           '/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/icon.svg':'icon.svg',
                           '/apple-touch-icon.png':'apple-touch-icon.png',
                           '/vupio-icon-192.png':'vupio-icon-192.png','/vupio-icon-512.png':'vupio-icon-512.png'}
@@ -347,7 +347,7 @@ class Handler(BaseHTTPRequestHandler):
                         audio = {'running':False,'error':str(error),'volume':a.preferences.get('volume',.65),'activeClips':[]}
 
                     return self.send({'role':self.session['role'],'revision':a.revision,
-                                      'items':a.library.items(),'audio':audio,'preview_stop_epoch':a.preview_stop_epoch,
+                                      'items':a.library.items(),'boards':a.library.boards(),'audio':audio,'preview_stop_epoch':a.preview_stop_epoch,
                                       'build':installed_build()})
                 if path == '/api/remotes':
                     self.auth(True)
@@ -449,8 +449,20 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/search':
                 return self.send(a.library.search(str(body.get('query',''))[:2000],bool(body.get('semantic'))))
             self.auth(True)
+            if path == '/api/boards/save':
+                board=a.library.save_board(body.get('title'),body.get('id'),body.get('add',[]),body.get('remove',[]))
+                a.changed()
+                return self.send({'id':board})
+            if path == '/api/boards/members':
+                a.library.board_members(body.get('id'),body.get('add',[]),body.get('remove',[]))
+                a.changed()
+                return self.send({'ok':True})
+            if path == '/api/boards/delete':
+                a.library.delete_board(body.get('id'))
+                a.changed()
+                return self.send({'ok':True})
             if path == '/api/board/swap':
-                a.library.swap_cards(body.get('source'), body.get('target'))
+                a.library.swap_cards(body.get('source'), body.get('target'),body.get('board'))
                 a.changed()
                 return self.send({'ok': True})
             if path == '/api/updates/download':

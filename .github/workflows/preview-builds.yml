@@ -38,6 +38,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_web_agent.py
       - name: Verify GitHub update download and installer selection
         run: python -m unittest discover -s tests -p test_updates.py
+      - name: Verify persistent soundboards
+        run: python -m unittest discover -s tests -p test_boards.py
       - name: Verify account security and Windows credential storage
         run: python -m unittest discover -s tests -p test_account.py
       - name: Build Windows installer
@@ -152,12 +154,11 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}" VUPIO-macOS-AppleSilicon-Sparkle.zip vupio-macos-appcast.xml)
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Optional Account sign-in confirms a device on the website; server-owned tester membership and device revocation are available.
-          - Credentials use macOS Keychain or Windows current-user DPAPI. Payments and paid feature gates are not enabled.
-          - Mac app updates use Sparkle with signed feeds and archives, progress in Updates and a restart button.
-          - Existing bundled models migrate into verified external storage and are reused by lightweight updates.
-          - Windows app updates install in the background and relaunch VUPIO after any required administrator approval.
-          - Versions through 4058 use their existing installation flow once to receive this transition build.
+          - Create, rename and manage soundboards for games and moments without duplicating audio files.
+          - Each board keeps its own card order. Add/Quick Add, file imports and Studio copies can go directly to the selected board.
+          - The phone remote switches between boards independently of the desktop and keeps simple tap-to-play tiles.
+          - A compact sidebar puts workspace sections above Remote, Updates, Settings and Account. STOP and PANIC remain available.
+          - Compatible in-app updates reuse the existing driver and AI models. Builds through 4058 need the one-time transition to a current full installer.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Use Updates for compatible app updates; full installers are for the first install and the transition from builds before 4059.
           EOF

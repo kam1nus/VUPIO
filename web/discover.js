@@ -120,10 +120,12 @@
     if(r.asset_id&&!added)addBtn.hidden=false;
    },{...action('Discover preview'),glyph:'play'});
    const addBtn=button('Add clip',async()=>{
+    const destination=activeBoard;
     status(error);
     setDiagnostic(diagnostics);
     const draft=await pending;
     const r=await task(Symbol(),'fetch_commit',{asset_id:draft.asset_id});
+    await addImportedSound(r.item,destination);
     added=true;
     addBtn.hidden=true;
     heading.textContent=r.item.title;
@@ -179,6 +181,7 @@
  async function search(quick=false){
   if(busy)return;
   setDiagnostic(searchDiagnostics);
+  const destination=activeBoard;
   const body=options(),isLink=/^https?:\/\//i.test(body.query);
   const useWeb=isLink||by('webSource').checked,useCatalogs=!isLink&&by('catalogSource').checked,useLocal=!isLink&&by('localSource').checked;
   if(isLink)quick=false;
@@ -195,7 +198,7 @@
     const found=r.search||r,rows=found.external||[];
     if(found.scope==='catalogs'||!useWeb)catalogs=rows;else web=rows;
     showHistory(found.history);groups();
-    if(r.item){await sync();notify(r.duplicate?'This sound is already in your library':'Added: '+r.item.title);status('discoverStatus',found.fallback_notice);}
+    if(r.item){await addImportedSound(r.item,destination);await sync();notify(r.duplicate?'This sound is already in your library':'Added: '+r.item.title);status('discoverStatus',found.fallback_notice);}
     else{
      const hint=rows.some(row=>row.can_import)?r.warning:'No audio available for Quick Add.';
      status('discoverStatus',[found.fallback_notice,rows.length||!found.fallback_notice?hint:''].filter(Boolean).join(' '),found.sources_unavailable);

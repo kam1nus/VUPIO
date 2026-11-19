@@ -152,6 +152,7 @@ function show(viewID){
  document.querySelectorAll('#nav button').forEach(b=>b.dataset.view===view?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
  by('locationLabel').textContent=section.querySelector('h1').textContent;
  by('main').scrollTop=0;by('main').focus({preventScroll:true});
+ renderImportBoardHint();
  document.dispatchEvent(new CustomEvent('mimic:view',{detail:view}));
 }
 let activeCategory='',favoritesOnly=false,query='',page=0,editing;
@@ -166,12 +167,13 @@ function clearBoardDrag(){
 async function swapBoardCards(source,target,targetPage){
  if(swapping)return;
  swapping=true;
+ const board=activeBoard;
  try{
-  await api('board/swap',{source,target});
-  if(targetPage!==undefined)page=targetPage;
+  await api('board/swap',{source,target,board:board||null});
+  if(targetPage!==undefined&&activeBoard===board)page=targetPage;
   if(syncing)await syncing.catch(()=>{});
   await sync();
-  if(targetPage!==undefined&&view==='soundboard'){
+  if(targetPage!==undefined&&view==='soundboard'&&activeBoard===board){
    const card=[...by('grid').children].find(el=>el.dataset.id===source);
    card?.querySelector('.cardGrip')?.focus();
   }
@@ -236,7 +238,7 @@ function categoryLabel(value){
 }
 
 function libraryOptions(){
- const categories=[...new Set(items.map(i=>i.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+ const categories=[...new Set(boardLibraryItems().map(i=>i.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
  by('category').replaceChildren(new Option('All categories',''),...categories.map(c=>new Option(categoryLabel(c),c)));
  if(!categories.includes(activeCategory))activeCategory='';
  by('category').value=activeCategory;
@@ -244,13 +246,15 @@ function libraryOptions(){
 function renderLibrary(){
  clearBoardDrag();
  const q=query.trim().toLocaleLowerCase();
- const filtered=items.filter(i=>(!activeCategory||i.category===activeCategory)&&(!favoritesOnly||i.favorite)&&(!q||[i.title,i.tags,i.category,i.description].join(' ').toLocaleLowerCase().includes(q)));
+ const boardItems=boardLibraryItems();
+ const filtered=boardItems.filter(i=>(!activeCategory||i.category===activeCategory)&&(!favoritesOnly||i.favorite)&&(!q||[i.title,i.tags,i.category,i.description].join(' ').toLocaleLowerCase().includes(q)));
  const favoriteCount=filtered.filter(i=>i.favorite).length;
  const perPage=role==='remote'?32:48,pages=Math.max(1,Math.ceil(filtered.length/perPage));page=Math.min(page,pages-1);
- by('librarySummary').textContent=items.length?(filtered.length===items.length?'Sounds in library: '+items.length:'Found '+filtered.length+' of '+items.length):'Your sound collection.';
+ const boardName=currentSoundboard()?.title;
+ by('librarySummary').textContent=(boardName?boardName+' · ':'')+(boardItems.length?(filtered.length===boardItems.length?boardItems.length+' sounds':'Found '+filtered.length+' of '+boardItems.length):'No sounds yet');
  by('empty').hidden=Boolean(filtered.length);
- by('emptyTitle').textContent=items.length?'No results':'Your sounds will appear here';
- by('emptyDescription').textContent=items.length?'Try another query or reset the filters.':role==='admin'?'Add an audio file or find a meme in Discover.':'Add your first sound in VUPIO on your computer.';
+ by('emptyTitle').textContent=boardItems.length?'No results':activeBoard?'Build your board':'Your sounds will appear here';
+ by('emptyDescription').textContent=boardItems.length?'Try another query or reset the filters.':role==='admin'?(activeBoard?'Use Manage board to choose existing sounds, or add audio and find a meme.':'Create a board for a game or a moment, then add your sounds.'):'Add sounds to this board in VUPIO on your computer.';
  by('boardOrderHelp').hidden=role!=='admin'||filtered.length<2;
  by('pages').hidden=pages<=1;by('pageText').textContent=(page+1)+' / '+pages;by('prevPage').disabled=page===0;by('nextPage').disabled=page+1>=pages;
  const frag=document.createDocumentFragment();
@@ -322,7 +326,7 @@ function sync(){
   document.body.classList.toggle('remoteMode',role!=='admin');
   by('login').hidden=true;by('starting').hidden=true;by('shell').hidden=false;
   by('connection').classList.add('ready');by('connection').textContent=role==='remote'?'Computer connected':'Local';
-  if(changed){libraryOptions();renderLibrary();document.dispatchEvent(new Event('mimic:library'));}else renderPlaying();
+  if(changed){applySoundboards(data.boards||[]);libraryOptions();renderLibrary();document.dispatchEvent(new Event('mimic:library'));}else renderPlaying();
   document.dispatchEvent(new CustomEvent('mimic:audio',{detail:audio}));
  })().finally(()=>syncing=null);
  return syncing;
@@ -337,7 +341,7 @@ function openEditor(item){
  status('cardStatus');by('editor').showModal();
 }
 for(const el of document.querySelectorAll('[data-icon]')){
- if(el.closest('#nav')){const name=el.textContent;el.replaceChildren(icon(el.dataset.icon),node('span',name,'navLabel'));el.setAttribute('aria-label',name);el.title=name;}
+ if(el.closest('#nav')){const name=el.textContent.trim();el.replaceChildren(icon(el.dataset.icon),node('span',name,'navLabel'));el.setAttribute('aria-label',name);el.title=name;}
  else el.prepend(icon(el.dataset.icon));
 }
 by('nav').addEventListener('click',e=>{const target=e.target.closest('[data-view]');if(target)show(target.dataset.view);});
@@ -350,6 +354,8 @@ function updateSize(bytes){return (bytes/1048576).toFixed(1)+' MB';}
 function drawPublicUpdate(info,checked=true){
  updateInfo=info;
  const available=info.latest>info.installed;
+ by('updatesNav').classList.toggle('hasUpdate',available);
+ by('updatesNav').title=available?'Updates · New build available':'Updates';
  const compatible=available&&info.app_update&&nativeUpdates(info);
  const progress=by('publicUpdateProgress');
  by('autoUpdateOption').hidden=!info.supported||!nativeUpdates(info);
@@ -468,7 +474,7 @@ async function stopAll(panic=false){
  await sync();
 }
 bind('stop',()=>stopAll());bind('panic',()=>stopAll(true));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat&&role&&!by('editor').open&&!['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))stopAll(true).catch(err=>notify(err.message,true));});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat&&role&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))stopAll(true).catch(err=>notify(err.message,true));});
 let volumeTimer,savingVolume=false;
 async function saveVolume(){
  if(savingVolume)return;
@@ -494,12 +500,13 @@ by('volume').oninput=e=>{
 by('uploadButton').onclick=()=>by('upload').click();
 by('upload').onchange=async e=>{
  const file=e.target.files[0];if(!file)return;
+ const destination=activeBoard;
  e.target.disabled=true;by('uploadButton').disabled=true;status('uploadStatus','Importing '+file.name+'…');
  try{
   if(file.size>100*1024*1024)throw Error('File exceeds 100 MB. Choose a shorter recording.');
   const r=await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file}),item=await r.json();
   if(!r.ok)throw Error(item.error);
-  const title=file.name.replace(/\.[^.]+$/,'').slice(0,160)||'New sound';await api('edit',{id:item.id,title});await sync();status('uploadStatus');notify('Added: '+title);
+  const title=file.name.replace(/\.[^.]+$/,'').slice(0,160)||'New sound';await api('edit',{id:item.id,title});await addImportedSound(item,destination);await sync();status('uploadStatus');notify('Added: '+title);
  }catch(err){status('uploadStatus',err.message,true);}finally{e.target.value='';e.target.disabled=false;by('uploadButton').disabled=false;}
 };
 by('closeEditor').onclick=()=>by('editor').close();
