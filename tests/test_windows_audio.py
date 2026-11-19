@@ -12,6 +12,7 @@ class Stream:
     def __init__(self, **options):
         self.active = False
         self.callback = options['callback']
+        self.device = options['device']
     def start(self):
         self.active = True
     def abort(self):
@@ -38,6 +39,76 @@ class Wasapi:
 
 
 class WindowsAudioTests(unittest.TestCase):
+    def test_output_reorder_reopens_the_same_virtual_device(self):
+        driver = Wasapi()
+        audio = WindowsAudio(driver)
+        self.addCleanup(audio.close)
+        audio.ensure_output()
+        original = audio.player
+        devices = driver.query_devices()
+        driver.query_devices = lambda: [devices[1], devices[0], *devices[2:]]
+        audio.refresh()
+        audio.ensure_output()
+        self.assertFalse(original.active)
+        self.assertEqual(audio.player.device, 0)
+        self.assertEqual(audio.status()['outputUID'], 'MIMICAudioDevice_UID')
+        self.assertTrue(audio.status()['virtualConnected'])
+
+    def test_disconnected_virtual_output_does_not_send_voice_to_speakers(self):
+        driver = Wasapi()
+        audio = WindowsAudio(driver)
+        self.addCleanup(audio.close)
+        audio.command('mic', enabled=True, gain=1)
+        original = audio.capture
+        devices = driver.query_devices()
+        driver.query_devices = lambda: [devices[0], *devices[2:]]
+        audio.refresh()
+        self.assertFalse(audio.status()['running'])
+        with self.assertRaisesRegex(ValueError, 'selected audio output disconnected'):
+            audio.ensure_output()
+        self.assertFalse(original.active)
+        self.assertFalse(audio.status()['mic'])
+        self.assertFalse(audio.status()['virtualConnected'])
+        driver.query_devices = lambda: devices
+        audio.refresh()
+        audio.ensure_output()
+        self.assertTrue(audio.status()['virtualConnected'])
+        self.assertFalse(audio.status()['mic'])
+
+    def test_physical_input_keeps_its_identity_after_device_reorder(self):
+        driver = Wasapi()
+        audio = WindowsAudio(driver)
+        self.addCleanup(audio.close)
+        devices = driver.query_devices()
+        driver.query_devices = lambda: [devices[3], *devices[:3]]
+        audio.refresh()
+        audio.command('mic', enabled=True)
+        self.assertEqual(audio.capture.device, 0)
+        self.assertEqual(audio.status()['inputUID'], 'wasapi:Physical mic')
+
+    def test_devices_can_appear_after_an_empty_startup(self):
+        driver = Wasapi()
+        devices = driver.query_devices()
+        driver.query_devices = lambda: []
+        audio = WindowsAudio(driver)
+        self.addCleanup(audio.close)
+        driver.query_devices = lambda: devices
+        audio.refresh()
+        audio.ensure_output()
+        self.assertTrue(audio.status()['virtualConnected'])
+
+    def test_monitor_limiter_bounds_overlapping_clips(self):
+        audio = WindowsAudio(Wasapi())
+        self.addCleanup(audio.close)
+        audio.ensure_output()
+        tone = np.full((480, 2), 32767, dtype=np.int16)
+        audio.clips = {str(index): (tone, 0) for index in range(8)}
+        output = np.empty((480, 2), dtype=np.float32)
+        audio.render(output, 480, None, None)
+        audio.render_monitor(output, 480, None, None)
+        self.assertTrue(np.isfinite(output).all())
+        self.assertLessEqual(float(np.abs(output).max()), .981)
+
     def test_default_monitor_starts_with_playback_not_at_launch(self):
         audio=WindowsAudio(Wasapi());self.addCleanup(audio.close)
         self.assertTrue(audio.status()['monitor'])

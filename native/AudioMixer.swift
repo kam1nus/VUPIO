@@ -96,8 +96,41 @@ final class SoundEngine {
         let code=AudioUnitSetProperty(unit,kAudioOutputUnitProperty_CurrentDevice,kAudioUnitScope_Global,0,&d,UInt32(MemoryLayout<AudioDeviceID>.size))
         guard code==noErr else{throw AudioFailure.message("Core Audio: could not select the output (\(code))")}
     }
+    func selectedOutputIsActive() -> Bool {
+        guard engine.isRunning, let unit = engine.outputNode.audioUnit else { return false }
+        var bound = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioUnitGetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &bound, &size) == noErr,
+              bound == output else { return false }
+
+        // Core Audio can rebuild a graph against the system output after a device change.
+        // Check the routes that are open, as well as the device selected on the unit.
+        var pid = ProcessInfo.processInfo.processIdentifier
+        var process = AudioObjectID(0)
+        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyTranslatePIDToProcessObject,
+                                                mScope: kAudioObjectPropertyScopeGlobal, mElement: 0)
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        guard AudioObjectGetPropertyData(system, &address, UInt32(MemoryLayout.size(ofValue: pid)), &pid, &size, &process) == noErr,
+              process != 0 else { return true }
+        address.mSelector = kAudioProcessPropertyDevices
+        address.mScope = kAudioObjectPropertyScopeOutput
+        guard AudioObjectGetPropertyDataSize(process, &address, 0, nil, &size) == noErr,
+              size >= UInt32(MemoryLayout<AudioDeviceID>.size) else { return true }
+        var devices = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        let result = devices.withUnsafeMutableBytes { buffer in
+            AudioObjectGetPropertyData(process, &address, 0, nil, &size, buffer.baseAddress!)
+        }
+        return result != noErr || devices.contains(output)
+    }
+
+    func requireOutput() throws {
+        if ready && selectedOutputIsActive() { return }
+        stopCapture()
+        try configure()
+    }
+
     func configure()throws {
-        engine.stop();monitorEngine?.stop();ready=false
+        stopCapture();engine.stop();monitorEngine?.stop();mimic_mix_monitor(dsp,0);ready=false
         guard devices().contains(where:{$0["id"] as? UInt32 == output})else{throw AudioFailure.message("Output disconnected. Select MIMIC Microphone or a fallback output.")}
         engine=AVAudioEngine();try setDevice(engine,output)
         let p=dsp
@@ -107,7 +140,12 @@ final class SoundEngine {
             mimic_mix_render(p,l,r,n);return noErr
         }
         source=s;engine.attach(s);engine.connect(s,to:engine.mainMixerNode,format:mixFormat)
-        mimic_mix_gains(dsp,volume,gain);engine.prepare();try engine.start();ready=true
+        mimic_mix_gains(dsp,volume,gain);engine.prepare();try engine.start()
+        guard selectedOutputIsActive() else {
+            engine.stop()
+            throw AudioFailure.message("Core Audio could not open the selected output. Apply the output again in Audio devices.")
+        }
+        ready=true
         if monitor{do{try startMonitor()}catch{monitorNotice=error.localizedDescription;monitorRetryAfter=Date(timeIntervalSinceNow:3);log("Local listening: \(monitorNotice)")}}
     }
     func monitorTarget()->AudioDeviceID? {
@@ -185,12 +223,12 @@ final class SoundEngine {
         let route=deviceName(output).lowercased()
         guard uid=="MIMICAudioDevice_UID" || route.contains("blackhole") || route.contains("multi-output") || route.contains("aggregate") else{throw AudioFailure.message("Select MIMIC Microphone as the output to enable microphone routing.")}
         guard mimic_mix_is_emergency(dsp)==0 else{return}
-        if !ready || !engine.isRunning{try configure()}
+        try requireOutput()
         if !mic{try startCapture()}
         notice=""
         if diagnosticActive && !diagnosticReady {
             diagnosticReady=true;diagnosticUntil=Date(timeIntervalSinceNow:10);diagnosticConsumed=mimic_mix_consumed_mic_frames(dsp)
-            try? probe.start()
+            try? probe.start(device:output)
             log("Physical mic diagnostic started: no tone; say a few words")
         }
     }
@@ -221,8 +259,8 @@ final class SoundEngine {
             if frames != lastInputFrames{lastInputFrames=frames;lastInputTime=Date()}
             else if Date().timeIntervalSince(lastInputTime)>3{stopCapture();retryAfter=Date(timeIntervalSinceNow:2);notice="No capture frames received. Check captureError. Retrying the selected input.";log(notice)}
         }
-        if ready && (!engine.isRunning || !devices().contains(where:{$0["id"] as? UInt32 == output})){
-            engine.stop();monitorEngine?.stop();mimic_mix_monitor(dsp,0);ready=false;stopClips();stopCapture();probe.stop();notice="Output disconnected. Waiting for the selected device.";log(notice)
+        if ready && !selectedOutputIsActive(){
+            engine.stop();monitorEngine?.stop();mimic_mix_monitor(dsp,0);ready=false;stopClips();stopCapture();probe.stop();notice="The selected output route was lost. Waiting for the device.";log(notice)
         }
         if ready && monitor && Date()>monitorRetryAfter {
             let target=monitorTarget()
@@ -245,15 +283,16 @@ final class SoundEngine {
         let slots=names.keys.sorted().filter{mimic_voice_active(dsp,$0) != 0}
         let active=slots.compactMap{names[$0]}
         let virtual=devices().first(where:{$0["uid"] as? String == "MIMICAudioDevice_UID"})
+        let outputActive=ready && selectedOutputIsActive()
         var result:[String:Any] = ["playing":active.last as Any? ?? NSNull(),"activeClips":active,"polyphony":parallel,"maxVoices":8,
-                "volume":volume,"mic":mic && (capture?.running ?? false) && mimic_mix_is_emergency(dsp)==0,"micGain":gain,"running":engine.isRunning,
+                "volume":volume,"mic":mic && (capture?.running ?? false) && mimic_mix_is_emergency(dsp)==0,"micGain":gain,"running":outputActive,
                 "output":output,"outputName":deviceName(output),"outputUID":deviceString(output,kAudioDevicePropertyDeviceUID),
                 "input":preferredInput ?? 0,"inputName":preferredInput.map{deviceName($0)} ?? "Select a microphone","inputUID":selectedInputUID,
                 "micPermission":AVCaptureDevice.authorizationStatus(for:.audio).rawValue,
                 "micLevel":mimic_mix_meter(dsp,0),"clipLevel":mimic_mix_meter(dsp,1),"outputLevel":mimic_mix_meter(dsp,2),"limiting":mimic_mix_meter(dsp,3)>0,
                 "micFrames":mimic_mix_input_frames(dsp),"captureHealthy":mic && mimic_mix_input_frames(dsp)>inputBaseline,"micUnderruns":mimic_mix_underruns(dsp),"monitor":monitor,"monitorDevice":monitorDevice,
                 "driverInstalled":FileManager.default.fileExists(atPath:"/Library/Audio/Plug-Ins/HAL/MIMICMicrophone.driver"),
-                "driverRegistered":virtual != nil,"virtualConnected":virtual?["id"] as? UInt32 == output && engine.isRunning,
+                "driverRegistered":virtual != nil,"virtualConnected":virtual?["id"] as? UInt32 == output && outputActive,
                 "monitorUID":selectedMonitorUID,"monitorRunning":monitorEngine?.isRunning ?? false,"monitorNotice":monitorNotice,
                 "notice":notice,"sampleRate":48000]
         let telemetry=retainedTelemetry?.snapshot() ?? [:]
@@ -278,10 +317,11 @@ final class SoundEngine {
                 let permission=AVCaptureDevice.authorizationStatus(for:.audio)
                 if permission == .notDetermined{AVCaptureDevice.requestAccess(for:.audio){_ in};return ["notice":"Allow VUPIO microphone access in macOS, then run the test again."]}
                 guard permission == .authorized else{throw AudioFailure.message("Allow VUPIO microphone access in macOS to test the virtual input")}
-                try probe.start()
+                try probe.start(device:output)
             }else{probe.stop()}
         case "input":
-            let id=AudioDeviceID(c["device"] as? Int ?? 0)
+            guard let value=c["device"] as? Int,value>0,value<=Int(UInt32.max) else{throw AudioFailure.message("Select a physical input")}
+            let id=AudioDeviceID(value)
             guard physicalInputs().contains(where:{$0["id"] as? UInt32 == id})else{throw AudioFailure.message("Select a physical input")}
             stopCapture();preferredInput=id;selectedInputUID=deviceString(id,kAudioDevicePropertyDeviceUID);if micRequested{try activateRequestedMic()}
         case "output":
@@ -289,13 +329,14 @@ final class SoundEngine {
             let next=UInt32(value),name=deviceName(UInt32(value)).lowercased()
             if micRequested && deviceString(next,kAudioDevicePropertyDeviceUID) != "MIMICAudioDevice_UID" && !["blackhole","aggregate","multi-output"].contains(where:name.contains){try requestMic(false);notice="Microphone disabled for physical output. Select MIMIC Microphone to route your voice."}
             stopClips();probe.stop();output=next;selectedOutputUID=deviceString(output,kAudioDevicePropertyDeviceUID)
-            if c["start"] as? Bool ?? true {try configure()}
-            else{engine.stop();monitorEngine?.stop();ready=false}
+            if c["start"] as? Bool ?? true {try configure();if micRequested{try activateRequestedMic()}}
+            else{stopCapture();engine.stop();monitorEngine?.stop();mimic_mix_monitor(dsp,0);ready=false}
         case "play":
             if diagnosticActive{diagnosticHadClips=true}
             if mimic_mix_is_emergency(dsp) != 0{stopCapture();mimic_mix_resume(dsp)}
             guard let path=c["path"] as? String else{throw AudioFailure.message("No file")}
-            if !ready || !engine.isRunning{try configure()}
+            try requireOutput()
+            if micRequested && !mic {try activateRequestedMic()}
             if !parallel{stopClips()}
             let slot=(Int32(0)..<Int32(8)).first(where:{mimic_voice_active(dsp,$0)==0}) ?? order.min(by:{$0.value<$1.value})!.key
             feeds[slot]?.cancel();let ticket=mimic_voice_begin(dsp,slot)
@@ -325,6 +366,7 @@ final class SoundEngine {
         case "mic", "mic_test":
             let test=(c["op"] as? String)=="mic_test"
             if let id=c["device"] as? Int,id>0 {
+                guard id<=Int(UInt32.max) else{throw AudioFailure.message("The selected input is not an available physical microphone")}
                 guard physicalInputs().contains(where:{$0["id"] as? UInt32==UInt32(id)})else{throw AudioFailure.message("The selected input is not an available physical microphone")}
                 if UInt32(id) != preferredInput{stopCapture();preferredInput=UInt32(id);selectedInputUID=deviceString(UInt32(id),kAudioDevicePropertyDeviceUID)}
             }

@@ -132,9 +132,10 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}")
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Fixed the macOS build number so it matches the release tag and the updater can verify the archive.
-          - Future updates from the Applications folder open macOS Installer for approval when needed, using the existing driver and models.
-          - Includes Discover's automatic fallback to audio catalogs when Tavily and Myinstants cannot return results.
+          - Mac audio verifies the selected output route and resumes requested microphone capture after rebuilding it.
+          - Virtual-input diagnostics follow the selected MIMIC or BlackHole output and measure both stereo channels.
+          - Windows preserves output and microphone selections across device reordering, avoids routing voice to speakers after virtual-output loss, and limits local monitoring peaks.
+          - Includes the Mac update-number and permission fixes from build 4057.
 
           Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
           EOF

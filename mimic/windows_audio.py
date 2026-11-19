@@ -29,11 +29,13 @@ class WindowsAudio:
         self.monitor_frames = deque(maxlen=12)
         self.player = self.capture = self.monitor = None
         self.output = self.input = self.monitor_device = 0
+        self.output_uid = ''
+        self.input_uid = ''
+        self.player_device = 0
         self.monitor_enabled, self.monitor_uid, self.monitor_notice = True, '', ''
         self.volume, self.gain, self.parallel = .65, .7, False
         self.clip_peak = self.mic_peak = self.output_peak = 0.
         self.refresh()
-        self.output = self.virtual_output or self.default_output
 
     def refresh(self):
         outputs, inputs = {}, {}
@@ -58,10 +60,18 @@ class WindowsAudio:
         if self.virtual_output:
             outputs[self.virtual_output][0]['uid'] = VIRTUAL_UID
         self.outputs, self.inputs = outputs, inputs
+        if self.output_uid:
+            self.output = next((id for id, (row, _) in outputs.items() if row['uid'] == self.output_uid), 0)
         if not self.default_output:
             self.default_output = next((id for id,(row,_) in outputs.items() if not row['virtual']),0)
-        if not self.input:
+        if not self.output_uid:
+            self.output = self.virtual_output or self.default_output
+            self.output_uid = outputs.get(self.output, ({}, 0))[0].get('uid', '')
+        if self.input_uid:
+            self.input = next((id for id, row in inputs.items() if row['uid'] == self.input_uid), 0)
+        else:
             self.input = next(iter(inputs), 0)
+            self.input_uid = inputs.get(self.input, {}).get('uid', '')
         if not self.monitor_device:
             self.monitor_device = self.default_output
 
@@ -85,15 +95,19 @@ class WindowsAudio:
         return stream
 
     def ensure_output(self):
-        if self.player is None or not self.player.active:
+        if not self.output:
+            self.stop_mic()
+            raise ValueError('The selected audio output disconnected. Reconnect it or select another output.')
+        if self.player is None or not self.player.active or self.player_device != self.output:
             self.close_stream(self.player)
             self.player = None
             if self.output not in self.outputs:
                 self.refresh()
-                self.output = self.virtual_output or self.default_output
             if not self.output:
+                self.stop_mic()
                 raise ValueError('Select an available Windows audio output.')
             self.player = self.start_output(self.output, self.render)
+            self.player_device = self.output
         self.ensure_monitor()
 
     def ensure_monitor(self):
@@ -141,7 +155,7 @@ class WindowsAudio:
             mix *= self.volume / 32768
             self.clip_peak = float(np.max(np.abs(mix)))
             if self.monitor is not None:
-                self.monitor_frames.append(mix.copy())
+                self.monitor_frames.append(np.clip(mix, -.98, .98))
             offset = 0
             while self.capture is not None and offset < frames:
                 if len(self.voice_tail) == 0:
@@ -210,7 +224,7 @@ class WindowsAudio:
         with self.mix_lock:
             active = list(self.clips)
             output = self.outputs.get(self.output, ({},0))[0]
-            running = self.player is not None and self.player.active
+            running = self.player is not None and self.player.active and self.player_device == self.output and self.output in self.outputs
             mic = self.capture is not None and self.capture.active
             return dict(platform='windows', playing=active[-1] if active else None, activeClips=active,
                         running=running, mic=mic, micRequested=mic, volume=self.volume,
@@ -257,6 +271,7 @@ class WindowsAudio:
                 raise ValueError('WASAPI output unavailable. Refresh the device list.')
             self.close()
             self.output = data['device']
+            self.output_uid = self.outputs[self.output][0]['uid']
             if data.get('start', True):
                 self.ensure_output()
         elif op in {'input', 'mic'}:
@@ -267,6 +282,7 @@ class WindowsAudio:
                 active = self.capture is not None
                 self.stop_mic()
                 self.input = id
+                self.input_uid = self.inputs[id]['uid']
                 if op == 'input' and active:
                     self.start_mic()
             if op == 'mic':
