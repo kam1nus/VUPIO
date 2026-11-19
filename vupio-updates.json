@@ -1,35 +1,49 @@
 [
   {
-    "tag_name": "alpha-4058",
+    "tag_name": "alpha-4059",
     "draft": false,
     "assets": [
       {
         "name": "VUPIO-macOS-AppleSilicon.pkg",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-macOS-AppleSilicon.pkg",
-        "size": 874353342,
-        "digest": "sha256:9389efa540d8a4149f80d79ac2d6213aaacb6fb1d5a02cacb8442663e6ad3868"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-macOS-AppleSilicon.pkg",
+        "size": 875266573,
+        "digest": "sha256:3eb04b06331953a7704d8913f916f71ed9dbcb3360fd6bf66f202b20a6bc061d"
       },
       {
         "name": "VUPIO-Windows-x64-Setup.exe",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-Windows-x64-Setup.exe",
-        "size": 937527221,
-        "digest": "sha256:ef97e25bfbf758cc3230e9eca55e7b0bdd000aa26817e89ce60a7c9105f17e57"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-Windows-x64-Setup.exe",
+        "size": 937529386,
+        "digest": "sha256:e2d7041de8a6a301f13c4d53155bd8fda7d91281e81894c754daacb91f1ed69b"
       },
       {
         "name": "VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
-        "size": 46620290,
-        "digest": "sha256:4efa5a386815a8f4e39ad965b161b28f6e81f17a2555a2306445de56e4164027"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-macOS-AppleSilicon-Update-46f82649c5cbb399e9d0be538538c93946b982f13f433a3388f9b0d8f558123e.zip",
+        "size": 47621430,
+        "digest": "sha256:63122668f6c845a26891393e96c22466ea5ec6a15bc942982b9520d157f2cc01"
       },
       {
         "name": "VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
         "state": "uploaded",
-        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4058/VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
-        "size": 107738472,
-        "digest": "sha256:d18e298b80d53b4182babb99a937e662964a630993d3ff2b376190a299dda916"
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-Windows-x64-Update-c80cf3e1cfdba9c23c6b34eea6fa1c393d838a31e2d26f5e2773189882c4c287.exe",
+        "size": 107738197,
+        "digest": "sha256:574f2c1d10e5f1576e4f24c5166e0c18a67af577676f7c5ee5a4798659c1e442"
+      },
+      {
+        "name": "VUPIO-macOS-AppleSilicon-Sparkle.zip",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/VUPIO-macOS-AppleSilicon-Sparkle.zip",
+        "size": 47620928,
+        "digest": "sha256:ac3c3b396ebc0c38117ac4f8af9eefa370b5b69bc073dc6297c00147000b7d91"
+      },
+      {
+        "name": "vupio-macos-appcast.xml",
+        "state": "uploaded",
+        "browser_download_url": "https://github.com/kam1nus/VUPIO/releases/download/alpha-4059/vupio-macos-appcast.xml",
+        "size": 1276,
+        "digest": "sha256:e2e5609eedba2c82bd42ea0892d11c2396313cc16c2066c221a2c39f4a455bcd"
       }
     ]
   }
