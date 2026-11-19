@@ -150,3 +150,5 @@ body.remoteMode .admin{display:none!important}
 .radarCard{padding:12px}
 .radarCard .resultTitle{margin-bottom:3px}
 .radarCard .tools a{font-size:var(--small);white-space:nowrap}
+
+.accountLayout{max-width:900px}.accountCode{font-size:28px;letter-spacing:.16em;font-variant-numeric:tabular-nums}.accountLayout form input{flex:1;min-width:240px}

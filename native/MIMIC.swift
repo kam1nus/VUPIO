@@ -394,6 +394,8 @@ if CommandLine.arguments.dropFirst().first == "--vupio-relaunch" {
     let result=classifyFile(CommandLine.arguments[index+1])
     let data=try! JSONSerialization.data(withJSONObject:result)
     print(String(data:data,encoding:.utf8)!)
+} else if CommandLine.arguments.contains("--account-helper") {
+    accountCredentialCommand()
 } else if CommandLine.arguments.contains("--audio-helper") {
     let sound=SoundEngine()
     DispatchQueue.global().async {

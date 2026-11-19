@@ -89,6 +89,15 @@ class ServerTests(unittest.TestCase):
         self.assertFalse(self.req('/api/updates/status',token=self.admin)[1]['auto'])
         self.assertEqual(self.req('/api/updates/download',{},self.admin)[0],400)
         self.assertEqual(self.req('/api/updates/install',{},self.admin)[0],400)
+    def test_account_requires_local_admin(self):
+        for path,body in [('status',None),('begin',{}),('refresh',{}),('redeem',{'code':'test'}),('logout',{}),('revoke',{})]:
+            for token in (None,self.remote):
+                self.assertEqual(self.req('/api/account/'+path,body,token)[0],403)
+        status,body,_=self.req('/api/account/status',token=self.admin)
+        self.assertEqual(status,200)
+        self.assertEqual(body['state'],'signed_out')
+        self.assertNotIn('token',body)
+
     def test_mixer_validation_and_preferences(self):
         self.assertEqual(self.req('/api/mixer',{'gain':float('nan')},self.admin)[0],400)
         self.assertEqual(self.req('/api/mixer',{'gain':2},self.admin)[0],400)

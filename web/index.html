@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="VUPIO">
 <title>VUPIO</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/discover.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script>
+<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/discover.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script><script defer src="/account.js"></script>
 </head>
 <body>
 <section id="login" class="login" hidden>
@@ -28,6 +28,7 @@
       <button data-view="radar" data-icon="radar">Trend Radar</button>
       <button data-view="studio" data-icon="wave">Studio</button>
       <button data-view="remote" data-icon="phone">Remote</button>
+      <button data-view="account" data-icon="user">Account</button>
       <button data-view="updates" data-icon="refresh">Updates</button>
       <button data-view="settings" data-icon="settings">Settings</button>
     </nav>
@@ -114,6 +115,19 @@
           <article class="panel stack"><div class="split"><h2>Paired remotes</h2><button id="refreshRemotes" class="quiet" data-icon="refresh" aria-label="Refresh paired remotes"></button></div><div id="remoteDevices" class="stack"></div><p class="muted">Add the remote in Safari: Share → Add to Home Screen.</p><div><button id="revoke" class="danger">Disconnect all remotes + PANIC</button></div></article>
         </div>
       </section>
+      <section id="account" class="view admin" hidden>
+        <div class="pagehead"><div><h1>Account</h1><p class="muted">Connect your computer and manage tester access.</p></div></div>
+        <div class="accountLayout stack">
+          <article class="panel stack"><div class="split"><h2 id="accountName">Your VUPIO account</h2><span id="accountPlan" class="connection">Not signed in</span></div>
+            <p class="muted">Sign in through the VUPIO website using ChatGPT. The soundboard remains available without an account. Payments are not enabled.</p>
+            <div class="row wrap"><button id="accountLogin" class="primary">Sign in</button><button id="accountRefresh">Refresh status</button><button id="accountLogout" hidden>Sign out</button><a href="https://vupio-soundboard.denserat4.chatgpt.site/account" target="_blank" rel="noopener noreferrer">Manage on website</a></div>
+            <div id="accountPending" class="stack" hidden><p>Open the website and confirm this exact code for this computer.</p><strong id="accountCode" class="accountCode"></strong><div><a id="accountConfirm" class="button primary" target="_blank" rel="noopener noreferrer">Continue on website</a></div><p class="muted">Only approve a sign-in you started. The code expires in 10 minutes.</p></div>
+            <p id="accountExpiry" class="muted"></p><p id="accountStatus" class="inlineStatus" role="status" hidden></p>
+          </article>
+          <article id="accountRedeemPanel" class="panel stack" hidden><h2>Tester access</h2><p class="muted">Have an invitation code? Activate temporary Pro status here. Current features stay available during the preview.</p><form id="accountRedeemForm" class="row wrap"><input id="accountTesterCode" aria-label="Tester code" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" maxlength="29" required><button id="accountRedeemButton">Redeem code</button></form></article>
+          <article id="accountDevicesPanel" class="panel stack" hidden><h2>Connected computers</h2><div id="accountDevices" class="stack"></div></article>
+        </div>
+      </section>
       <section id="updates" class="view admin" hidden>
         <div class="pagehead"><div><h1>Updates</h1><p id="currentBuild" class="muted"></p></div></div>
         <article class="panel stack">
@@ -126,7 +140,7 @@
           <div class="row wrap"><button id="downloadAppUpdate" hidden>Download app update</button><button id="installAppUpdate" class="primary" hidden>Install update</button><span id="publicUpdateDownload"></span></div>
         </article>
         <article class="panel stack nativeOnly"><h2>Local Mac builds</h2><p class="muted">For builds connected to a local update folder.</p><div><button id="checkUpdates" data-icon="refresh">Check local channel</button></div><p id="updateStatus" class="inlineStatus" role="status" hidden></p></article>
-        <article class="panel stack"><h2>What's new</h2><p>Verified app updates download here and restart VUPIO when you are ready. Existing AI models are reused.</p></article>
+        <article class="panel stack"><h2>What's new</h2><p>Verified app updates download here and restart VUPIO when you are ready. Existing AI models are reused. Account connects this computer to the website and supports tester membership codes.</p></article>
       </section>
       <section id="settings" class="view admin" hidden>
         <div class="pagehead"><div><h1>Settings</h1><p class="muted">Devices, microphone, models and background tasks.</p></div></div>

@@ -18,7 +18,11 @@ Starting with **build 4059**, Mac updates are downloaded and verified by Sparkle
 
 Windows downloads compatible app-only updates in **Updates**, then installs them silently and relaunches VUPIO. Confirm the Windows administrator prompt if shown. Driver/model bundle changes still require a full installer. First installs use the download buttons above.
 
-The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote, Updates and Settings. Search queries, meme names and imported metadata can use their original languages. Search quality depends on the model and available sources.
+The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote, Account, Updates and Settings. Search queries, meme names and imported metadata can use their original languages. Search quality depends on the model and available sources.
+
+## Accounts and tester membership
+
+**Account** connects your computer to the VUPIO website with a one-time confirmation code. Sign in with ChatGPT, view Free/Pro tester status, redeem an invitation and disconnect computers. Sign-in is optional. Payments and paid feature limits are not enabled; current functions remain available without an account. See [Account setup and subscription readiness](docs/ACCOUNTS.md).
 
 ## Features
 

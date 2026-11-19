@@ -24,6 +24,7 @@ from . import BUILD
 from .library import Library, select_fragment, suggest
 from .sources import LicensedCatalog
 from .updates import Updates
+from .account import AccountService
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -104,6 +105,7 @@ class App:
         self.started = time.time()
         self._studio=None
         self.updates=Updates(self.library.root, installed_build())
+        self.account=AccountService(self.library.root, getattr(audio, "executable", None))
         with self.library.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, role TEXT, name TEXT, expiry REAL)')
         self.preferences_path=self.library.root/'preferences.json'
@@ -291,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
             a = self.app
             if method == 'GET':
                 static = {'/':'index.html','/app.js':'app.js','/style.css':'style.css',
-                          '/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
+                          '/account.js':'account.js','/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
                           '/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/icon.svg':'icon.svg',
                           '/apple-touch-icon.png':'apple-touch-icon.png',
                           '/vupio-icon-192.png':'vupio-icon-192.png','/vupio-icon-512.png':'vupio-icon-512.png'}
@@ -332,6 +334,9 @@ class Handler(BaseHTTPRequestHandler):
                         _,file=studio.draft(path.rsplit('/',1)[1])
                         return self.send_audio(file)
                     raise ValueError('Unknown AI Studio endpoint')
+                if path == '/api/account/status':
+                    self.auth(True)
+                    return self.send(a.account.info())
                 if path in {'/api/updates', '/api/updates/status'}:
                     self.auth(True)
                     info=a.updates.check() if path == '/api/updates' else a.updates.info()
@@ -408,6 +413,15 @@ class Handler(BaseHTTPRequestHandler):
                 a.changed()
                 return self.send(item)
             body = self.json_body()
+            if path.startswith('/api/account/'):
+                self.auth(True)
+                action=path.rsplit('/',1)[1]
+                if action == 'begin': return self.send(a.account.begin())
+                if action == 'refresh': return self.send(a.account.refresh())
+                if action == 'logout': return self.send(a.account.logout())
+                if action == 'redeem': return self.send(a.account.redeem(body.get('code','')))
+                if action == 'revoke': return self.send(a.account.revoke(body.get('device_id','')))
+                raise ValueError('Unknown account action')
             if path == '/api/play':
                 a.preview_stop_epoch+=1
                 item = a.library.get(body['id'])

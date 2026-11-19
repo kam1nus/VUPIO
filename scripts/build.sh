@@ -7,7 +7,7 @@ build_number="${MIMIC_BUILD_NUMBER:-$(python3 -c 'from mimic import BUILD; print
 [[ "$build_number" =~ '^[1-9][0-9]{0,8}$' ]] || { echo 'Invalid MIMIC_BUILD_NUMBER'; exit 1; }
 cp native/MIMIC.swift build/main.swift
 clang -std=c11 -O2 -c native/MixerDSP.c -o build/MixerDSP.o
-swiftc build/main.swift native/SoundAnalysis.swift native/AudioMixer.swift native/AudioProbe.swift native/CoreInput.swift native/LocalUpdate.swift native/BundledModels.swift native/AppUpdater.swift build/MixerDSP.o -import-objc-header native/MixerDSP.h -O -module-cache-path build/swift-cache -F build/MIMIC.app/Contents/Frameworks -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks -o build/MIMIC.app/Contents/MacOS/MIMIC -framework Cocoa -framework WebKit -framework SoundAnalysis -framework AVFoundation -framework CoreAudio -framework AudioToolbox
+swiftc build/main.swift native/SoundAnalysis.swift native/AudioMixer.swift native/AudioProbe.swift native/CoreInput.swift native/LocalUpdate.swift native/BundledModels.swift native/AppUpdater.swift native/AccountCredential.swift build/MixerDSP.o -import-objc-header native/MixerDSP.h -O -module-cache-path build/swift-cache -F build/MIMIC.app/Contents/Frameworks -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks -o build/MIMIC.app/Contents/MacOS/MIMIC -framework Cocoa -framework WebKit -framework SoundAnalysis -framework AVFoundation -framework CoreAudio -framework AudioToolbox
 swiftc scripts/icon.swift -module-cache-path build/swift-cache -o build/mimic-icon
 build/mimic-icon web/icon.svg build/MIMIC.iconset
 python3 scripts/icon_container.py build/MIMIC.iconset build/MIMIC.app/Contents/Resources/VUPIO.icns

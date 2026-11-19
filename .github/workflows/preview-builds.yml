@@ -38,6 +38,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_web_agent.py
       - name: Verify GitHub update download and installer selection
         run: python -m unittest discover -s tests -p test_updates.py
+      - name: Verify account security and Windows credential storage
+        run: python -m unittest discover -s tests -p test_account.py
       - name: Build Windows installer
         run: ./scripts/package_windows.ps1
       - name: Verify the Windows installer upgrades without writing the models
@@ -150,12 +152,14 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}" VUPIO-macOS-AppleSilicon-Sparkle.zip vupio-macos-appcast.xml)
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
+          - Optional Account sign-in confirms a device on the website; server-owned tester membership and device revocation are available.
+          - Credentials use macOS Keychain or Windows current-user DPAPI. Payments and paid feature gates are not enabled.
           - Mac app updates use Sparkle with signed feeds and archives, progress in Updates and a restart button.
           - Existing bundled models migrate into verified external storage and are reused by lightweight updates.
           - Windows app updates install in the background and relaunch VUPIO after any required administrator approval.
           - Versions through 4058 use their existing installation flow once to receive this transition build.
 
-          Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Download and run the installer linked from Updates.
+          Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Use Updates for compatible app updates; full installers are for the first install and the transition from builds before 4059.
           EOF
           gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease \
             --title "VUPIO Alpha · build $build" --notes-file /tmp/vupio-release-notes \
