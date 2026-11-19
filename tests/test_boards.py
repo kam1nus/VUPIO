@@ -1,5 +1,6 @@
 import tempfile
 import sqlite3
+from contextlib import closing
 import unittest
 from pathlib import Path
 from mimic.library import Library
@@ -66,13 +67,14 @@ class BoardTests(unittest.TestCase):
     def test_opening_a_legacy_profile_adds_empty_boards_without_resetting_data(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'audio').mkdir();(root/'audio/saved.wav').write_bytes(b'original audio')
-            with sqlite3.connect(root/'library.sqlite3') as db:
+            with closing(sqlite3.connect(root/'library.sqlite3')) as db:
                 db.execute('CREATE TABLE clips(id TEXT PRIMARY KEY,title TEXT,category TEXT,tags TEXT,description TEXT,favorite INTEGER,duration REAL,filename TEXT,license TEXT)')
                 db.execute("INSERT INTO clips VALUES ('saved','Saved sound','Memes','test','Keep me',1,2.5,'saved.wav','User file')")
                 db.execute('CREATE TABLE board_positions(id TEXT PRIMARY KEY,position INTEGER NOT NULL)')
                 db.execute("INSERT INTO board_positions VALUES ('saved',42)")
                 db.execute('CREATE TABLE vectors(key TEXT PRIMARY KEY,value TEXT)')
                 db.execute("INSERT INTO vectors VALUES ('embedding','[1,2]')")
+                db.commit()
             library=Library(root)
             self.assertEqual(library.boards(),[])
             self.assertEqual(library.items()[0]['title'],'Saved sound')
