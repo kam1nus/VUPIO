@@ -179,3 +179,7 @@ jobs:
             gh api --method PUT "$endpoint" -f branch=update-feed -f message="Point VUPIO updates to $tag" \
               -f sha="$(jq -er .sha <<< "$current")" -f content="$(base64 -w0 /tmp/vupio-updates.json)" --silent
           fi
+      - name: Link the public installers from the main README
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/link_readme_release.py "$(python3 -c 'from mimic import BUILD; print(BUILD)')"
