@@ -14,7 +14,7 @@ Download and run the installer for your computer. [Release notes](https://github
 
 Starting with **build 4059**, Mac updates are downloaded and verified by Sparkle inside **Updates**. Select **Update and restart** when ready. Compatible updates reuse your audio driver and AI models; macOS Installer does not open. macOS may request administrator approval if the app folder needs elevated access. Both the update feed and Mac app archives are signed with Ed25519.
 
-**One-time transition:** if your current Mac build is 4058 or older, its existing updater still needs the final installer handoff. Install 4059 once from the download above. Later compatible releases use the new in-app updater. AI models are migrated to a reusable local folder on first launch; your library stays in place.
+**One-time transition:** if your current Mac build is 4058 or older, its existing updater still needs the final installer handoff. Install the current full version once from the download above. Later compatible releases use the new in-app updater. AI models are migrated to a reusable local folder on first launch; your library stays in place.
 
 Windows downloads compatible app-only updates in **Updates**, then installs them silently and relaunches VUPIO. Confirm the Windows administrator prompt if shown. Driver/model bundle changes still require a full installer. First installs use the download buttons above.
 
