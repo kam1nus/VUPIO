@@ -85,6 +85,21 @@ class ProTests(unittest.TestCase):
         job=Job();job.check=Mock(side_effect=Cancelled('Cancelled'))
         with self.assertRaises(Cancelled):self.pro.generate({'brief':'racing'},job)
         self.assertEqual(self.pro.status()['collections'],[])
+    def test_audio_type_filter_does_not_mix_tracks_into_memes(self):
+        self.lib.edit('one',{'category':'Music'})
+        memes=self.generate(category='Meme');tracks=self.generate(category='Music');all_audio=self.generate(category='All')
+        self.assertNotIn('one',{r['local_id'] for r in memes['rows']})
+        self.assertEqual({r['local_id'] for r in tracks['rows']},{'one'})
+        self.assertEqual({r['local_id'] for r in all_audio['rows']},{'one','two'})
+    def test_missing_cached_preview_is_prepared_again(self):
+        data=self.external()
+        row=data['rows'][0];row.update(ready=True,asset_id='old')
+        self.pro._save(data)
+        self.studio.asset.return_value=({},self.lib.root/'missing.wav')
+        self.studio.autofetch.prepare.return_value={'asset_id':'new','preview_url':'/api/ai/asset/new','report':{'duration':3}}
+        refreshed=self.pro.prepare({'id':data['id'],'keys':[row['key']]},self.job)
+        self.assertEqual(refreshed['rows'][0]['asset_id'],'new')
+        self.studio.autofetch.commit.assert_not_called()
     def test_bad_selection_and_parameters(self):
         data=self.generate()
         for keys in [[],['missing'],[{}],'all']:

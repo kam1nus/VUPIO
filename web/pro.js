@@ -8,7 +8,10 @@ let radarMode='charts';
  function permissions(){
   by('proAccess').textContent=access?'Pro active · personal topics and AI collections':'Pro required to generate and prepare collections. Your saved boards stay available.';
   for(const id of ['proGenerate','proNewTopic','proPrepare','proBoard'])by(id).disabled=busy||!access;
-  by('proBoard').disabled ||= !data||!data.rows.some(r=>selected.has(r.key)&&r.ready&&!r.error)||data.rows.some(r=>selected.has(r.key)&&(!r.ready||r.error));
+  const saved=data?.board_id&&soundboards.some(b=>b.id===data.board_id);
+  by('proBoard').textContent=saved?'Open board':'Create board';
+  if(saved)by('proBoard').disabled=busy;
+  else by('proBoard').disabled ||= !data||!data.rows.some(r=>selected.has(r.key)&&r.ready&&!r.error)||data.rows.some(r=>selected.has(r.key)&&(!r.ready||r.error));
   by('proPrepare').disabled ||= !selected.size;
   by('proSaved').disabled=busy;modeButtons.forEach(b=>b.disabled=busy);
   by('proGenerateForm').setAttribute('aria-busy',String(busy));
@@ -116,6 +119,7 @@ let radarMode='charts';
  }
  bind('proPrepare',()=>prepare([...selected]),target);
  bind('proBoard',async()=>{
+  if(data?.board_id&&soundboards.some(b=>b.id===data.board_id)){chooseSoundboard(data.board_id);show('soundboard');return;}
   const result=await task('pro_board',{id:data.id,keys:[...selected],title:data.title});await sync();chooseSoundboard(result.board_id);show('soundboard');notify('Collection saved as a soundboard');
  },target);
  document.addEventListener('mimic:view',e=>{if(e.detail==='radar'&&radarMode!=='charts')load().catch(err=>status(target,err.message,true));});

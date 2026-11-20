@@ -135,8 +135,9 @@ class ProStudio:
             seen.add(key);row['key']=key;rows.append(row)
         if use_local:
             for item in self.library.items():
-                if category=='Music' and item['category'] not in {'Music','Tracks','Треки','Музыка'}:continue
-                add(dict(local_id=item['id'],title=item['title'],description=(item['description']+' '+item['tags'])[:500],source='Your library',duration=item['duration'],ready=True,preview_url='/api/file/'+item['id'],favorite=bool(item['favorite'])))
+                music=item['category'] in {'Music','Tracks','Треки','Музыка'}
+                if (category=='Music' and not music) or (category=='Meme' and music):continue
+                add(dict(local_id=item['id'],title=item['title'],description=(str(item.get('description') or '')+' '+str(item.get('tags') or ''))[:500],source='Your library',duration=item['duration'],ready=True,preview_url='/api/file/'+item['id'],favorite=bool(item['favorite'])))
         for index,query in enumerate(plan['queries']):
             job.check()
             try:
@@ -150,7 +151,7 @@ class ProStudio:
         job.check();job.update(.65,'Comparing candidates and removing repeats…')
         text=words(brief);query_words=words(' '.join(q['query'] for q in plan['queries']))|text
         for row in rows:
-            content=words(row.get('title','')+' '+str(row.get('description','')))
+            content=words(str(row.get('title') or '')+' '+str(row.get('description') or ''))
             row['match']=len(query_words&content)/max(1,len(query_words))
             row['match']+=.12 if row.get('favorite') or row['key'] in liked else 0
             row['reason']=row.get('purpose') or 'Matches words in your description' if row['match']>0 else 'Candidate for review; relevance is unconfirmed'
@@ -166,7 +167,7 @@ class ProStudio:
                     score=sum(x*y for x,y in zip(query_vector,vector))/denom if denom else 0
                     if math.isfinite(score):row['match']+=max(0,score);row['reason']='Local semantic match to your description';semantic=True
                 rows.sort(key=lambda row:row['match'],reverse=True)
-        except (ValueError,OSError,KeyError,TypeError):pass
+        except (ValueError,OSError,KeyError,TypeError,IndexError):pass
         if mode=='metadata' and not semantic:
             rows=[row for row in rows if not row.get('local_id') or row['match']>0]
         candidates=rows[:24];accepted=None
@@ -210,7 +211,9 @@ class ProStudio:
         for index,row in enumerate(selected):
             job.check()
             if row.get('asset_id') and row.get('ready'):
-                try:self.s.asset(row['asset_id'])
+                try:
+                    _,path=self.s.asset(row['asset_id'])
+                    if not path.is_file():raise ValueError('Prepared audio expired.')
                 except ValueError:row['ready']=False
             if row.get('local_id'):
                 try:self.library.get(row['local_id']);row['ready']=True;row.pop('error',None)

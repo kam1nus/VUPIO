@@ -1,3 +1,3 @@
-"""VUPIO local soundboard."""
+"""VUPIO soundboard and audio collections."""
 
 BUILD = 4062
