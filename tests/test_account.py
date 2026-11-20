@@ -94,3 +94,22 @@ class AccountTests(unittest.TestCase):
             self.assertNotIn(b'a'*64,store.file.read_bytes())
             self.assertEqual(store.read(),'a'*64)
             store.delete(); self.assertEqual(store.read(),'')
+
+    def test_pro_access_checks_server_caches_briefly_and_expires(self):
+        self.service.require_pro();self.assertEqual(self.calls[0][0],'me')
+        count=len(self.calls);self.service.require_pro();self.assertEqual(len(self.calls),count)
+        self.service.pro_checked=0
+        self.service.request=lambda *a,**k:{'membership':{'plan':'free'}}
+        with self.assertRaises(ValueError):self.service.require_pro()
+        self.service.pro_checked=0
+        self.service.request=lambda *a,**k:{'membership':{'plan':'pro','expires_at':1}}
+        with self.assertRaises(ValueError):self.service.require_pro()
+        self.service.pro_checked=0
+        self.service.request=lambda *a,**k:{'membership':{'plan':'pro','expires_at':None}}
+        self.service.require_pro()
+        self.service.logout();self.wait()
+        with self.assertRaises(ValueError):self.service.require_pro()
+
+    def test_pro_cannot_be_unlocked_when_server_rejects_session(self):
+        self.service.request=lambda *a,**k:(_ for _ in ()).throw(AccountHTTPError('Expired',401))
+        with self.assertRaises(AccountHTTPError):self.service.require_pro()

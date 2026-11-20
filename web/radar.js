@@ -13,7 +13,7 @@
   if(checking)return;
   checking=true;
   try{
-   while(view==='radar'&&selection){
+   while(view==='radar'&&radarMode==='charts'&&selection){
     const batch=selection;
     if(batch.shown===batch.limit||batch.index===batch.rows.length){
      status('radarStatus',[
@@ -198,6 +198,7 @@
  }
 
  async function load(force=false){
+  if(radarMode!=='charts')return;
   const key=[kind,region.value,source.value].join('/');
   if(busy||(!force&&key===lastKey&&Date.now()-loadedAt<300000))return;
   busy=true;
@@ -229,5 +230,6 @@
  });
  for(const filter of [region,source])filter.addEventListener('change',()=>load());
  refresh.addEventListener('click',()=>load(true));
+ document.addEventListener('mimic:radar-mode',()=>{if(radarMode==='charts'){load();validateClips();}});
  document.addEventListener('mimic:view',e=>{if(e.detail==='radar'){load();validateClips();}});
 })();

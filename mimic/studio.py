@@ -14,6 +14,7 @@ from .catalog import Commons
 from .finder import Finder
 from .autofetch import AutoFetch
 from .radar import Radar
+from .pro import ProStudio
 from .editor import make_plan,parse_rule,render_filters
 from .features import analyze,audible_edges
 from .jobs import Jobs,Cancelled
@@ -23,7 +24,7 @@ from .library import suggest
 
 
 class Studio:
-    def __init__(self,library,audio_executable,changed=lambda:None):
+    def __init__(self,library,audio_executable,changed=lambda:None,pro_access=None):
         self.library=library;self.changed=changed;self.audio_executable=str(audio_executable)
         self.root=library.root/'ai';self.root.mkdir(exist_ok=True)
         self.cache=self.root/'cache';self.cache.mkdir(exist_ok=True)
@@ -37,6 +38,8 @@ class Studio:
         self.finder=Finder(self)
         self.autofetch=AutoFetch(self)
         self.radar=Radar(self)
+        def missing_pro(): raise ValueError("Sign in and activate Pro in Account to use this feature.")
+        self.pro=ProStudio(self,pro_access or missing_pro)
         self.jobs=Jobs(library)
     def execute(self,args,job,timeout=300):
         job.check()
@@ -345,6 +348,9 @@ class Studio:
           'model_import':lambda j:self.models.import_language(body['path'],body.get('title','Local GGUF'),j),
           'search':lambda j:self.search(body,j),
           'internet_search':lambda j:self.finder.search(body,j),
+          'pro_generate':lambda j:self.pro.generate(body,j),
+          'pro_prepare':lambda j:self.pro.prepare(body,j),
+          'pro_board':lambda j:self.pro.create_board(body,j),
           'radar':lambda j:self.radar.refresh(body,j),
           'radar_clip':lambda j:self.radar.prepare_clip(body['source_id'],j),
           'quick_add':lambda j:self.autofetch.quick(body,j),

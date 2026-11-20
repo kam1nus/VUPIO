@@ -5,7 +5,7 @@
  function draw(info){
   const signed=info.state==='signed_in', pending=info.state==='pending';
   by('accountName').textContent=signed?(info.account?.display_name||info.account?.email||'Your account'):pending?'Confirm sign-in':'Your VUPIO account';
-  by('accountPlan').textContent=signed?(info.membership?.plan==='pro'?'Pro · tester access':'Free'):'Not signed in';
+  by('accountPlan').textContent=signed?(info.membership?.plan==='pro'?'Pro'+(info.membership.source?' · '+info.membership.source:''):'Free'):'Not signed in';
   by('accountLogin').hidden=signed||pending;by('accountLogin').disabled=Boolean(info.busy);
   by('accountLogout').hidden=!signed&&!pending;by('accountLogout').textContent=pending?'Cancel sign-in':'Sign out';
   by('accountRefresh').disabled=Boolean(info.busy)||pending;
@@ -14,7 +14,7 @@
   if(uri?.startsWith('https://vupio-soundboard.denserat4.chatgpt.site/connect?code='))by('accountConfirm').href=uri;
   else by('accountConfirm').removeAttribute('href');
   by('accountRedeemPanel').hidden=!signed;
-  by('accountExpiry').textContent=signed&&info.membership?.expires_at?'Tester access until '+new Date(info.membership.expires_at).toLocaleDateString():'';
+  by('accountExpiry').textContent=signed&&info.membership?.expires_at?'Pro access until '+new Date(info.membership.expires_at).toLocaleDateString():'';
   status(target,info.busy?'Connecting…':info.message||'',Boolean(info.error));
   const list=by('accountDevices');list.replaceChildren();
   for(const device of info.devices||[]){

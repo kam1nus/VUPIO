@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="VUPIO">
 <title>VUPIO</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/boards.js"></script><script defer src="/discover.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script><script defer src="/account.js"></script>
+<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/boards.js"></script><script defer src="/discover.js"></script><script defer src="/pro.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script><script defer src="/account.js"></script>
 </head>
 <body>
 <section id="login" class="login" hidden>
@@ -84,14 +84,31 @@
       </section>
       <section id="radar" class="view admin" hidden>
         <div class="pagehead"><div><h1>Trend Radar</h1><p class="muted">Meme sounds and tracks by country. Discover your next sound.</p></div><button id="radarRefresh" data-icon="refresh">Refresh</button></div>
-        <div class="panel radarFilters">
+        <div class="tabs radarModes" id="radarModes" aria-label="Radar mode"><button data-mode="charts" aria-pressed="true">Charts</button><button data-mode="topics" aria-pressed="false">For you · Pro</button><button data-mode="collections" aria-pressed="false">AI Collections · Pro</button></div>
+        <div id="radarCharts"><div class="panel radarFilters">
           <div class="tabs" id="radarKinds" aria-label="Audio type"><button data-kind="memes" aria-pressed="true">Meme sounds</button><button data-kind="tracks" aria-pressed="false">Tracks</button></div>
           <label>Country<select id="radarRegion"><option value="ru">Russia</option><option value="us">United States</option><option value="gb">United Kingdom</option><option value="br">Brazil</option><option value="de">Germany</option><option value="jp">Japan</option><option value="ua">Ukraine</option></select></label>
           <label>Source<select id="radarSource"><option value="chart">Regional chart</option><option value="tiktok">TikTok</option><option value="reels">Instagram Reels</option><option value="shorts">YouTube Shorts</option></select></label>
         </div>
         <p id="radarStatus" class="inlineStatus" role="status" hidden></p>
         <div id="radarHeading" class="split wrap radarHeading" hidden><div><h2 id="radarTitle"></h2><p class="muted" id="radarScope"></p></div><div id="radarSourceLink"></div></div>
-        <div id="radarResults" class="stack results"></div>
+        <div id="radarResults" class="stack results"></div></div>
+        <div id="proPanel" class="stack" hidden>
+          <div class="split wrap"><p id="proAccess" class="muted">Checking access…</p><button id="proAccount" class="quiet">Account &amp; promo codes</button></div>
+          <div id="proTopics" class="stack" hidden><div class="split wrap"><h2>Your saved topics</h2><button id="proNewTopic">New topic</button></div><div id="proTopicList" class="row wrap"></div>
+            <form id="proTopicForm" class="panel stack" hidden><h3>Follow a topic</h3><label>Name<input id="proTopicTitle" maxlength="80" required placeholder="Late-night gaming"></label><label>What should we look for?<input id="proTopicQuery" maxlength="1000" required placeholder="Funny reactions, victory sounds and unexpected failures"></label><div class="row wrap"><button class="primary" type="submit">Save topic</button><button type="button" id="proTopicCancel">Cancel</button></div></form>
+          </div>
+          <form id="proGenerateForm" class="panel stack">
+            <div><h2 id="proFormTitle">Build an AI collection</h2><p class="muted" id="proFormHint">Describe a mood, a game or a moment. Review real sounds before creating a board.</p></div>
+            <label id="proBriefLabel">Collection description<textarea id="proBrief" rows="2" maxlength="1000" required placeholder="A varied board for racing games: close calls, dramatic wins and funny crashes"></textarea></label>
+            <div class="proFilters"><label>Country<select id="proRegion"></select></label><label>Audio type<select id="proCategory"><option value="Meme">Meme sounds</option><option value="Music">Tracks</option><option value="All">All audio</option></select></label><label>Up to<select id="proCount"><option>4</option><option selected>8</option><option>12</option></select></label></div>
+            <div class="split wrap"><div class="row wrap"><label class="check"><input id="proLocal" type="checkbox" checked> Your library</label><label class="check"><input id="proWeb" type="checkbox" checked> Internet</label></div><button id="proGenerate" class="primary" type="submit">Generate collection</button></div>
+            <p class="muted small">Recommendations use source metadata and local AI when available. A country narrows search; it does not prove a regional chart position.</p>
+          </form>
+          <div class="split wrap"><label class="proSaved">Saved collections<select id="proSaved"><option value="">Choose a collection…</option></select></label><button id="proCancel" hidden>Cancel task</button></div>
+          <div id="proStatus" class="inlineStatus" role="status" hidden></div><progress id="proProgress" max="1" aria-label="Collection progress" hidden></progress>
+          <div id="proCollection" class="stack" hidden><div class="split wrap"><div><h2 id="proCollectionTitle"></h2><p id="proEvidence" class="muted small"></p></div><div class="row wrap"><button id="proPrepare">Prepare selected</button><button id="proBoard" class="primary">Create board</button></div></div><details id="proNotices" hidden><summary>Source and AI notes</summary><div id="proNoticeList"></div></details><div id="proCards" class="proCards"></div><p class="muted small">Previews stay in the local cache. Creating a board adds selected sounds to your library; existing sounds are reused.</p></div>
+        </div>
       </section>
       <section id="studio" class="view admin" hidden>
         <div class="pagehead"><div><h1>Studio</h1><p class="muted">Select a range, process the audio and save a copy.</p></div><button id="studioCard" data-icon="edit" hidden>Sound details</button></div>
@@ -136,7 +153,7 @@
             <div id="accountPending" class="stack" hidden><p>Open the website and confirm this exact code for this computer.</p><strong id="accountCode" class="accountCode"></strong><div><a id="accountConfirm" class="button primary" target="_blank" rel="noopener noreferrer">Continue on website</a></div><p class="muted">Only approve a sign-in you started. The code expires in 10 minutes.</p></div>
             <p id="accountExpiry" class="muted"></p><p id="accountStatus" class="inlineStatus" role="status" hidden></p>
           </article>
-          <article id="accountRedeemPanel" class="panel stack" hidden><h2>Tester access</h2><p class="muted">Have an invitation code? Activate temporary Pro status here. Current features stay available during the preview.</p><form id="accountRedeemForm" class="row wrap"><input id="accountTesterCode" aria-label="Tester code" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" maxlength="29" required><button id="accountRedeemButton">Redeem code</button></form></article>
+          <article id="accountRedeemPanel" class="panel stack" hidden><h2>Promo codes and invitations</h2><p class="muted">Activate Pro with a promo code or an invitation from the VUPIO team. Paid billing is not enabled.</p><form id="accountRedeemForm" class="row wrap"><input id="accountTesterCode" aria-label="Promo or invitation code" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" maxlength="64" required><button id="accountRedeemButton">Redeem code</button></form></article>
           <article id="accountDevicesPanel" class="panel stack" hidden><h2>Connected computers</h2><div id="accountDevices" class="stack"></div></article>
         </div>
       </section>
@@ -152,7 +169,7 @@
           <div class="row wrap"><button id="downloadAppUpdate" hidden>Download app update</button><button id="installAppUpdate" class="primary" hidden>Install update</button><span id="publicUpdateDownload"></span></div>
         </article>
         <article class="panel stack nativeOnly"><h2>Local Mac builds</h2><p class="muted">For builds connected to a local update folder.</p><div><button id="checkUpdates" data-icon="refresh">Check local channel</button></div><p id="updateStatus" class="inlineStatus" role="status" hidden></p></article>
-        <article class="panel stack"><h2>What's new</h2><p>Create soundboards for games and moments, share sounds across them and switch boards on your phone. The sidebar keeps four workspace sections above compact app tools. Your audio, favorites and existing order are preserved.</p></article>
+        <article class="panel stack"><h2>What's new</h2><p>Pro Alpha adds personal topics in Trend Radar and AI Collections: describe a collection, preview the sounds and create a board. Activate a promo code in Account or receive complimentary access from the owner. Existing free tools remain available.</p></article>
       </section>
       <section id="settings" class="view admin" hidden>
         <div class="pagehead"><div><h1>Settings</h1><p class="muted">Devices, microphone, models and background tasks.</p></div></div>

@@ -40,6 +40,8 @@ class AccountService:
         self.epoch = 0
         self.token = None
         self.loaded = False
+        self.pro_checked=0.0
+        self.pro_token=None
 
     @staticmethod
     def _request(action, data=None, token=None):
@@ -92,11 +94,28 @@ class AccountService:
         account = {key:result['account'].get(key) for key in ('id','email','display_name')}
         membership = result['membership']
         member = {'plan':'pro' if membership.get('plan') == 'pro' else 'free',
-                  'source':membership.get('source'), 'expires_at':membership.get('expires_at'), 'billing_enabled':False}
+                  'source':membership.get('source'), 'expires_at':membership.get('expires_at'), 'billing_enabled':False, 'features':membership.get('features',[])}
         safe_devices = [{key:d.get(key) for key in ('id','name','platform','created','expires')}
                         for d in devices[:50] if isinstance(d, dict)]
+        self.pro_checked=time.monotonic();self.pro_token=token
         self._change(state='signed_in', account=account, membership=member, devices=safe_devices,
                      device_id=result.get('device_id'), message='', user_code=None, verification_uri=None)
+
+    def require_pro(self):
+        if not self.operation.acquire(timeout=20):raise ValueError('Account is busy. Wait a moment and try again.')
+        try:
+            token=self._load_token()
+            if not token:raise ValueError('Sign in and activate a Pro invitation in Account to use this feature.')
+            if self.pro_token!=token or time.monotonic()-self.pro_checked>60:
+                result=self.request('me',token=token)
+                member=result.get('membership',{})
+                self._change(membership={'plan':member.get('plan','free'),'source':member.get('source'),
+                                         'expires_at':member.get('expires_at'),'features':member.get('features',[]),'billing_enabled':False})
+                self.pro_checked=time.monotonic();self.pro_token=token
+            member=self.info()['membership'];expires=member.get('expires_at')
+            if member.get('plan')!='pro' or (expires is not None and expires<=time.time()*1000):
+                raise ValueError('This feature needs Pro. Activate a promo or invitation code in Account.')
+        finally:self.operation.release()
 
     def refresh(self):
         return self._background(self._refresh)
@@ -173,8 +192,8 @@ class AccountService:
         threading.Thread(target=poll, daemon=True, name='vupio-sign-in').start()
 
     def redeem(self, code):
-        if not re.fullmatch('[A-Fa-f0-9-]{24,29}', str(code).strip()):
-            raise ValueError('Enter the tester code you received.')
+        if not re.fullmatch('[A-Za-z0-9][A-Za-z0-9 -]{7,63}', str(code).strip()):
+            raise ValueError('Enter the promo or invitation code you received.')
         def action():
             token = self._load_token()
             if not token: raise ValueError('Sign in before redeeming a code.')

@@ -18,7 +18,7 @@ async function scenario(code,expectedCalls){
   querySelectorAll:()=>[],replaceChildren(){},append(){},after(){},setAttribute(){},removeAttribute(){},
   addEventListener(name,fn){this[name]=fn;}
  });return elements.get(id);};
- const context={by:element,view:'radar',document:{addEventListener(name,fn){events[name]=fn;}},
+ const context={by:element,view:'radar',radarMode:'charts',document:{addEventListener(name,fn){events[name]=fn;}},
   status:(id,text,error)=>states.push({text,error}),link:()=>({}),
   diagnosticsButton:()=>({}),setDiagnostic:(button,error,stage)=>{if(error)diagnostics.push({code:error.code,stage});},
   runJob:async(kind)=>{

@@ -40,6 +40,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_updates.py
       - name: Verify persistent soundboards
         run: python -m unittest discover -s tests -p test_boards.py
+      - name: Verify Pro collections and review-before-import
+        run: python -m unittest discover -s tests -p test_pro.py
       - name: Verify account security and Windows credential storage
         run: python -m unittest discover -s tests -p test_account.py
       - name: Build Windows installer
@@ -154,13 +156,13 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}" VUPIO-macOS-AppleSilicon-Sparkle.zip vupio-macos-appcast.xml)
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Create, rename and manage soundboards for games and moments without duplicating audio files.
-          - Each board keeps its own card order. Add/Quick Add, file imports and Studio copies can go directly to the selected board.
-          - The phone remote switches between boards independently of the desktop and keeps simple tap-to-play tiles.
-          - A compact sidebar puts workspace sections above Remote, Updates, Settings and Account. STOP and PANIC remain available.
-          - Compatible in-app updates reuse the existing driver and AI models. Builds through 4058 need the one-time transition to a current full installer.
-
-          Preview installers for macOS 26+ (Apple Silicon) and Windows 11 x64. The Mac app is ad-hoc signed, with no Apple notarization. The Windows installer has no Authenticode signature. Checksums are in SHA256SUMS.txt. Use Updates for compatible app updates; full installers are for the first install and the transition from builds before 4059.
+          - Trend Radar Pro follows saved personal topics with local preferences and new-to-feed badges.
+          - AI Collections plans searches, prepares actual previews and creates a soundboard after review.
+          - Activate limited-use promo codes or complimentary tester/developer Pro granted by the owner.
+          - Existing free soundboard, discovery, Studio, remote and audio routing remain available without an account.
+          - Local AI falls back to source metadata when unavailable. Source restrictions and search quotas still apply.
+          - Shared boards, Sound Drops, billing and Autopilot are not included in this Alpha.
+          - Compatible in-app updates reuse the installed driver and models. First installs use the full package.
           EOF
           gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease \
             --title "VUPIO Alpha · build $build" --notes-file /tmp/vupio-release-notes \

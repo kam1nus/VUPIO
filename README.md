@@ -22,7 +22,11 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 
 ## Accounts and tester membership
 
-**Account** connects your computer to the VUPIO website with a one-time confirmation code. Sign in with ChatGPT, view Free/Pro tester status, redeem an invitation and disconnect computers. Sign-in is optional. Payments and paid feature limits are not enabled; current functions remain available without an account. See [Account setup and subscription readiness](docs/ACCOUNTS.md).
+**Account** connects your computer to the VUPIO website with a one-time confirmation code. Sign in with ChatGPT, view Free/Pro status, redeem an invitation and disconnect computers. Sign-in is optional. Payments are not enabled. Existing free functions remain available without an account; personal Radar and AI Collections require Pro access. See [Account setup and subscription readiness](docs/ACCOUNTS.md).
+
+## Pro Alpha
+
+**Trend Radar → For you** follows saved topics with relevance-based feeds and local preferences. **AI Collections** turns a description into reviewable sounds, prepares real previews and creates a soundboard after confirmation. Complimentary access and limited-use promo campaigns are managed on the website. [Pro guide and owner administration](docs/PRO.md). Shared boards and Sound Drops come later.
 
 ## Features
 

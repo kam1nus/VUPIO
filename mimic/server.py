@@ -164,7 +164,7 @@ class App:
         with self.lock:
             if self._studio is None:
                 from .studio import Studio
-                self._studio=Studio(self.library,getattr(self.audio,'executable',ROOT/'build/MIMIC.app/Contents/MacOS/MIMIC'),self.changed)
+                self._studio=Studio(self.library,getattr(self.audio,'executable',ROOT/'build/MIMIC.app/Contents/MacOS/MIMIC'),self.changed,pro_access=self.account.require_pro)
             return self._studio
 
     def session(self, token):
@@ -293,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
             a = self.app
             if method == 'GET':
                 static = {'/':'index.html','/app.js':'app.js','/style.css':'style.css',
-                          '/boards.js':'boards.js','/account.js':'account.js','/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
+                          '/pro.js':'pro.js','/boards.js':'boards.js','/account.js':'account.js','/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
                           '/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/icon.svg':'icon.svg',
                           '/apple-touch-icon.png':'apple-touch-icon.png',
                           '/vupio-icon-192.png':'vupio-icon-192.png','/vupio-icon-512.png':'vupio-icon-512.png'}
@@ -309,6 +309,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.auth(True)
                     studio=a.studio()
                     if path=='/api/ai/status':return self.send(studio.status())
+                    if path=='/api/ai/pro':return self.send(studio.pro.status())
+                    if path.startswith('/api/ai/collection/'):return self.send(studio.pro.get(path.rsplit('/',1)[1]))
                     if path=='/api/ai/web-usage':return self.send(studio.finder.web.provider.usage())
                     if path.startswith('/api/ai/job/'):
                         return self.send(studio.jobs.get(path.rsplit('/',1)[1]))
@@ -476,6 +478,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send({'auto':body['auto']})
             if path.startswith('/api/ai/'):
                 studio=a.studio()
+                if path=='/api/ai/pro/topic':return self.send(studio.pro.save_topic(body))
+                if path=='/api/ai/pro/delete-topic':return self.send(studio.pro.delete_topic(body.get('id')))
+                if path=='/api/ai/pro/feedback':return self.send(studio.pro.feedback(body.get('key'),body.get('state')))
+                if path=='/api/ai/pro/replace':return self.send(studio.pro.replace(body.get('id'),body.get('key')))
                 if path=='/api/ai/submit':return self.send(studio.submit(body))
                 if path=='/api/ai/web-settings':return self.send(studio.finder.web.settings.save(body.get('tavily_key','')))
                 if path=='/api/ai/cancel':

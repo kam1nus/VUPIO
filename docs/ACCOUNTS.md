@@ -36,3 +36,7 @@ Payment collection, provider webhooks, invoices/taxes, checkout, purchase restor
 The website source is managed by Sites, separately from this desktop repository. Relevant files are `lib/membership.ts`, `lib/account-api.ts`, `db/schema.ts`, `drizzle/` and `app/api/account/[action]/route.ts`. Migrations are schema-only and immutable after deployment. Run its tests with `node --import tsx --test tests/membership.test.ts`.
 
 Desktop tests cover server membership display, token redaction, session expiry, local sign-out, device revocation, redirect rejection and OS credential integration. Local HTTP routes require the desktop administrator session; paired phone remotes cannot read or mutate account information.
+
+## Pro Alpha 4062
+
+Personal Radar and AI Collections now require server-verified Pro access. Existing free features remain available without an account. The website owner can manage complimentary grants and limited-use promo campaigns. See [the Pro guide](PRO.md) for activation, administration, expiry and current limitations. Billing is not enabled.
