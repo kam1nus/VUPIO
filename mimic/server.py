@@ -164,7 +164,7 @@ class App:
         with self.lock:
             if self._studio is None:
                 from .studio import Studio
-                self._studio=Studio(self.library,getattr(self.audio,'executable',ROOT/'build/MIMIC.app/Contents/MacOS/MIMIC'),self.changed,pro_access=self.account.require_pro)
+                self._studio=Studio(self.library,getattr(self.audio,'executable',ROOT/'build/MIMIC.app/Contents/MacOS/MIMIC'),self.changed,pro_access=self.account.require_pro,account=self.account)
             return self._studio
 
     def session(self, token):
@@ -293,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
             a = self.app
             if method == 'GET':
                 static = {'/':'index.html','/app.js':'app.js','/style.css':'style.css',
-                          '/pro.js':'pro.js','/boards.js':'boards.js','/account.js':'account.js','/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
+                          '/sharing.js':'sharing.js','/pro.js':'pro.js','/boards.js':'boards.js','/account.js':'account.js','/aiweb.js':'aiweb.js','/studio.js':'studio.js','/settings.js':'settings.js','/discover.js':'discover.js','/radar.js':'radar.js',
                           '/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/icon.svg':'icon.svg',
                           '/apple-touch-icon.png':'apple-touch-icon.png',
                           '/vupio-icon-192.png':'vupio-icon-192.png','/vupio-icon-512.png':'vupio-icon-512.png'}
@@ -305,7 +305,16 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/health':
                     return self.send({'ok':True,'version':'0.4.3-unified'})
                 self.auth()
+                if path.startswith('/api/sharing/'):
+                    self.auth(True)
+                    sharing=a.studio().sharing
+                    if path=='/api/sharing/overview':return self.send(sharing.overview())
+                    if path.startswith('/api/sharing/preview/'):return self.send_audio(sharing.preview_path(path.rsplit('/',1)[1]))
+                    parts=path.split('/')
+                    if len(parts)==5 and parts[3] in {'board','drop'}:return self.send(sharing.snapshot(parts[3],parts[4]))
+                    raise ValueError('Unknown sharing endpoint')
                 if path.startswith('/api/ai/'):
+
                     self.auth(True)
                     studio=a.studio()
                     if path=='/api/ai/status':return self.send(studio.status())
@@ -451,6 +460,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/search':
                 return self.send(a.library.search(str(body.get('query',''))[:2000],bool(body.get('semantic'))))
             self.auth(True)
+            if path=='/api/sharing/resolve':
+                from .sharing import parse_link
+                kind,id=parse_link(body.get('link'))
+                return self.send(dict(a.studio().sharing.snapshot(kind,id),kind=kind))
+            if path in {'/api/sharing/members','/api/sharing/archive','/api/sharing/revoke-drop','/api/sharing/cleanup'}:
+                return self.send(a.studio().sharing.cloud.call(path.rsplit('/',1)[1],body))
             if path == '/api/boards/save':
                 board=a.library.save_board(body.get('title'),body.get('id'),body.get('add',[]),body.get('remove',[]))
                 a.changed()

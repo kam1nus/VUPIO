@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="VUPIO">
 <title>VUPIO</title><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/boards.js"></script><script defer src="/discover.js"></script><script defer src="/pro.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script><script defer src="/account.js"></script>
+<link rel="stylesheet" href="/style.css"><script defer src="/app.js"></script><script defer src="/boards.js"></script><script defer src="/discover.js"></script><script defer src="/sharing.js"></script><script defer src="/pro.js"></script><script defer src="/radar.js"></script><script defer src="/studio.js"></script><script defer src="/settings.js"></script><script defer src="/account.js"></script>
 </head>
 <body>
 <section id="login" class="login" hidden>
@@ -38,7 +38,6 @@
         <button data-view="account" data-icon="user" class="accountNav">Account</button>
       </div>
     </nav>
-    <div class="sidebarFoot"><span id="sideMic" class="signal"></span><div><strong id="sideAudio">Audio</strong><small id="sideRoute">Connecting…</small></div></div>
   </aside>
   <div class="workspace">
     <header class="topbar">
@@ -52,7 +51,7 @@
         <div class="boardBar">
           <div id="boardTabs" class="boardTabs admin" role="group" aria-label="Soundboards"></div>
           <label class="remoteBoardLabel"><span class="sr">Soundboard</span><select id="remoteBoardChoice" aria-label="Soundboard"></select></label>
-          <div class="row admin boardActions"><button id="manageBoard" class="quiet" data-icon="edit" hidden>Manage board</button><button id="newBoard" class="quiet" data-icon="plus">New board</button></div>
+          <div class="row admin boardActions"><button id="openSharing" class="quiet" data-icon="share">Shared &amp; Drops</button><button id="manageBoard" class="quiet" data-icon="edit" hidden>Manage board</button><button id="newBoard" class="quiet" data-icon="plus">New board</button></div>
         </div>
         <div class="toolbar" role="search"><input id="search" type="search" aria-label="Search library" placeholder="Search titles, tags and descriptions"><select id="category" aria-label="Category"><option value="">All categories</option></select><button id="favorites" data-icon="star" aria-pressed="false">Favorites</button></div>
         <p id="uploadStatus" class="inlineStatus" role="status" hidden></p>
@@ -61,6 +60,30 @@
         <div id="empty" class="empty" hidden><span class="emptyIcon" data-icon="wave"></span><h2 id="emptyTitle">Your sounds will appear here</h2><p id="emptyDescription">Add an audio file or find a meme in Discover.</p></div>
         <div id="pages" class="pages" hidden><button id="prevPage" data-icon="left" aria-label="Previous page"></button><span id="pageText"></span><button id="nextPage" data-icon="right" aria-label="Next page"></button></div>
       </section>
+<section id="sharing" class="view admin" hidden>
+ <div class="pagehead"><div><h1>Shared &amp; Drops</h1><p class="muted">Private boards for your group. Sound Drops for sharing a moment.</p></div><button id="sharingBack" data-icon="left">Soundboard</button></div>
+ <div class="split wrap"><p id="sharingCloudStatus" class="muted" role="status">Connect an account to publish and collaborate. Drop imports are free.</p><div class="row"><button id="sharingAccount" class="quiet">Account</button><button id="sharingCleanup" class="quiet">Remove unused uploads</button><button id="sharingRefresh" data-icon="refresh">Refresh</button></div></div>
+ <div class="panel stack sharingReview"><h2>Open a collection</h2><form id="sharingOpenForm" class="row"><input id="sharingLink" type="url" placeholder="Paste a VUPIO board or drop link" aria-label="VUPIO collection link" required><button class="primary">Review</button></form></div>
+ <details class="panel sharingPublish"><summary>Publish from a local board · Pro</summary><form id="sharingPublishForm" class="stack">
+  <div class="rangeGrid two"><label>Publish as<select id="sharingKind"><option value="board">Private shared board</option><option value="drop">Sound Drop · anyone with the link</option></select></label><label>Local soundboard<select id="sharingLocalBoard" required></select></label></div>
+  <label>Title<input id="sharingTitle" maxlength="80" required></label><label>Description<textarea id="sharingDescription" rows="2" maxlength="500" placeholder="What is this collection for?"></textarea></label>
+  <p id="sharingSelectionNote" class="muted"></p><div id="sharingSoundPicker" class="sharingPicker" role="group" aria-label="Sounds to publish" hidden></div>
+  <p class="muted">Selected audio, titles and tags will be uploaded to VUPIO. Clips can be up to two minutes long. Shared boards require invitations; a Sound Drop is available to anyone with its link.</p>
+  <button id="sharingPublishButton" class="primary" type="submit">Publish reviewed collection</button>
+ </form></details>
+ <div id="sharingStatus" class="inlineStatus" role="status" hidden></div><div class="row"><progress id="sharingProgress" max="1" aria-label="Sharing progress" hidden></progress><button id="sharingCancel" class="quiet" hidden>Cancel task</button></div>
+ <article id="sharingSnapshot" class="panel stack" hidden>
+  <div class="split wrap"><div><h2 id="sharingSnapshotTitle"></h2><p id="sharingSnapshotInfo" class="muted"></p></div><button id="sharingCopyLink" class="quiet">Copy link</button></div><p id="sharingSnapshotDescription" class="muted"></p>
+  <div id="sharingClips" class="sharingClips"></div>
+  <div class="row wrap"><button id="sharingPull" class="primary">Import as board</button><button id="sharingOpenLocal" hidden>Open local board</button><button id="sharingPush" hidden>Push local changes</button><button id="sharingAnotherCopy" class="quiet" hidden>Import as another board</button></div>
+  <p id="sharingSyncNote" class="muted"></p>
+  <div id="sharingConflict" class="stack" hidden><p>Pulling replaces the local board&apos;s name, order and membership. Audio files stay in All sounds.</p><div class="row"><button id="sharingConfirmPull" class="danger">Replace local board</button><button id="sharingKeepLocal">Keep local changes</button></div></div>
+  <form id="sharingMemberForm" class="stack" hidden><h3>Invite a friend</h3><div class="row wrap"><input id="sharingEmail" type="email" maxlength="320" placeholder="Friend’s VUPIO account email" aria-label="Invited account email" required><select id="sharingMemberRole" aria-label="Invitation role"><option value="viewer">Viewer</option><option value="editor">Editor · Pro to push</option></select><button>Save invitation</button></div><p class="muted">Send the board link yourself. Your friend must sign in with this email.</p></form>
+  <div id="sharingMembers" class="stack"></div>
+ </article>
+ <div class="sharingLists"><section class="stack"><h2>Shared boards</h2><div id="sharingBoards" class="stack"></div></section><section class="stack"><h2>Your Sound Drops</h2><div id="sharingDrops" class="stack"></div></section></div>
+ <p class="muted">Sync is manual in this Alpha. Downloaded copies stay with recipients even if you archive a board, remove a member or disable a drop link.</p>
+</section>
       <section id="discover" class="view admin" hidden>
         <div class="pagehead"><div><h1>Discover</h1><p class="muted">Describe a sound to search your collection and the web.</p></div></div>
         <form id="discoverForm" class="panel stack">
@@ -169,7 +192,7 @@
           <div class="row wrap"><button id="downloadAppUpdate" hidden>Download app update</button><button id="installAppUpdate" class="primary" hidden>Install update</button><span id="publicUpdateDownload"></span></div>
         </article>
         <article class="panel stack nativeOnly"><h2>Local Mac builds</h2><p class="muted">For builds connected to a local update folder.</p><div><button id="checkUpdates" data-icon="refresh">Check local channel</button></div><p id="updateStatus" class="inlineStatus" role="status" hidden></p></article>
-        <article class="panel stack"><h2>What's new</h2><p>Pro Alpha adds personal topics in Trend Radar and AI Collections: describe a collection, preview the sounds and create a board. Activate a promo code in Account or receive complimentary access from the owner. Existing free tools remain available.</p></article>
+        <article class="panel stack"><h2>What's new</h2><p>Account is pinned at the bottom left, and microphone status sits beside NOW PLAYING. Shared &amp; Drops adds private boards with invitations, manual pull/push and version protection, plus unlisted Sound Drops with real previews and free imports.</p></article>
       </section>
       <section id="settings" class="view admin" hidden>
         <div class="pagehead"><div><h1>Settings</h1><p class="muted">Devices, microphone, models and background tasks.</p></div></div>
@@ -198,6 +221,7 @@
     </main>
     <footer class="transportBar">
       <div class="now"><span class="nowIcon" data-icon="wave"></span><div role="status"><small id="nowMode">NOW PLAYING</small><strong id="nowPlaying">Nothing playing</strong></div></div>
+      <button id="transportMic" class="transportMic admin quiet" title="Open microphone settings"><span id="sideMic" class="signal"></span><span><strong id="sideAudio">Microphone off</strong><small id="sideRoute">Audio output</small></span></button>
       <button id="stop" data-icon="stop">STOP</button><button id="panic" class="danger" data-icon="bolt" title="Stop clips and disable microphone">PANIC</button>
       <label class="volume"><span data-icon="volume"></span><input id="volume" aria-label="Clip volume" type="range" min="0" max="1" step="0.01" value="0.65"><output id="volumeValue">65%</output></label>
     </footer>

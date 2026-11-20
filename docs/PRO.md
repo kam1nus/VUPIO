@@ -1,6 +1,6 @@
 # Pro Alpha: personal Radar and AI Collections
 
-Build 4062 introduces two optional Pro features. Existing Soundboard, Discover, charts, Studio, phone remote and audio routing remain available without an account. Payments are not connected.
+Build 4062 introduced personal Radar and AI Collections. Build 4063 adds optional Pro publishing for shared boards and Sound Drops. Existing Soundboard, Discover, charts, Studio, phone remote and audio routing remain available without an account. Payments are not connected.
 
 ## Activate Pro
 
@@ -55,4 +55,4 @@ Never bundle the administrator token with the app or commit it. The website's br
 
 ## Later
 
-Shared boards, Sound Drops, paid checkout, automatic renewal and Autopilot are not included. A paid launch still needs its payment provider, billing webhooks, customer support flows and appropriate deployment/legal setup.
+[Shared boards and Sound Drops](SHARING.md) are available in 4063. Paid checkout, automatic renewal and Autopilot are not included. A paid launch still needs its payment provider, billing webhooks, customer support flows and appropriate deployment/legal setup.

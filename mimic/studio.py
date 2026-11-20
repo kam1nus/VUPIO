@@ -24,7 +24,7 @@ from .library import suggest
 
 
 class Studio:
-    def __init__(self,library,audio_executable,changed=lambda:None,pro_access=None):
+    def __init__(self,library,audio_executable,changed=lambda:None,pro_access=None,account=None):
         self.library=library;self.changed=changed;self.audio_executable=str(audio_executable)
         self.root=library.root/'ai';self.root.mkdir(exist_ok=True)
         self.cache=self.root/'cache';self.cache.mkdir(exist_ok=True)
@@ -40,6 +40,8 @@ class Studio:
         self.radar=Radar(self)
         def missing_pro(): raise ValueError("Sign in and activate Pro in Account to use this feature.")
         self.pro=ProStudio(self,pro_access or missing_pro)
+        from .sharing import Sharing
+        self.sharing=Sharing(self,account)
         self.jobs=Jobs(library)
     def execute(self,args,job,timeout=300):
         job.check()
@@ -348,6 +350,9 @@ class Studio:
           'model_import':lambda j:self.models.import_language(body['path'],body.get('title','Local GGUF'),j),
           'search':lambda j:self.search(body,j),
           'internet_search':lambda j:self.finder.search(body,j),
+          'share_publish':lambda j:self.sharing.publish(body,j),
+          'share_pull':lambda j:self.sharing.pull(body,j),
+          'share_preview':lambda j:self.sharing.preview(body,j),
           'pro_generate':lambda j:self.pro.generate(body,j),
           'pro_prepare':lambda j:self.pro.prepare(body,j),
           'pro_board':lambda j:self.pro.create_board(body,j),

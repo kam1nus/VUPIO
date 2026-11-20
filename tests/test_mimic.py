@@ -69,11 +69,12 @@ class ServerTests(unittest.TestCase):
                 self.assertEqual(image[:8],b'\x89PNG\r\n\x1a\n')
                 self.assertEqual(struct.unpack('>II',image[16:24]),(size,size))
     def test_pro_features_are_local_admin_only(self):
-        for path in ['/api/ai/pro','/api/ai/collection/example']:
+        for path in ['/api/ai/pro','/api/ai/collection/example','/api/sharing/overview','/api/sharing/board/'+'a'*32,'/api/sharing/preview/'+'a'*64]:
             self.assertEqual(self.req(path,token=self.remote)[0],403)
-        for path,body in [('/api/ai/pro/topic',{'title':'test','query':'test'}),('/api/ai/pro/feedback',{'key':'a'*64,'state':'hide'}),('/api/ai/pro/replace',{})]:
+        for path,body in [('/api/ai/pro/topic',{'title':'test','query':'test'}),('/api/ai/pro/feedback',{'key':'a'*64,'state':'hide'}),('/api/ai/pro/replace',{}),('/api/sharing/members',{}),('/api/sharing/resolve',{'link':'https://evil.example'})]:
             self.assertEqual(self.req(path,body,self.remote)[0],403)
         self.assertEqual(self.req('/pro.js')[0],200)
+        self.assertEqual(self.req('/sharing.js')[0],200)
         self.assertEqual(self.req('/api/ai/pro',token=self.admin)[0],200)
     def test_no_anonymous_controls(self):
         for path in ['/api/play','/api/stop','/api/panic','/api/upload','/api/output']:

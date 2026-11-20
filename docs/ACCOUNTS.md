@@ -40,3 +40,7 @@ Desktop tests cover server membership display, token redaction, session expiry, 
 ## Pro Alpha 4062
 
 Personal Radar and AI Collections now require server-verified Pro access. Existing free features remain available without an account. The website owner can manage complimentary grants and limited-use promo campaigns. See [the Pro guide](PRO.md) for activation, administration, expiry and current limitations. Billing is not enabled.
+
+## Shared audio in 4063
+
+Pro can publish shared boards and Sound Drops. Invited viewers can pull boards for free; editors need Pro to push changes. Public drop imports are account-free and never send a device token. Selected audio and invitation emails are stored by the website only when a user explicitly publishes or invites someone. See [Sharing](SHARING.md).

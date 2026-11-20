@@ -26,7 +26,7 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 
 ## Pro Alpha
 
-**Trend Radar → For you** follows saved topics with relevance-based feeds and local preferences. **AI Collections** turns a description into reviewable sounds, prepares real previews and creates a soundboard after confirmation. Complimentary access and limited-use promo campaigns are managed on the website. [Pro guide and owner administration](docs/PRO.md). Shared boards and Sound Drops come later.
+**Trend Radar → For you** follows saved topics with relevance-based feeds and local preferences. **AI Collections** turns a description into reviewable sounds, prepares real previews and creates a soundboard after confirmation. Complimentary access and limited-use promo campaigns are managed on the website. [Pro guide and owner administration](docs/PRO.md). **Shared & Drops** publishes private boards with invited viewers/editors and unlisted Sound Drops with actual audio previews. [Sharing guide](docs/SHARING.md).
 
 ## Features
 

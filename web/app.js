@@ -2,6 +2,7 @@
 const $=selector=>document.querySelector(selector);
 const by=id=>document.getElementById(id);
 const icons={
+ share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/><rect x="3" y="14" width="7" height="7" rx="1.4"/><rect x="14" y="14" width="7" height="7" rx="1.4"/>',
  search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
@@ -82,7 +83,7 @@ function link(text,url){
  try{const u=new URL(url,location.href);if(!['https:','http:'].includes(u.protocol)||u.username||u.password)return node('span',text,'muted');const a=node('a',text);a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';return a;}catch{return node('span',text,'muted');}
 }
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const jobLabels={pro_generate:'AI collection',pro_prepare:'Preparing collection',pro_board:'Creating soundboard',radar:'Trend Radar',radar_clip:'Preloading sound',internet_search:'Internet search',quick_add:'Quick add',search:'Library search',fetch:'Preparing sound',fetch_recut:'Processing selection',fetch_commit:'Adding sound',render:'Processing selection',plan:'AI command',commit:'Saving copy',metadata:'Title and tags',index:'Audio analysis',index_all:'Indexing library',model:'Downloading model',model_import:'Importing model',asset_speech:'Speech transcription'};
+const jobLabels={share_publish:'Publishing shared audio',share_pull:'Importing shared collection',share_preview:'Preparing shared preview',pro_generate:'AI collection',pro_prepare:'Preparing collection',pro_board:'Creating soundboard',radar:'Trend Radar',radar_clip:'Preloading sound',internet_search:'Internet search',quick_add:'Quick add',search:'Library search',fetch:'Preparing sound',fetch_recut:'Processing selection',fetch_commit:'Adding sound',render:'Processing selection',plan:'AI command',commit:'Saving copy',metadata:'Title and tags',index:'Audio analysis',index_all:'Indexing library',model:'Downloading model',model_import:'Importing model',asset_speech:'Speech transcription'};
 const jobStates={queued:'Queued',running:'In progress',done:'Done',failed:'Error',cancelled:'Cancelled'};
 function jobCard(j){
  const box=node('article',undefined,'job'),head=node('div',undefined,'split');head.append(node('strong',jobLabels[j.kind]||j.kind),node('small',jobStates[j.status]||j.status));box.append(head);
@@ -149,7 +150,7 @@ function show(viewID){
  const section=by(viewID);if(!section?.classList.contains('view'))return;
  view=viewID;
  document.querySelectorAll('.view').forEach(s=>s.hidden=s.id!==view);
- document.querySelectorAll('#nav button').forEach(b=>b.dataset.view===view?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
+ document.querySelectorAll('#nav button').forEach(b=>b.dataset.view===(view==='sharing'?'soundboard':view)?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current'));
  by('locationLabel').textContent=section.querySelector('h1').textContent;
  by('main').scrollTop=0;by('main').focus({preventScroll:true});
  renderImportBoardHint();
@@ -527,3 +528,5 @@ window.addEventListener('DOMContentLoaded',async()=>{
  poll();
  if('serviceWorker'in navigator&&window.isSecureContext)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 });
+
+bind('transportMic',()=>openSettings('audio'));
