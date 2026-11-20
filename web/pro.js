@@ -1,7 +1,7 @@
 'use strict';
 let radarMode='charts';
 (()=>{
- let info=null,data=null,selected=new Set(),topicId=null,busy=false,jobId=null,access=false;
+ let info=null,data=null,selected=new Set(),topicId=null,busy=false,jobId=null,access=false,lastAccountRefresh=0;
  const target='proStatus';
  by('proRegion').replaceChildren(...[...by('radarRegion').options].map(o=>o.cloneNode(true)));
  const modeButtons=[...by('radarModes').querySelectorAll('button')];
@@ -15,7 +15,11 @@ let radarMode='charts';
   by('proCancel').hidden=!jobId||!busy;
  }
  async function load(){
-  const account=await api('account/status');
+  let account=await api('account/status');
+  if(Date.now()-lastAccountRefresh>60000){
+   lastAccountRefresh=Date.now();account=await api('account/refresh',{});
+   for(let attempt=0;account.busy&&attempt<80;attempt++){await pause(250);account=await api('account/status');}
+  }
   access=account.state==='signed_in'&&account.membership?.plan==='pro'&&(!account.membership.expires_at||account.membership.expires_at>Date.now());
   info=await api('ai/pro');
   drawTopics();drawSaved();permissions();

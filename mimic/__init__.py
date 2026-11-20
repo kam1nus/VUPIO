@@ -1,3 +1,3 @@
-"""MIMIC local soundboard."""
+"""VUPIO local soundboard."""
 
 BUILD = 4062

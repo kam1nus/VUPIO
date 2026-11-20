@@ -1,6 +1,6 @@
 # Account and membership foundation
 
-Account sign-in is optional. Existing soundboard, Discover, Radar, Studio, audio routing and remote features are available without sign-in. This release takes no payments and does not enforce paid feature limits.
+Account sign-in is optional. Existing soundboard, Discover, Radar, Studio, audio routing and remote features are available without sign-in. This release takes no payments. New personal Radar and AI Collections features require Pro access; existing free features remain unchanged.
 
 ## Connect a computer
 
@@ -12,9 +12,9 @@ Account sign-in is optional. Existing soundboard, Discover, Radar, Studio, audio
 
 The website uses its existing Sites ChatGPT identity. Email/password sign-in is not included. The server's D1 database stores the account ID, display name/email, computer name/platform, session expiration/revocation and membership status. It does not receive your sound library, microphone audio or search history. Device tokens are stored as SHA-256 hashes on the server, in macOS Keychain or in a current-user Windows DPAPI encrypted file on the computer. Sessions expire after 30 days; sign in again afterward. Tokens never reach the phone remote.
 
-## Free and Pro tester status
+## Free and Pro access
 
-The server is authoritative for plan status. A tester code grants 1–30 days of temporary Pro status. It is single-use, must be redeemed within 7 days and falls back to Free after expiry. There are no charges or automatic renewals. Pro currently demonstrates account plumbing; it does not unlock additional functions in this release.
+The server is authoritative for plan status. A tester code grants 1–30 days of temporary Pro status. It is single-use, must be redeemed within 7 days and falls back to Free after expiry. There are no charges or automatic renewals. Legacy tester invitations remain supported. Build 4062 also supports owner-issued complimentary access, permanent grants and limited-use promo campaigns. Pro unlocks personal Radar and AI Collections; see [the Pro guide](PRO.md).
 
 An administrator can issue codes using a secret stored outside the checkout:
 
@@ -23,7 +23,7 @@ An administrator can issue codes using a secret stored outside the checkout:
   --admin-token-file /absolute/private/path/membership-admin-token --days 7
 ```
 
-The matching `VUPIO_MEMBERSHIP_ADMIN_TOKEN` must be configured as a secret on the official website. Never put it in a desktop build, GitHub source, README, browser storage, command arguments or frontend configuration. The CLI sends it only to the official website over HTTPS. Issued invitation codes can be sent to a tester. The app and ordinary website accounts cannot issue codes.
+The matching `VUPIO_MEMBERSHIP_ADMIN_TOKEN` must be configured as a secret on the official website. Never put it in a desktop build, GitHub source, README, browser storage, command arguments or frontend configuration. The CLI sends it only to the official website over HTTPS. Issued invitation codes can be sent to a tester. The app and ordinary website accounts cannot issue codes. The configured website owner can manage grants and campaigns through `/admin`; this panel does not expose the operator token.
 
 ## Before paid subscriptions
 
