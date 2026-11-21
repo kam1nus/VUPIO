@@ -466,6 +466,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(dict(a.studio().sharing.snapshot(kind,id),kind=kind))
             if path in {'/api/sharing/members','/api/sharing/archive','/api/sharing/revoke-drop','/api/sharing/cleanup'}:
                 return self.send(a.studio().sharing.cloud.call(path.rsplit('/',1)[1],body))
+            if path == '/api/boards/transfer':
+                result=a.library.transfer_clip(body.get('clip'),body.get('destination'),body.get('source'),body.get('move',False),body.get('title'))
+                a.changed();return self.send(result)
             if path == '/api/boards/save':
                 board=a.library.save_board(body.get('title'),body.get('id'),body.get('add',[]),body.get('remove',[]))
                 a.changed()

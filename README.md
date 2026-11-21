@@ -31,7 +31,7 @@ The English interface includes Soundboard, Discover, Studio, Trend Radar, Remote
 ## Features
 
 - Soundboard library with search, categories, favorites, card-triggered playback, volume, STOP and PANIC.
-- Create boards for different games and moments, reuse sounds across boards and keep an independent card order. Manage memberships with a searchable picker. The phone remote has the same boards with its own selection. [Board guide](docs/SOUNDBOARDS.md).
+- Create boards for different games and moments, reuse sounds across boards and keep an independent card order. Choose **Boards** on a sound card to add or move it to another board, or create a destination there. Manage many sounds with a searchable picker. The phone remote has the same boards with its own selection. [Board guide](docs/SOUNDBOARDS.md).
 - A compact sidebar keeps Soundboard, Discover, Trend Radar and Studio at the top, with Remote, Updates, Settings and Account below.
 - Discover shows web results as they arrive, caches repeated queries for five minutes, and expands queries when the first pass has no audio. Preview and Add use the same prepared sound.
 - Studio shows the actual audio waveform and supports trim, silence removal, normalization, fades, speech transcription, AI commands and preview before saving.

@@ -125,3 +125,44 @@ document.addEventListener('mimic:library',()=>{
  boardSelection=new Set([...boardSelection].filter(id=>available.has(id)));
  renderBoardPicker();
 });
+
+let organizedClip=null,clipBoardSource=null,clipMove=false,clipTransferBusy=false;
+function openClipBoards(item){
+ organizedClip={id:item.id,title:item.title};clipBoardSource=currentSoundboard()?{id:activeBoard,title:currentSoundboard().title}:null;clipMove=false;
+ by('clipBoardsTitle').textContent=item.title;by('clipBoardsSearch').value='';by('clipNewBoardName').value='';status('clipBoardsStatus');renderClipBoards();by('clipBoards').showModal();by('clipBoardsSearch').focus();
+}
+function renderClipBoards(){
+ if(!organizedClip)return;
+ const moveAllowed=Boolean(clipBoardSource&&soundboards.some(b=>b.id===clipBoardSource.id&&b.clips.includes(organizedClip.id)));
+ if(!moveAllowed)clipMove=false;
+ by('clipAddMode').setAttribute('aria-pressed',String(!clipMove));by('clipMoveMode').setAttribute('aria-pressed',String(clipMove));
+ by('clipMoveMode').disabled=!moveAllowed||clipTransferBusy;by('clipAddMode').disabled=clipTransferBusy;
+ by('clipBoardsHint').textContent=clipMove?'Move from “'+clipBoardSource.title+'” to another board.':clipBoardSource?'Add this sound to another board.':'All sounds is your full library. Choose a board to organize this sound.';
+ by('clipNewBoardSave').textContent=clipMove?'Create & move':'Create & add';
+ for(const id of ['clipNewBoardName','clipNewBoardSave','clipBoardsSearch','closeClipBoards','clipBoardsDone','clipSoundDetails'])by(id).disabled=clipTransferBusy;
+ const query=by('clipBoardsSearch').value.trim().toLocaleLowerCase(),list=by('clipBoardsList');list.replaceChildren();
+ for(const board of soundboards.filter(b=>!query||b.title.toLocaleLowerCase().includes(query))){
+  const present=board.clips.includes(organizedClip.id),same=board.id===clipBoardSource?.id;
+  const row=node('div',undefined,'split clipBoardRow'),detail=node('div');detail.append(node('strong',board.title),node('small',present?'Already on this board':board.clips.length+(board.clips.length===1?' sound':' sounds')));
+  const action=button(clipMove?(same?'Current board':'Move here'):(present?'Added':'Add'),()=>transferOrganizedClip(board.id),{cls:present&&!clipMove?'quiet':'',target:'clipBoardsStatus'});
+  action.disabled=clipTransferBusy||(clipMove?same:present);row.append(detail,action);list.append(row);
+ }
+ if(!list.children.length)list.append(node('p',soundboards.length?'No matching boards. Create one below.':'Create your first board below.','muted'));
+}
+async function transferOrganizedClip(destination=null,title=null){
+ if(clipTransferBusy||!organizedClip)return;
+ const item=organizedClip,source=clipBoardSource,move=clipMove;
+ clipTransferBusy=true;renderClipBoards();status('clipBoardsStatus',move?'Moving…':'Adding…');
+ try{
+  await api('boards/transfer',{clip:item.id,destination,source:source?.id||null,move,title});
+  if(syncing)await syncing.catch(()=>{});await sync();
+  notify(move?'Moved to board':'Added to board');status('clipBoardsStatus',move?'Moved.':'Added.');
+  if(move)by('clipBoards').close();else by('clipNewBoardName').value='';
+ }finally{clipTransferBusy=false;renderClipBoards();}
+}
+bind('clipAddMode',()=>{clipMove=false;renderClipBoards();});bind('clipMoveMode',()=>{clipMove=true;renderClipBoards();});
+for(const id of ['closeClipBoards','clipBoardsDone'])bind(id,()=>{if(!clipTransferBusy)by('clipBoards').close();});
+by('clipBoards').addEventListener('cancel',e=>{if(clipTransferBusy)e.preventDefault();});
+by('clipBoardsSearch').addEventListener('input',renderClipBoards);
+by('clipNewBoardForm').addEventListener('submit',async e=>{e.preventDefault();try{await transferOrganizedClip(null,by('clipNewBoardName').value.trim());}catch(error){status('clipBoardsStatus',error.message,true);}});
+bind('clipSoundDetails',()=>{const item=items.find(i=>i.id===organizedClip?.id);if(!item)throw Error('Sound not found.');by('clipBoards').close();openEditor(item);},'clipBoardsStatus');

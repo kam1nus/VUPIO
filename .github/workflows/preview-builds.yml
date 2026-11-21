@@ -158,12 +158,12 @@ jobs:
           assets=(VUPIO-macOS-AppleSilicon.pkg VUPIO-Windows-x64-Setup.exe "${mac[0]}" "${win[0]}" VUPIO-macOS-AppleSilicon-Sparkle.zip vupio-macos-appcast.xml)
           sha256sum "${assets[@]}" > SHA256SUMS.txt
           cat > /tmp/vupio-release-notes <<'EOF'
-          - Account is pinned at the bottom left; microphone status is beside NOW PLAYING with quick access to audio settings.
-          - Pro can publish private shared boards and invite viewers or editors by verified account email.
-          - Manual pull/push uses cloud revisions and protects unsent local changes. Older local copies cannot overwrite newer cloud changes.
-          - Sound Drops publish selected audio as unlisted links with real website previews and account-free desktop imports.
+          - Choose Boards on any Soundboard card to add a sound to another board or move it from the current one.
+          - Search destination boards, see where a sound is already added, or create a destination directly from the card.
+          - Moves are atomic and keep the original audio, favorites and other board memberships. Connected phone remotes receive board changes.
+          - Preview and Edit remain on cards. Sound details, AI metadata and deletion are available inside the Boards picker.
           - Existing free tools, Discord audio, STOP/PANIC, phone remote and existing Pro features remain available.
-          - Compatible in-app updates reuse installed audio drivers and models. Cloud sharing has explicit Alpha storage and clip limits.
+          - Compatible in-app updates reuse installed audio drivers and models. Pro shared boards and Sound Drops retain their existing Alpha limits.
           - Payments, automatic background sync, live co-editing and Autopilot are not included.
           EOF
           gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease \

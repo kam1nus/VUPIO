@@ -119,6 +119,25 @@ class Library:
             db.execute('DELETE FROM soundboard_clips WHERE board_id=?',(board,))
             db.execute('DELETE FROM soundboards WHERE id=?',(board,))
 
+    def transfer_clip(self, clip, destination=None, source=None, move=False, title=None):
+        """Change board membership atomically. Never copy/delete the audio file."""
+        if type(move) is not bool or not isinstance(clip,str):raise ValueError('Choose a sound and an add or move action.')
+        new_title=self._board_title(title) if destination is None else None
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if not db.execute('SELECT 1 FROM clips WHERE id=?',(clip,)).fetchone():raise ValueError('This sound was deleted. Refresh your library.')
+            if move:
+                self._board_exists(db,source)
+                if source==destination:raise ValueError('Choose a different destination board.')
+                if not db.execute('SELECT 1 FROM soundboard_clips WHERE board_id=? AND clip_id=?',(source,clip)).fetchone():raise ValueError('This sound is no longer on the source board. Refresh and try again.')
+            if destination is None:
+                destination=uuid.uuid4().hex
+                db.execute('INSERT INTO soundboards VALUES (?,?)',(destination,new_title))
+            else:self._board_exists(db,destination)
+            self._board_members(db,destination,[clip],[])
+            if move:db.execute('DELETE FROM soundboard_clips WHERE board_id=? AND clip_id=?',(source,clip))
+        return {'id':destination,'moved':move}
+
     def swap_cards(self, source, target, board=None):
         if not isinstance(source, str) or not isinstance(target, str) or source == target:
             raise ValueError('Choose two different Soundboard cards.')

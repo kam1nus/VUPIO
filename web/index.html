@@ -192,7 +192,7 @@
           <div class="row wrap"><button id="downloadAppUpdate" hidden>Download app update</button><button id="installAppUpdate" class="primary" hidden>Install update</button><span id="publicUpdateDownload"></span></div>
         </article>
         <article class="panel stack nativeOnly"><h2>Local Mac builds</h2><p class="muted">For builds connected to a local update folder.</p><div><button id="checkUpdates" data-icon="refresh">Check local channel</button></div><p id="updateStatus" class="inlineStatus" role="status" hidden></p></article>
-        <article class="panel stack"><h2>What's new</h2><p>Account is pinned at the bottom left, and microphone status sits beside NOW PLAYING. Shared &amp; Drops adds private boards with invitations, manual pull/push and version protection, plus unlisted Sound Drops with real previews and free imports.</p></article>
+        <article class="panel stack"><h2>What's new</h2><p>Choose Boards on a sound card to add it to another board or move it from the current one. Search destinations or create a board directly from the card. Audio files, favorites and other board memberships stay intact.</p></article>
       </section>
       <section id="settings" class="view admin" hidden>
         <div class="pagehead"><div><h1>Settings</h1><p class="muted">Devices, microphone, models and background tasks.</p></div></div>
@@ -238,6 +238,17 @@
   <div id="boardDeleteConfirm" class="boardDeleteConfirm stack" hidden><p id="boardDeleteMessage"></p><p class="muted">Audio files stay in All sounds and on your other boards.</p><div class="row"><button id="cancelDeleteBoard" type="button">Keep board</button><button id="confirmDeleteBoard" type="button" class="danger">Confirm deletion</button></div></div>
   <p id="boardStatus" class="inlineStatus" role="status" hidden></p>
 </form></dialog>
+<dialog id="clipBoards"><div class="stack">
+ <div class="split"><h2>Organize sound</h2><button id="closeClipBoards" type="button" class="quiet" data-icon="close" aria-label="Close sound organizer"></button></div>
+ <p id="clipBoardsTitle" class="organizerTitle"></p>
+ <div class="tabs" aria-label="Organize action"><button id="clipAddMode" type="button" aria-pressed="true">Add to board</button><button id="clipMoveMode" type="button" aria-pressed="false">Move to board</button></div>
+ <p id="clipBoardsHint" class="muted"></p><input id="clipBoardsSearch" type="search" placeholder="Find a destination board" aria-label="Find destination board">
+ <div id="clipBoardsList" class="clipBoardsList" role="group" aria-label="Destination boards"></div>
+ <form id="clipNewBoardForm" class="row"><input id="clipNewBoardName" maxlength="80" placeholder="New board name" aria-label="New destination board name" required><button id="clipNewBoardSave" type="submit">Create &amp; add</button></form>
+ <p id="clipBoardsStatus" class="inlineStatus" role="status" hidden></p>
+ <p class="muted">The audio stays in All sounds and on your other boards.</p>
+ <div class="split"><button id="clipSoundDetails" type="button" class="quiet">Sound details…</button><button id="clipBoardsDone" type="button">Done</button></div>
+</div></dialog>
 <dialog id="editor"><form id="editForm" class="stack"><div class="split"><h2>Sound details</h2><button type="button" id="closeEditor" class="quiet" data-icon="close" aria-label="Close"></button></div><label>Title<input id="editTitle" required maxlength="160"></label><div class="rangeGrid two"><label>Category<input id="editCategory" list="categories" maxlength="80"><datalist id="categories"><option>Memes</option><option>Tracks</option><option>Effects</option></datalist></label><label>Tags<input id="editTags" maxlength="500"></label></div><label>Description<textarea id="editDescription" maxlength="4000"></textarea></label><details><summary>Source and license</summary><textarea id="editLicense" aria-label="Source and license" maxlength="16000"></textarea></details><div class="row wrap"><button type="button" id="cardMetadata" data-icon="spark">AI title and tags</button><button type="button" id="cardIndex">Refresh index</button></div><div class="split"><button type="button" id="deleteClip" class="danger">Delete sound</button><button class="primary">Save</button></div><p id="cardStatus" class="inlineStatus" role="status" hidden></p></form></dialog>
 <div id="toast" role="status" hidden></div>
 </body>

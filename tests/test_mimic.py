@@ -110,7 +110,7 @@ class ServerTests(unittest.TestCase):
         library=self.app.library
         with library.db() as db:
             db.executemany('INSERT INTO clips(id,title,favorite) VALUES (?,?,0)',[(id,id) for id in ('one','two')])
-        for path in ('save','members','delete'):
+        for path in ('save','members','delete','transfer'):
             for token in (None,self.remote):
                 self.assertEqual(self.req('/api/boards/'+path,{},token)[0],403)
         status,board,_=self.req('/api/boards/save',{'title':'Minecraft','add':['one','two']},self.admin)
@@ -126,6 +126,23 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.req('/api/boards/delete',{'id':id},self.admin)[0],200)
         self.assertEqual(len(library.items()),2)
         self.assertEqual(self.req('/api/state',token=self.remote)[1]['boards'],[])
+
+    def test_card_transfer_api_is_atomic_and_does_not_touch_audio(self):
+        library=self.app.library
+        with library.db() as db:
+            db.execute("INSERT INTO clips(id,title,favorite) VALUES ('one','One',1)")
+        source=library.save_board('Source',add=['one'])
+        other=library.save_board('Other',add=['one'])
+        before=list(self.audio.calls)
+        body={'clip':'one','source':source,'move':True,'title':'Destination'}
+        status,result,_=self.req('/api/boards/transfer',body,self.admin)
+        self.assertEqual(status,200)
+        self.assertEqual(result['moved'],True)
+        self.assertEqual(library.boards(),[{'id':source,'title':'Source','clips':[]},{'id':other,'title':'Other','clips':['one']},{'id':result['id'],'title':'Destination','clips':['one']}])
+        self.assertEqual(self.audio.calls,before)
+        self.assertTrue(library.get('one')['favorite'])
+        self.assertEqual(self.req('/api/boards/transfer',body,self.admin)[0],400)
+        self.assertEqual(len(library.boards()),3)
 
     def test_mixer_validation_and_preferences(self):
         self.assertEqual(self.req('/api/mixer',{'gain':float('nan')},self.admin)[0],400)

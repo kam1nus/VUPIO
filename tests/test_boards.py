@@ -83,3 +83,37 @@ class BoardTests(unittest.TestCase):
             with library.db() as db:
                 self.assertEqual(db.execute("SELECT position FROM board_positions WHERE id='saved'").fetchone()[0],42)
                 self.assertEqual(db.execute("SELECT value FROM vectors WHERE key='embedding'").fetchone()[0],'[1,2]')
+
+    def test_card_add_and_move_keep_other_memberships_audio_and_favorites(self):
+        first=self.library.save_board('First',add=['one','two'])
+        second=self.library.save_board('Second',add=['two'])
+        third=self.library.save_board('Third',add=['one'])
+        self.library.edit('one',{'favorite':True})
+        before={p.name:p.read_bytes() for p in self.library.files.iterdir()}
+        self.library.transfer_clip('one',second)
+        self.library.transfer_clip('one',second)
+        self.assertEqual(self.library.boards()[1]['clips'],['two','one'])
+        self.assertEqual(self.library.boards()[0]['clips'],['one','two'])
+        self.library.transfer_clip('one',second,first,True)
+        self.assertEqual([b['clips'] for b in self.library.boards()],[['two'],['two','one'],['one']])
+        self.assertTrue(self.library.get('one')['favorite'])
+        self.assertEqual(before,{p.name:p.read_bytes() for p in self.library.files.iterdir()})
+
+    def test_card_move_validates_everything_before_removing_sound(self):
+        first=self.library.save_board('First',add=['one'])
+        second=self.library.save_board('Second')
+        for clip,target,source in [('one','missing',first),('one',second,'missing'),('two',second,first),('one',first,first),('one',second,None)]:
+            with self.assertRaises(ValueError):self.library.transfer_clip(clip,target,source,True)
+        self.assertEqual([b['clips'] for b in self.library.boards()],[['one'],[]])
+        self.assertTrue(self.library.path('one').exists())
+
+    def test_card_create_and_move_are_atomic_and_survive_reload(self):
+        first=self.library.save_board('First',add=['one'])
+        result=self.library.transfer_clip('one',None,first,True,'New destination')
+        reloaded=Library(self.directory.name)
+        self.assertEqual(reloaded.boards()[0]['clips'],[])
+        self.assertEqual(reloaded.boards()[1],{'id':result['id'],'title':'New destination','clips':['one']})
+        before=reloaded.boards()
+        with self.assertRaises(ValueError):reloaded.transfer_clip('missing',title='Ghost board')
+        with self.assertRaises(ValueError):reloaded.transfer_clip('two',source=first,move=True,title='Ghost board')
+        self.assertEqual(reloaded.boards(),before)

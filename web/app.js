@@ -282,7 +282,7 @@ function renderLibrary(){
   order.append(fav);
   top.append(title,order);
   const tools=node('div',undefined,'tools');
-  tools.append(button('Preview',()=>playPreview('/api/file/'+i.id,i.title,i.id)),button('Edit',()=>openStudio(i.id),{glyph:'edit',label:'Edit audio: '+i.title}),button('⋯',()=>openEditor(i),{label:'Details: '+i.title}));
+  tools.append(button('Preview',()=>playPreview('/api/file/'+i.id,i.title,i.id)),button('Edit',()=>openStudio(i.id),{glyph:'edit',label:'Edit audio: '+i.title}),button('Boards',()=>openClipBoards(i),{cls:'boardAction',glyph:'grid',label:'Add or move sound: '+i.title}));
   card.append(trigger,top,node('small',categoryLabel(i.category)+' · '+fmt(i.duration),'type'),tools);
   frag.append(card);
  }

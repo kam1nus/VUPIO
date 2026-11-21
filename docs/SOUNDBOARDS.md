@@ -21,7 +21,14 @@ A board switch does not interrupt a currently playing sound. The player at the b
 
 Select a board before uploading audio, using Discover Add/Quick Add, adding a Trend Radar sound or saving a Studio copy. The sound is saved in All sounds and attached to the selected board. Discover, Radar and Studio show the active import destination. A task uses the board selected when that add/save action starts, even if you switch boards while it finishes. If that board has meanwhile been deleted, the audio stays in All sounds and the app explains the attachment failure.
 
-Existing local sounds can be selected in Manage board.
+For an existing sound, choose **Boards** on its card:
+
+- **Add to board** keeps the sound on its current boards and adds it to the destination. Already-added sounds are marked; you can add to several boards without closing the picker.
+- **Move to board** removes the sound from the board you opened and adds it to the destination. All sounds and other board memberships stay intact. Moving is available inside a custom board, since All sounds is the full library.
+- Search destination names, or enter a new board name and choose **Create & add / Create & move**. Creating and moving happen together, so a failed operation cannot leave a sound between boards.
+- **Sound details…** opens title, tags, source/license, AI metadata and Delete sound. **Preview** and **Edit** remain directly on the card.
+
+Use Manage board when selecting many sounds at once. Board changes do not restart audio, change favorites or duplicate files, and sync to the phone remote.
 
 ## Phone remote
 
